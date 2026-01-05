@@ -199,7 +199,8 @@ function broadcastState(room){
       pendingDrawJ: s.pendingDrawJ,
       pendingSkip: s.pendingSkip,
       topCard: s.topCard,
-      feed: s.feed
+      feed: s.feed,
+      awaitingSuit: s.awaitingSuit
     }
   };
   broadcast(room, payload);
@@ -214,12 +215,7 @@ function applyPower(room, card, pidx, isLast){
   const r = card.rank;
 
   if(r==="A" && isLast){
-    // Auto-pick suit based on remaining hand (like bot)
-    const counts = {"♠":0,"♥":0,"♦":0,"♣":0};
-    room.players[pidx].hand.forEach(x => counts[x.suit]++);
-    const bestSuit = Object.keys(counts).reduce((a,b)=>counts[a]>counts[b]?a:b);
-    s.activeSuit = bestSuit;
-    s.feed = `Suit is ${bestSuit}`;
+    // Suit choice is handled by an explicit client choice (see msg.t==="suit")
   } else if(r==="2"){
     s.pendingDraw2 += 2;
   } else if(r==="8"){
@@ -413,6 +409,13 @@ function doPlay(room, cardIds){
   // clear last declared if finished? (client resets)
   if(finishedNow) p.lastDeclared = false;
 
+  // If last card was an Ace, player must choose suit before turn advances
+  if(lastCard.rank === "A"){
+    s.awaitingSuit = p.id;
+    s.feed = "Pick a suit!";
+    return {ok:true};
+  }
+
   // advance
   advanceTurn(room);
   return {ok:true};
@@ -509,7 +512,38 @@ wss.on('connection', (ws) => {
     const cur = currentPlayer(room);
     if(!cur || cur.id !== info.id){
       send(ws, {t:'error', message:'Not your turn'});
+      
+    // If we're waiting for a suit selection (Ace), only that player can send it
+    if(room.state.awaitingSuit){
+      if(msg.t !== 'suit'){
+        send(ws,{t:'error', message:'Pick a suit first'});
+        return;
+      }
+    }
+
+    if(msg.t === 'suit'){
+      const s = room.state;
+      if(!s.awaitingSuit || s.awaitingSuit !== info.id){
+        send(ws,{t:'error', message:'Not waiting for your suit'});
+        return;
+      }
+      let suit = String(msg.suit||'').trim();
+      // accept letters or symbols
+      const map = {H:'♥', D:'♦', C:'♣', S:'♠'};
+      if(map[suit]) suit = map[suit];
+      if(!['♠','♥','♦','♣'].includes(suit)){
+        send(ws,{t:'error', message:'Invalid suit'});
+        return;
+      }
+      s.activeSuit = suit;
+      s.awaitingSuit = null;
+      s.feed = `Suit is ${suit}`;
+      advanceTurn(room);
+      broadcastState(room);
       return;
+    }
+
+return;
     }
 
     if(msg.t === 'draw'){
