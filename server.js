@@ -9,11 +9,24 @@ const WebSocket = require('ws');
 const PORT = process.env.PORT || 10000;
 const app = express();
 
-// Serve static files from repo root (index.html, assets if any)
+// Serve static files. Prefer /public (typical Render/GitHub layout),
+// but also serve repo root as a fallback.
+const fs = require('fs');
+const publicDir = path.join(__dirname, 'public');
+
+if (fs.existsSync(publicDir)) {
+  app.use(express.static(publicDir));
+}
+
 app.use(express.static(path.join(__dirname)));
 
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
+  const pubIndex = path.join(publicDir, 'index.html');
+  const rootIndex = path.join(__dirname, 'index.html');
+  if (fs.existsSync(pubIndex)) return res.sendFile(pubIndex);
+  if (fs.existsSync(rootIndex)) return res.sendFile(rootIndex);
+  // Never crash/restart if the file isn't present.
+  res.status(200).send('Server is running but index.html was not found. Put it in /public/index.html or /index.html');
 });
 
 const server = http.createServer(app);
