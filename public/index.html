@@ -315,11 +315,6 @@
             <small>Pass & Play • Custom</small>
         </button>
 
-        <button class="menu-btn btn-online" onclick="goToOnlineLobby()" style="background:#ffffff;">
-            🌐 Online Lobby
-            <small>Create / Join • Room Code</small>
-        </button>
-
         <button class="menu-btn" onclick="cycleCardBack()" style="background:white;">
             🎴 Change Card Back
             <small>Unlock more by win streaks</small>
@@ -358,35 +353,7 @@
         <button class="pass-btn" onclick="startTurn()">I'm Ready!</button>
     </div>
 
-    
-    <div id="online-lobby-screen" class="screen">
-        <div style="text-align:center; padding:28px 18px 10px;">
-            <div style="font-weight:900; font-size:28px; text-shadow:2px 2px 0 rgba(0,0,0,.2);">Online Lobby</div>
-            <div style="opacity:.85; margin-top:6px;">Create a room or join by code</div>
-        </div>
-
-        <div class="panel" style="margin: 10px 16px; padding:14px;">
-            <label style="display:block; font-weight:800; margin-bottom:6px;">Your Name</label>
-            <input id="online-name" maxlength="24" placeholder="Name" style="width:100%; padding:12px; border-radius:12px; border:2px solid rgba(0,0,0,.18); font-size:16px;">
-            <div style="display:flex; gap:10px; margin-top:12px;">
-                <button class="action-btn" style="flex:1;" onclick="onlineCreate()">Create Room</button>
-            </div>
-            <div style="display:flex; gap:10px; margin-top:10px;">
-                <input id="online-code" maxlength="6" placeholder="ROOM CODE" style="flex:1; padding:12px; border-radius:12px; border:2px solid rgba(0,0,0,.18); font-size:16px; text-transform:uppercase;">
-                <button class="action-btn" style="flex:0 0 auto;" onclick="onlineJoin()">Join</button>
-            </div>
-
-            <div id="online-status" style="margin-top:12px; font-weight:800;"></div>
-            <div id="online-players" style="margin-top:10px; opacity:.9;"></div>
-
-            <div style="display:flex; gap:10px; margin-top:14px;">
-                <button class="action-btn" id="online-start-btn" style="flex:1; display:none;" onclick="onlineStart()">Start Game</button>
-                <button class="action-btn" style="flex:1;" onclick="onlineLeave()">Back</button>
-            </div>
-        </div>
-    </div>
-
-<div id="game-screen" class="screen">
+    <div id="game-screen" class="screen">
         <div id="current-suit-bg">♠</div>
         <div id="status-feed">Recess Started!</div>
 
@@ -612,183 +579,7 @@
     }
 
     function goToLeague() { showScreen('dashboard-screen'); renderStandings(); }
-    
-    // ----------------------------
-    // ONLINE (Render WebSocket /ws)
-    // ----------------------------
-    let isOnline = false;
-    let ws = null;
-    let onlineRoom = null;
-    let onlineYou = null;
-    let onlineIsHost = false;
-
-    function goToOnlineLobby() {
-        // Prefill name from local storage if present
-        try {
-            const saved = localStorage.getItem('osbj_name');
-            if(saved) document.getElementById('online-name').value = saved;
-        } catch {}
-        document.getElementById('online-status').innerText = '';
-        document.getElementById('online-players').innerText = '';
-        document.getElementById('online-start-btn').style.display = 'none';
-        showScreen('online-lobby-screen');
-    }
-
-    function wsUrl() {
-        const proto = (location.protocol === 'https:') ? 'wss:' : 'ws:';
-        return proto + '//' + location.host + '/ws';
-    }
-
-    function ensureWS(onReady) {
-        if(ws && (ws.readyState === 1 || ws.readyState === 0)) {
-            if(ws.readyState === 1) onReady();
-            else ws.addEventListener('open', onReady, { once:true });
-            return;
-        }
-        ws = new WebSocket(wsUrl());
-        ws.addEventListener('open', onReady, { once:true });
-        ws.addEventListener('message', (ev) => {
-            let msg;
-            try { msg = JSON.parse(ev.data); } catch { return; }
-
-            if(msg.t === 'error') {
-                document.getElementById('online-status').innerText = '❌ ' + (msg.message || 'Error');
-                return;
-            }
-
-            if(msg.t === 'created') {
-                isOnline = true;
-                onlineRoom = msg.room;
-                onlineYou = msg.you;
-                onlineIsHost = true;
-                document.getElementById('online-status').innerText = '✅ Room: ' + msg.room;
-                renderOnlinePlayers(msg.players || []);
-                document.getElementById('online-start-btn').style.display = 'block';
-                document.getElementById('online-start-btn').disabled = (msg.players || []).length < 2;
-                return;
-            }
-
-            if(msg.t === 'joined') {
-                isOnline = true;
-                onlineRoom = msg.room;
-                onlineYou = msg.you;
-                onlineIsHost = !!msg.isHost;
-                document.getElementById('online-status').innerText = '✅ Joined: ' + msg.room;
-                renderOnlinePlayers(msg.players || []);
-                document.getElementById('online-start-btn').style.display = onlineIsHost ? 'block' : 'none';
-                return;
-            }
-
-            if(msg.t === 'players') {
-                renderOnlinePlayers(msg.players || []);
-                if(onlineIsHost) {
-                    document.getElementById('online-start-btn').style.display = 'block';
-                    document.getElementById('online-start-btn').disabled = (msg.players || []).length < 2;
-                }
-                return;
-            }
-
-            if(msg.t === 'ended') {
-                showToast('🏁 ' + (msg.winner ? ('Winner: ' + msg.winner) : 'Game ended'));
-                return;
-            }
-
-            if(msg.t === 'state' && msg.state) {
-                // Apply authoritative server state into your existing UI variables
-                applyOnlineState(msg.state);
-                showScreen('game-screen');
-                return;
-            }
-        });
-
-        ws.addEventListener('close', () => {
-            // If online, show message but don't kill local modes
-            if(isOnline) {
-                document.getElementById('online-status').innerText = '⚠️ Disconnected. Rejoin or create again.';
-            }
-        });
-    }
-
-    function onlineName() {
-        const el = document.getElementById('online-name');
-        let name = (el && el.value || '').trim();
-        if(!name) name = 'Player';
-        try { localStorage.setItem('osbj_name', name); } catch {}
-        return name.slice(0,24);
-    }
-
-    function onlineCreate() {
-        ensureWS(() => {
-            ws.send(JSON.stringify({ t:'create', name: onlineName() }));
-        });
-    }
-
-    function onlineJoin() {
-        const code = (document.getElementById('online-code').value || '').trim().toUpperCase();
-        if(!code) { document.getElementById('online-status').innerText = 'Enter a room code'; return; }
-        ensureWS(() => {
-            ws.send(JSON.stringify({ t:'join', room: code, name: onlineName() }));
-        });
-    }
-
-    function onlineStart() {
-        if(!ws || ws.readyState !== 1) return;
-        ws.send(JSON.stringify({ t:'start' }));
-    }
-
-    function onlineLeave() {
-        try {
-            if(ws && ws.readyState === 1) ws.send(JSON.stringify({ t:'leave' }));
-        } catch {}
-        isOnline = false;
-        onlineRoom = null; onlineYou = null; onlineIsHost = false;
-        showScreen('menu-screen');
-    }
-
-    function renderOnlinePlayers(players) {
-        const box = document.getElementById('online-players');
-        if(!box) return;
-        if(!players.length) { box.innerText = ''; return; }
-        const lines = players.map((p,i) => {
-            const you = (p.id === onlineYou) ? ' (you)' : '';
-            const host = p.isHost ? ' ⭐host' : '';
-            return (i+1) + '. ' + p.name + you + host;
-        });
-        box.innerText = 'Players:\n' + lines.join('\n');
-    }
-
-    function applyOnlineState(st) {
-        // st: {players, turnIndex, direction, activeSuit, pendingDraw2, pendingDrawJ, pendingSkip, topCard, feed}
-        // Convert to your local structures
-        gamePlayers = (st.players || []).map(p => ({
-            name: p.name,
-            hand: (p.hand || []).map(c => ({ suit:c.suit, rank:c.rank, id:c.id })),
-            isBot: false,
-            lastDeclared: !!p.lastDeclared,
-            id: p.id
-        }));
-        turnIndex = st.turnIndex ?? 0;
-        direction = st.direction ?? 1;
-        activeSuit = st.activeSuit ?? (st.topCard ? st.topCard.suit : activeSuit);
-        pendingDraw2 = st.pendingDraw2 ?? 0;
-        pendingDrawJ = st.pendingDrawJ ?? 0;
-        pendingSkip = st.pendingSkip ?? 0;
-
-        // Make discard/topCard compatible
-        if(st.topCard) {
-            discard = [{ suit: st.topCard.suit, rank: st.topCard.rank, id: st.topCard.id }];
-        }
-        if(st.feed) updateFeed(st.feed);
-
-        // In online mode, you are the player whose id === onlineYou
-        // We keep controls enabled only on your turn
-        isProcessing = false;
-        updateGameUI();
-        updateActionButtons();
-    }
-
-
-function goToPartyLobby() { lobbyPlayers = [{ name: leagueData.player.name, isBot: false }]; renderLobby(); showScreen('lobby-screen'); }
+    function goToPartyLobby() { lobbyPlayers = [{ name: leagueData.player.name, isBot: false }]; renderLobby(); showScreen('lobby-screen'); }
 
     function renderStandings() {
         const tbody = document.getElementById('standings-body'); tbody.innerHTML = '';
@@ -978,12 +769,6 @@ function goToPartyLobby() { lobbyPlayers = [{ name: leagueData.player.name, isBo
     }
 
     function humanPickup() {
-        // ONLINE: send to server instead of local sim
-        if(isOnline && ws && ws.readyState===1) {
-            ws.send(JSON.stringify({ t:'draw' }));
-            return;
-        }
-
         if(isProcessing) return;
         if(gamePlayers[turnIndex].isBot) return;
         isProcessing = true;
@@ -1015,6 +800,19 @@ function goToPartyLobby() { lobbyPlayers = [{ name: leagueData.player.name, isBo
     function humanDeclareLast() {
         if(isProcessing || gamePlayers[turnIndex].isBot) return;
         let p = gamePlayers[turnIndex];
+
+        // Can only call LAST when this turn is about to leave you with 1 card
+        const selectedCount = selectionOrder.length || 0;
+        const willHaveOneAfterPlay = (selectedCount > 0 && (p.hand.length - selectedCount) === 1);
+        const commonCaseTwoCards = (p.hand.length === 2);
+
+        if(p.lastDeclared) return;
+
+        if(!(commonCaseTwoCards || willHaveOneAfterPlay)) {
+            showToast("⚠️ Call LAST when you're about to have 1 card (usually at 2 cards).");
+            return;
+        }
+
         p.lastDeclared = true;
         AudioEngine.playCall();
         updateFeed("You shout LAST!");
@@ -1022,17 +820,6 @@ function goToPartyLobby() { lobbyPlayers = [{ name: leagueData.player.name, isBo
     }
 
     function humanPlay() {
-        if(isOnline && ws && ws.readyState===1) {
-            // selectionOrder contains indices into your hand; convert to card ids
-            const p = gamePlayers[turnIndex];
-            const ids = selectionOrder.map(i => p.hand[i]?.id).filter(Boolean);
-            ws.send(JSON.stringify({ t:'play', cards: ids }));
-            selectionOrder = [];
-            isProcessing = true;
-            updateActionButtons();
-            return;
-        }
-
         if(isProcessing || gamePlayers[turnIndex].isBot) return;
         if(!selectionOrder.length) return;
         attemptPlay(turnIndex, [...selectionOrder]);
@@ -1493,20 +1280,33 @@ function goToPartyLobby() { lobbyPlayers = [{ name: leagueData.player.name, isBo
         let btnLast = document.getElementById('btn-last');
         let p = gamePlayers[turnIndex];
 
+        // PLAY enabled only if you selected something
         btnPlay.disabled = (selectionOrder.length === 0);
 
-        if(p.lastDeclared) { btnLast.classList.add('called'); btnLast.innerText = "CALLED"; }
-        else { btnLast.classList.remove('called'); btnLast.innerText = "LAST!"; }
-
-        let potentialFinish = (p.hand.length === selectionOrder.length && selectionOrder.length > 0);
-        if(p.hand.length !== 1 && !potentialFinish) {
+        // LAST rules (your rules):
+        // - You must shout LAST **before** you become "on your last card"
+        // - i.e. when this turn would leave you with exactly 1 card.
+        // - Most common: when you have 2 cards (about to go to 1) and it's your turn.
+        if(p.lastDeclared) {
+            btnLast.classList.add('called');
+            btnLast.innerText = "CALLED";
             btnLast.disabled = true;
-            btnLast.style.opacity = "0.5";
+            btnLast.style.opacity = "0.7";
         } else {
-            btnLast.disabled = false;
-            btnLast.style.opacity = "1";
+            btnLast.classList.remove('called');
+            btnLast.innerText = "LAST!";
+
+            const selectedCount = selectionOrder.length || 0;
+            const willHaveOneAfterPlay = (selectedCount > 0 && (p.hand.length - selectedCount) === 1);
+            const commonCaseTwoCards = (p.hand.length === 2);
+
+            const canSayLast = !isProcessing && !p.isBot && (commonCaseTwoCards || willHaveOneAfterPlay);
+
+            btnLast.disabled = !canSayLast;
+            btnLast.style.opacity = canSayLast ? "1" : "0.5";
         }
 
+        // Winning button highlight (still respects your LAST rule)
         let willFinish = (p.hand.length === selectionOrder.length && selectionOrder.length > 0);
         let legalFinish = true;
 
