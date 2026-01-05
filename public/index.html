@@ -2426,23 +2426,23 @@
         // update discard/top card
         discard = st.topCard ? [st.topCard] : discard;
 
-        // compute my index
-        myOnlineIndex = 0;
-        for (let i=0;i<gamePlayers.length;i++){
-          const p = gamePlayers[i];
-          const pl = (NET.players || []).find(x => x.name === p.name);
-          if (pl && pl.id === myOnlineId) { myOnlineIndex = i; break; }
-        }
 
-        // switch mode + show game screen
+        selectionOrder = [];
+        isProcessing = false;
+        // compute my index (reliable: use server player id)
+        myOnlineIndex = 0;
+        const sp = (st.players || []);
+        for (let i=0;i<sp.length;i++){
+          if (sp[i] && sp[i].id === myOnlineId) { myOnlineIndex = i; break; }
+        }
+// switch mode + show game screen
         gameMode = "online";
         isLeagueMode = false;
         isPassAndPlay = false;
 
         if (typeof showScreen === "function") showScreen("game-screen");
         if (typeof updateControls === "function") updateControls();
-        if (typeof renderHandUI === "function") renderHandUI();
-        if (typeof renderCPUUI === "function") renderCPUUI();
+        if (typeof updateGameUI === "function") updateGameUI();
         if (document.getElementById("status-feed") && st.feed) document.getElementById("status-feed").innerText = st.feed;
 
       } catch(e){
