@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Old Skool Black Jack — Online</title>
+  <style>
+    :root{
+      --chalk-green:#3a5f42;
+      --chalk-white:#eeeeee;
+      --paper-white:#fdfbf7;
+      --wood:#7a5230;
+      --shadow: rgba(0,0,0,.28);
+      --card-w: 80px;
+      --card-h: 112px;
+      --gap: 10px;
+    }
+    @media (max-width: 600px){
+      :root{ --card-w: 65px; --card-h: 91px; --gap: 8px; }
+    }
+    body{
+      margin:0; height:100vh; overflow:hidden;
+      font-family: "Comic Sans MS","Chalkboard SE","Segoe UI",system-ui,sans-serif;
+      background: radial-gradient(circle at 20% 10%, #4b7a55, #2e4f35 55%, #1f3625 100%);
+      color: var(--chalk-white);
+      display:flex; flex-direction:column;
+      touch-action: manipulation;
+    }
+    .topbar{
+      display:flex; gap:10px; align-items:center;
+      padding:10px 12px;
+      background: rgba(0,0,0,.25);
+      border-bottom: 2px solid rgba(255,255,255,.12);
+      box-shadow: 0 8px 24px rgba(0,0,0,.25);
+    }
+    .brand{
+      font-weight:900;
+      letter-spacing:.5px;
+      font-size: 16px;
+    }
+    .pill{
+      margin-left:auto;
+      padding:6px 10px;
+      background: rgba(255,255,255,.12);
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius:999px;
+      font-size: 12px;
+    }
+
+    .wrap{ flex:1; display:flex; flex-direction:column; min-height:0; }
+    .screen{ flex:1; min-height:0; display:none; }
+    .screen.active{ display:flex; flex-direction:column; min-height:0; }
+
+    /* Lobby */
+    .panel{
+      margin:12px;
+      background: rgba(0,0,0,.28);
+      border: 2px solid rgba(255,255,255,.14);
+      border-radius: 16px;
+      box-shadow: 0 18px 40px rgba(0,0,0,.35);
+      overflow:hidden;
+    }
+    .panel h2{ margin:0; padding:12px 14px; font-size:16px; background: rgba(0,0,0,.2); }
+    .panel .body{ padding:12px 14px; display:flex; flex-direction:column; gap:10px; }
+
+    input{
+      width:100%;
+      padding:12px 12px;
+      border-radius: 12px;
+      border: 2px solid rgba(255,255,255,.18);
+      outline:none;
+      background: rgba(0,0,0,.25);
+      color: var(--chalk-white);
+      font-size: 14px;
+    }
+
+    .btnrow{ display:flex; flex-wrap:wrap; gap:10px; }
+    button{
+      padding:12px 14px;
+      border-radius: 14px;
+      border: 2px solid rgba(255,255,255,.18);
+      background: rgba(255,255,255,.10);
+      color: var(--chalk-white);
+      font-weight:800;
+      cursor:pointer;
+      box-shadow: 0 12px 22px rgba(0,0,0,.22);
+    }
+    button:disabled{
+      opacity:.55;
+      cursor:not-allowed;
+    }
+
+    /* Game UI */
+    .game{
+      flex:1; min-height:0;
+      display:flex; flex-direction:column;
+      padding: 10px 12px;
+      gap: 10px;
+    }
+    .hud{
+      display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+    }
+    .hud .stat{
+      padding:8px 10px;
+      border-radius:999px;
+      background: rgba(0,0,0,.25);
+      border: 1px solid rgba(255,255,255,.16);
+      font-size: 12px;
+    }
+    .table{
+      flex:1; min-height:0;
+      display:flex; flex-direction:column;
+      gap: 10px;
+      background: rgba(0,0,0,.18);
+      border: 2px solid rgba(255,255,255,.12);
+      border-radius: 18px;
+      padding: 10px;
+      box-shadow: inset 0 0 0 2px rgba(0,0,0,.12);
+    }
+
+    .midrow{
+      display:flex; gap:10px; align-items:center; justify-content:space-between;
+    }
+    .pile{
+      display:flex; flex-direction:column; gap:6px;
+      align-items:center; justify-content:center;
+      width: 120px;
+    }
+    .pileLabel{ font-size: 12px; opacity:.9; }
+    .feed{
+      flex:1; min-height:0;
+      background: rgba(0,0,0,.25);
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 14px;
+      padding: 10px;
+      overflow:auto;
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .playerRow{
+      display:flex; gap:10px; align-items:center; justify-content:space-between;
+      background: rgba(0,0,0,.20);
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 14px;
+      padding: 8px 10px;
+      font-size: 13px;
+    }
+
+    .handArea{
+      background: rgba(0,0,0,.18);
+      border: 2px solid rgba(255,255,255,.12);
+      border-radius: 18px;
+      padding: 10px 8px 14px;
+      box-shadow: 0 10px 25px rgba(0,0,0,.25);
+    }
+    .handTitle{
+      display:flex; align-items:center; justify-content:space-between;
+      margin-bottom: 6px;
+      font-weight: 900;
+    }
+    .hand{
+      display:flex;
+      align-items:flex-end;
+      justify-content:center;
+      height: calc(var(--card-h) + 30px);
+      position: relative;
+    }
+    .card{
+      width: var(--card-w);
+      height: var(--card-h);
+      border-radius: 14px;
+      background: linear-gradient(#fff, #ececec);
+      color: #111;
+      border: 2px solid rgba(0,0,0,.25);
+      box-shadow: 0 14px 26px rgba(0,0,0,.25);
+      position:absolute;
+      display:flex;
+      flex-direction:column;
+      justify-content:space-between;
+      padding: 8px;
+      transform-origin: bottom center;
+      user-select:none;
+      transition: transform .12s ease, box-shadow .12s ease;
+    }
+    .card .r{ font-weight: 900; font-size: 16px; }
+    .card .s{ font-size: 18px; }
+    .card.red{ color: #b30000; }
+    .card.sel{
+      box-shadow: 0 18px 30px rgba(0,0,0,.35);
+      transform: translateY(-18px) rotate(var(--rot)) translateX(var(--x));
+    }
+    .card:not(.sel){
+      transform: rotate(var(--rot)) translateX(var(--x));
+    }
+
+    .controls{
+      display:flex; gap:10px; flex-wrap:wrap;
+      justify-content:center;
+      margin-top: 10px;
+    }
+    .warn{
+      opacity:.9;
+      font-size:12px;
+      margin-top:6px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="topbar">
+    <div class="brand">Old Skool Black Jack</div>
+    <div class="pill" id="netStatus">Local</div>
+  </div>
+
+  <div class="wrap">
+
+    <!-- LOBBY -->
+    <div class="screen active" id="screenLobby">
+      <div class="panel">
+        <h2>Local (Offline)</h2>
+        <div class="body">
+          <div class="btnrow">
+            <button onclick="startLocal()">Start Local Match</button>
+          </div>
+          <div class="warn">Same rules as your working version: A(Any), 2(+2), 8(skip), Q(reverse), K(extra turn), J(black +5 / red blocks). Must shout LAST before finishing. Can’t end on a power card.</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Online (Render Server)</h2>
+        <div class="body">
+          <input id="nameInput" placeholder="Your name (e.g. Beefy)" maxlength="18" />
+          <div class="btnrow">
+            <button onclick="createRoom()">Create Room</button>
+            <button onclick="joinRoomPrompt()">Join Room</button>
+            <button id="btnStartOnline" onclick="startOnline()" disabled>Start Online Game</button>
+          </div>
+          <div class="warn" id="roomLine"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- GAME -->
+    <div class="screen" id="screenGame">
+      <div class="game">
+
+        <div class="hud">
+          <div class="stat" id="turnStat">Turn: -</div>
+          <div class="stat" id="suitStat">Suit: -</div>
+          <div class="stat" id="pendStat">Pending: -</div>
+          <button onclick="backToLobby()">Exit</button>
+        </div>
+
+        <div class="table">
+          <div class="playerRow">
+            <div id="p0Line">P1</div>
+            <div id="p1Line">P2</div>
+          </div>
+
+          <div class="midrow">
+            <div class="pile">
+              <div class="pileLabel">Top Card</div>
+              <div id="topCardBox"></div>
+            </div>
+
+            <div class="feed" id="feed"></div>
+          </div>
+
+          <div class="handArea">
+            <div class="handTitle">
+              <div>Your Hand</div>
+              <div id="handInfo"></div>
+            </div>
+            <div class="hand" id="hand"></div>
+
+            <div class="controls">
+              <button id="btnPlay" onclick="pressPlay()">Play</button>
+              <button id="btnDraw" onclick="pressDraw()">Draw</button>
+              <button id="btnLast" onclick="pressLast()">LAST</button>
+              <button onclick="clearSelection()">Clear</button>
+            </div>
+            <div class="warn" id="warn"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+<script>
+/* =========================================================
+   CLIENT: Local mode + Online mode
+   Online = server is truth (no logic drift)
+========================================================= */
+
+let MODE = "local"; // "local" | "online"
+let ws = null;
+let myId = null;
+let roomCode = null;
+
+// Local-only full state
+let localState = null;
+
+// Online: we receive state snapshots from server (opponents hidden)
+let remoteState = null;
+
+// UI selection is ALWAYS client-only (safe)
+let selection = []; // indices in your hand
+
+function $(id){ return document.getElementById(id); }
+function setStatus(txt){ $("netStatus").innerText = txt; }
+function feed(msg){
+  const box = $("feed");
+  const div = document.createElement("div");
+  div.textContent = msg;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+}
+function resetFeed(){ $("feed").innerHTML = ""; }
+
+function cardText(c){ return c.rank + c.suit; }
+function isRedSuit(s){ return s==="♥" || s==="♦"; }
+
+function renderTopCard(c){
+  $("topCardBox").innerHTML = "";
+  if(!c) return;
+  const d = makeCardDiv(c.rank, c.suit);
+  d.style.position = "relative";
+  d.style.transform = "none";
+  $("topCardBox").appendChild(d);
+}
+
+function makeCardDiv(rank, suit){
+  const d = document.createElement("div");
+  d.className = "card" + (isRedSuit(suit) ? " red" : "");
+  d.innerHTML = `<div class="r">${rank}</div><div class="s">${suit}</div><div class="r" style="text-align:right">${rank}</div>`;
+  return d;
+}
+
+function renderHand(hand){
+  const el = $("hand");
+  el.innerHTML = "";
+
+  const n = hand.length;
+  $("handInfo").innerText = `${n} card(s)`;
+
+  const maxSpread = Math.min(28, 12 + n * 1.8);
+  const fan = Math.min(18, 8 + n * 0.9);
+
+  for(let i=0; i<n; i++){
+    const c = hand[i];
+    const d = makeCardDiv(c.rank, c.suit);
+
+    // fan math
+    const t = (n === 1) ? 0 : (i / (n - 1)) * 2 - 1;  // -1..1
+    const x = t * maxSpread;
+    const rot = t * fan;
+
+    d.style.setProperty("--x", `${x}px`);
+    d.style.setProperty("--rot", `${rot}deg`);
+    d.style.zIndex = String(1000 + i);
+
+    const sel = selection.includes(i);
+    if(sel) d.classList.add("sel");
+
+    d.addEventListener("click", () => toggleSelect(i));
+    el.appendChild(d);
+  }
+}
+
+function toggleSelect(i){
+  const idx = selection.indexOf(i);
+  if(idx >= 0) selection.splice(idx, 1);
+  else selection.push(i);
+  render();
+}
+
+function clearSelection(){
+  selection = [];
+  render();
+}
+
+function showWarn(t){ $("warn").innerText = t || ""; }
+
+// ------------------- Local Rules (same as server) -------------------
+const POWER_RANKS = new Set(["A","2","8","J","Q","K"]);
+function rankVal(r){
+  if(r==="A") return 1;
+  if(r==="J") return 11;
+  if(r==="Q") return 12;
+  if(r==="K") return 13;
+  return parseInt(r,10);
+}
+function canStart(c, top, suit){ return c.rank==="A" || c.suit===suit || c.rank===top.rank; }
+function linkOk(p, n){
+  return p.rank===n.rank || (p.suit===n.suit && Math.abs(rankVal(p.rank)-rankVal(n.rank))===1);
+}
+function createDeck(){
+  const suits=["♠","♥","♦","♣"];
+  const ranks=["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
+  const deck=[];
+  for(const s of suits) for(const r of ranks) deck.push({suit:s, rank:r});
+  return deck;
+}
+function shuffle(a){
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+function topCard(state){ return state.discard[state.discard.length-1]; }
+function draw(state, n){
+  const out=[];
+  for(let i=0;i<n;i++){
+    if(state.deck.length===0){
+      if(state.discard.length>1){
+        const top=state.discard.pop();
+        const rest=state.discard;
+        state.discard=[top];
+        shuffle(rest);
+        state.deck=rest;
+        feed("Reshuffled!");
+      } else {
+        const nd=createDeck();
+        shuffle(nd);
+        state.deck=nd;
+        feed("New Cards Added!");
+      }
+    }
+    if(state.deck.length>0) out.push(state.deck.pop());
+  }
+  return out;
+}
+function chooseSuit(state, seat){
+  const p=state.players[seat];
+  const counts={"♠":0,"♥":0,"♦":0,"♣":0};
+  p.hand.forEach(c=>counts[c.suit]++);
+  let best="♠";
+  Object.keys(counts).forEach(k=>{ if(counts[k]>counts[best]) best=k; });
+  state.activeSuit=best;
+  feed(`Suit is ${best}`);
+}
+function applyPower(state, card, seat, isLast){
+  const r=card.rank;
+  if(r==="A" && isLast){ chooseSuit(state, seat); return; }
+  if(r==="2") state.pendingDraw2+=2;
+  else if(r==="8") state.pendingSkip+=1;
+  else if(r==="Q"){ state.direction*=-1; feed(state.direction===1?"Direction: Clockwise":"Direction: Reversed!"); }
+  else if(r==="K"){ state.extraTurn=true; }
+  else if(r==="J"){
+    const red = isRedSuit(card.suit);
+    if(red){ state.pendingDrawJ=0; feed("Attack Blocked!"); }
+    else state.pendingDrawJ+=5;
+  }
+}
+function advanceTurn(state){
+  const n=state.players.length;
+  state.turnIndex=(state.turnIndex+state.direction+n)%n;
+}
+
+function newLocalGame(){
+  localState = {
+    status:"playing",
+    deck: shuffle(createDeck()),
+    discard: [],
+    players: [
+      { seat:0, id:"LOCAL1", name:($("nameInput").value.trim()||"Player 1"), hand:[], lastDeclared:false },
+      { seat:1, id:"LOCAL2", name:"CPU", hand:[], lastDeclared:false }
+    ],
+    turnIndex: 0,
+    direction: 1,
+    activeSuit: null,
+    pendingDraw2:0,
+    pendingDrawJ:0,
+    pendingSkip:0,
+    extraTurn:false,
+    winnerSeat:null
+  };
+
+  resetFeed();
+  for(let r=0;r<7;r++){
+    localState.players[0].hand.push(...draw(localState,1));
+    localState.players[1].hand.push(...draw(localState,1));
+  }
+  const first = draw(localState,1)[0];
+  localState.discard.push(first);
+  localState.activeSuit = first.suit;
+  feed(`Top card is ${first.rank}${first.suit}`);
+}
+
+// simple CPU: draw if can't play, else play first valid single card
+function cpuAct(){
+  if(MODE!=="local") return;
+  const s = localState;
+  if(!s || s.status!=="playing") return;
+  if(s.turnIndex !== 1) return;
+
+  const p = s.players[1];
+
+  // if skip pending, CPU draws to clear
+  if(s.pendingSkip>0){
+    feed("CPU is skipped! (8)");
+    s.pendingSkip=0;
+    advanceTurn(s);
+    render();
+    return;
+  }
+
+  // forced plays
+  let mustRank = null;
+  if(s.pendingDraw2>0) mustRank="2";
+  else if(s.pendingDrawJ>0) mustRank="J";
+  else if(s.pendingSkip>0) mustRank="8";
+
+  const top = topCard(s);
+  let playIdx = -1;
+
+  for(let i=0;i<p.hand.length;i++){
+    const c=p.hand[i];
+    if(mustRank && c.rank!==mustRank) continue;
+    if(canStart(c, top, s.activeSuit)){ playIdx=i; break; }
+  }
+
+  if(playIdx<0){
+    // draw resolves stacks too
+    pressDraw(); // uses local logic
+    return;
+  }
+
+  // play single
+  selection = [playIdx];
+  pressPlay();
+}
+
+function localAction(action){
+  const s = localState;
+  const seat = s.turnIndex;
+  const p = s.players[seat];
+
+  if(action.type==="DECLARE_LAST"){
+    p.lastDeclared=true;
+    feed(`${p.name} shouts LAST!`);
+    return true;
+  }
+
+  if(action.type==="DRAW"){
+    let toDraw=1;
+
+    if(s.pendingDraw2>0){
+      toDraw=s.pendingDraw2; s.pendingDraw2=0;
+      feed(`${p.name} draws ${toDraw} (2 stack)`);
+    } else if(s.pendingDrawJ>0){
+      toDraw=s.pendingDrawJ; s.pendingDrawJ=0;
+      feed(`${p.name} draws ${toDraw} (Jack stack)`);
+    } else if(s.pendingSkip>0){
+      s.pendingSkip=0;
+      feed(`${p.name} is skipped! (8)`);
+      advanceTurn(s);
+      return true;
+    } else {
+      feed(`${p.name} draws 1`);
+    }
+
+    p.hand.push(...draw(s,toDraw));
+    advanceTurn(s);
+    return true;
+  }
+
+  if(action.type==="PLAY"){
+    const idxs=[...new Set(action.indices||[])].filter(x=>Number.isInteger(x));
+    if(idxs.length===0){ showWarn("No cards selected"); return false; }
+    idxs.sort((a,b)=>b-a);
+
+    if(idxs[0] >= p.hand.length || idxs[idxs.length-1] < 0){ showWarn("Bad selection"); return false; }
+
+    const cards=idxs.map(i=>p.hand[i]);
+
+    // pending constraints
+    if(s.pendingDraw2>0 && cards[0].rank!=="2"){ showWarn("Must play a 2!"); return false; }
+    if(s.pendingDrawJ>0 && cards[0].rank!=="J"){ showWarn("Must play a Jack (or DRAW)!"); return false; }
+    if(s.pendingSkip>0 && cards[0].rank!=="8"){ showWarn("Can only stack an 8!"); return false; }
+
+    const top = topCard(s);
+    if(!canStart(cards[0], top, s.activeSuit)){ showWarn("Invalid card"); return false; }
+    for(let i=0;i<cards.length-1;i++){
+      if(!linkOk(cards[i],cards[i+1])){ showWarn("Invalid combo"); return false; }
+    }
+
+    // remove
+    idxs.forEach(i=>p.hand.splice(i,1));
+    const finishedNow=(p.hand.length===0);
+
+    const isSet = cards.length>1 && cards.every(c=>c.rank===cards[0].rank);
+
+    cards.forEach((c,i)=>{
+      s.discard.push(c);
+      const isLast=(i===cards.length-1);
+      if(POWER_RANKS.has(c.rank) && (isSet || isLast)) applyPower(s,c,seat,isLast);
+    });
+
+    const lastCard=cards[cards.length-1];
+    if(lastCard.rank!=="A") s.activeSuit=lastCard.suit;
+
+    feed(`${p.name} played ${cards.length} card(s)`);
+
+    // forgot last
+    if(finishedNow && !p.lastDeclared){
+      feed(`⚠️ ${p.name} Forgot LAST! Draw 2`);
+      p.hand.push(...draw(s,2));
+      p.lastDeclared=false;
+      advanceTurn(s);
+      return true;
+    }
+
+    // can't end on power
+    if(finishedNow && POWER_RANKS.has(lastCard.rank)){
+      feed(`Can't end on Power! Pick up 1`);
+      p.hand.push(...draw(s,1));
+      p.lastDeclared=false;
+      advanceTurn(s);
+      return true;
+    }
+
+    if(p.hand.length===0){
+      s.status="ended";
+      s.winnerSeat=seat;
+      feed(`🏆 ${p.name} wins!`);
+      return true;
+    }
+
+    // King extra turn
+    if(s.extraTurn){
+      s.extraTurn=false;
+      feed("KING: Play Again!");
+      return true;
+    }
+
+    advanceTurn(s);
+    return true;
+  }
+
+  return false;
+}
+
+// ------------------- Online Net -------------------
+function connectWS(){
+  if(ws && ws.readyState === WebSocket.OPEN) return;
+
+  const url = (location.protocol === "https:" ? "wss://" : "ws://") + location.host;
+  ws = new WebSocket(url);
+
+  ws.onopen = () => {
+    setStatus("Online: connected");
+  };
+
+  ws.onmessage = (ev) => {
+    const msg = JSON.parse(ev.data);
+
+    if(msg.type === "HELLO"){
+      myId = msg.playerId;
+      return;
+    }
+    if(msg.type === "ROOM_CREATED" || msg.type === "ROOM_JOINED"){
+      roomCode = msg.code;
+      $("roomLine").innerText = `Room: ${roomCode} (share this)`;
+      return;
+    }
+    if(msg.type === "ROOM_INFO"){
+      const room = msg.room;
+      // enable start if both seats filled and you are seat 0
+      const seats = room.seats || [];
+      const filled = seats.every(s => s.occupied);
+      const iAmSeat0 = seats[0] && seats[0].id === myId;
+      $("btnStartOnline").disabled = !(filled && iAmSeat0 && !room.started);
+
+      return;
+    }
+    if(msg.type === "FEED"){
+      (msg.events || []).forEach(e => { if(e.t==="feed") feed(e.m); });
+      return;
+    }
+    if(msg.type === "GAME_STATE"){
+      remoteState = msg.state;
+      render();
+      return;
+    }
+    if(msg.type === "ERROR"){
+      showWarn(msg.message || "Error");
+      return;
+    }
+  };
+
+  ws.onclose = () => setStatus("Online: disconnected");
+}
+
+function sendWS(type, payload){
+  if(!ws || ws.readyState !== WebSocket.OPEN){
+    showWarn("Not connected");
+    return;
+  }
+  ws.send(JSON.stringify({ type, ...payload }));
+}
+
+function createRoom(){
+  connectWS();
+  const name = $("nameInput").value.trim() || "Player 1";
+  setTimeout(()=>sendWS("CREATE_ROOM",{ name }), 150);
+  MODE = "online";
+  setStatus("Online: room creating...");
+}
+
+function joinRoomPrompt(){
+  const code = prompt("Enter room code:");
+  if(!code) return;
+  connectWS();
+  const name = $("nameInput").value.trim() || "Player";
+  setTimeout(()=>sendWS("JOIN_ROOM",{ code, name }), 150);
+  MODE = "online";
+  setStatus("Online: joining...");
+}
+
+function startOnline(){
+  if(!roomCode) return;
+  sendWS("START_GAME",{});
+  goGameScreen();
+}
+
+function onlineAction(action){
+  showWarn("");
+  sendWS("ACTION",{ action });
+}
+
+// ------------------- UI Buttons -------------------
+function pressPlay(){
+  showWarn("");
+
+  if(MODE==="online"){
+    if(!remoteState || remoteState.status!=="playing") return;
+    onlineAction({ type:"PLAY", indices: selection.slice() });
+    selection = [];
+    return;
+  }
+
+  // local
+  const ok = localAction({ type:"PLAY", indices: selection.slice() });
+  if(ok) selection=[];
+  render();
+  setTimeout(cpuAct, 450);
+}
+
+function pressDraw(){
+  showWarn("");
+
+  if(MODE==="online"){
+    onlineAction({ type:"DRAW" });
+    selection=[];
+    return;
+  }
+
+  localAction({ type:"DRAW" });
+  selection=[];
+  render();
+  setTimeout(cpuAct, 450);
+}
+
+function pressLast(){
+  showWarn("");
+
+  if(MODE==="online"){
+    onlineAction({ type:"DECLARE_LAST" });
+    return;
+  }
+
+  localAction({ type:"DECLARE_LAST" });
+  render();
+}
+
+// ------------------- Screens -------------------
+function goGameScreen(){
+  $("screenLobby").classList.remove("active");
+  $("screenGame").classList.add("active");
+  resetFeed();
+}
+
+function backToLobby(){
+  // hard reset
+  MODE="local";
+  remoteState=null;
+  localState=null;
+  selection=[];
+  roomCode=null;
+  $("roomLine").innerText="";
+  $("btnStartOnline").disabled=true;
+  $("screenGame").classList.remove("active");
+  $("screenLobby").classList.add("active");
+  setStatus("Local");
+  showWarn("");
+}
+
+function startLocal(){
+  MODE="local";
+  setStatus("Local");
+  selection=[];
+  newLocalGame();
+  goGameScreen();
+  render();
+  // player starts
+}
+
+// ------------------- Render -------------------
+function render(){
+  const s = (MODE==="online") ? remoteState : localState;
+  if(!s){
+    return;
+  }
+
+  // top area
+  const top = s.discard && s.discard.length ? s.discard[s.discard.length-1] : null;
+  renderTopCard(top);
+
+  $("suitStat").innerText = `Suit: ${s.activeSuit || "-"}`;
+  $("pendStat").innerText =
+    `Pending: 2s=${s.pendingDraw2||0} J=${s.pendingDrawJ||0} 8=${s.pendingSkip||0}`;
+
+  // turn
+  const cur = s.players[s.turnIndex];
+  $("turnStat").innerText = `Turn: ${cur ? cur.name : "-"}`;
+
+  // players line
+  const p0 = s.players[0];
+  const p1 = s.players[1];
+
+  const p0Count = (p0.hand ? p0.hand.length : (p0.handCount||0));
+  const p1Count = (p1.hand ? p1.hand.length : (p1.handCount||0));
+
+  $("p0Line").innerText = `${p0.name}: ${p0Count}`;
+  $("p1Line").innerText = `${p1.name}: ${p1Count}`;
+
+  // my hand
+  let myHand = [];
+  if(MODE==="online"){
+    // find my seat
+    const mySeat = s.players.findIndex(x => x.id === myId);
+    if(mySeat >= 0) myHand = s.players[mySeat].hand;
+    else myHand = [];
+  } else {
+    myHand = s.players[0].hand;
+  }
+
+  renderHand(myHand);
+
+  // enable buttons only if it's my turn (online) or local player turn
+  let myTurn = false;
+  if(MODE==="online"){
+    const mySeat = s.players.findIndex(x => x.id === myId);
+    myTurn = (mySeat === s.turnIndex) && (s.status==="playing");
+  } else {
+    myTurn = (s.turnIndex === 0) && (s.status==="playing");
+  }
+
+  $("btnPlay").disabled = !myTurn;
+  $("btnDraw").disabled = !myTurn;
+  $("btnLast").disabled = !myTurn;
+
+  if(s.status==="ended"){
+    $("btnPlay").disabled = true;
+    $("btnDraw").disabled = true;
+    $("btnLast").disabled = true;
+    if(s.winnerSeat !== null && s.players[s.winnerSeat]){
+      showWarn(`Winner: ${s.players[s.winnerSeat].name}`);
+    } else {
+      showWarn("Game ended.");
+    }
+  } else {
+    // last warning prompt (same rule as your file: only matters if you will finish)
+    showWarn("");
+  }
+}
+</script>
+</body>
+</html>
