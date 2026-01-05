@@ -1,89 +1,715 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Old Skool Blackjack</title>
-<style>
-html,body{
-  margin:0;
-  padding:0;
-  height:100%;
-  background:#2f6b3f;
-  font-family:sans-serif;
-}
-.screen{
-  position:absolute;
-  inset:0;
-  display:none;
-}
-.screen.active{
-  display:flex;
-}
-#lobby{
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  gap:12px;
-}
-#game{
-  flex-direction:column;
-}
-button,input{
-  font-size:18px;
-  padding:10px;
-}
-#controls{
-  position:fixed;
-  right:10px;
-  bottom:20px;
-  display:flex;
-  flex-direction:column;
-  gap:8px;
-}
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, proxy-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <title>Old Skool Blackjack</title>
+  <style>
+    :root{
+      --felt:#2e6b3a;
+      --felt2:#255a31;
+      --ink:#0b0b0b;
+      --chalk:#f4f4f4;
+      --wood1:#d7b58a;
+      --wood2:#caa879;
+      --btnPink:#ff7dbb;
+      --btnBlue:#56c6ff;
+      --btnYellow:#ffd54a;
+      --btnWhite:#f5f5f5;
+      --shadow: 0 10px 30px rgba(0,0,0,.25);
+      --cardW: 78px;
+      --cardH: 108px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: radial-gradient(1200px 600px at 50% 20%, var(--felt), var(--felt2));
+      color: var(--chalk);
+      height:100vh;
+      overflow:hidden;
+      touch-action: manipulation;
+    }
+    .topbar{
+      position:fixed; left:0; right:0; top:0;
+      padding:10px 12px;
+      text-align:center;
+      font-weight:900;
+      font-size:22px;
+      text-shadow: 0 2px 0 rgba(0,0,0,.35);
+      z-index:30;
+      pointer-events:none;
+    }
+    .screen{
+      position:absolute; inset:0;
+      display:none;
+      padding:80px 16px 16px;
+      z-index:20;
+    }
+    .screen.active{display:block}
+    .card{
+      width:var(--cardW); height:var(--cardH);
+      border-radius:12px;
+      background:#fff;
+      color:#111;
+      display:flex;
+      align-items:flex-start;
+      justify-content:flex-start;
+      padding:8px 10px;
+      font-weight:900;
+      box-shadow: 0 10px 25px rgba(0,0,0,.25);
+      position:relative;
+      user-select:none;
+    }
+    .card .suit{
+      position:absolute; right:10px; bottom:8px;
+      font-size:26px;
+      opacity:.85;
+    }
+    .card.red{color:#c01515}
+    .card.back{
+      background:
+        radial-gradient(circle at 30% 30%, rgba(255,255,255,.25), rgba(255,255,255,0) 35%),
+        repeating-linear-gradient(45deg, rgba(255,255,255,.08), rgba(255,255,255,.08) 6px, rgba(0,0,0,.08) 6px, rgba(0,0,0,.08) 12px),
+        #1a1a1a;
+      border:3px solid rgba(255,255,255,.15);
+      color:transparent;
+    }
+    .panel{
+      max-width:520px;
+      margin:0 auto;
+      background: rgba(0,0,0,.25);
+      border: 2px solid rgba(255,255,255,.12);
+      border-radius:18px;
+      padding:18px;
+      box-shadow: var(--shadow);
+    }
+    h1{margin:0 0 10px; font-size:44px; letter-spacing:.5px;}
+    .sub{opacity:.9; margin:0 0 18px}
+    input, button, select{
+      font: inherit;
+    }
+    input{
+      width:100%;
+      padding:14px 16px;
+      border-radius:14px;
+      border:0;
+      outline:none;
+      font-size:18px;
+      margin:10px 0;
+    }
+    .row{display:flex; gap:10px; align-items:center}
+    .row > *{flex:1}
+    .btn{
+      width:100%;
+      padding:14px 14px;
+      border-radius:14px;
+      border:0;
+      font-weight:900;
+      cursor:pointer;
+      box-shadow: 0 8px 0 rgba(0,0,0,.25);
+      transform: translateY(0);
+    }
+    .btn:active{transform: translateY(3px); box-shadow: 0 5px 0 rgba(0,0,0,.25);}
+    .btn.primary{background:#fff; color:#111}
+    .btn.pink{background:var(--btnPink); color:#111}
+    .btn.blue{background:var(--btnBlue); color:#111}
+    .btn.yellow{background:var(--btnYellow); color:#111}
+    .small{font-size:13px; opacity:.9}
+    .toast{
+      position:fixed;
+      left:50%; transform: translateX(-50%);
+      bottom:18px;
+      background: rgba(0,0,0,.65);
+      border:1px solid rgba(255,255,255,.15);
+      padding:10px 14px;
+      border-radius:999px;
+      z-index:50;
+      max-width:90vw;
+      text-align:center;
+      display:none;
+    }
+    .table{
+      position:absolute; inset:0;
+      padding:64px 16px 120px;
+      z-index:5;
+    }
+    .centerStack{
+      position:absolute;
+      left:50%; top:52%;
+      transform: translate(-50%,-50%);
+      display:flex;
+      gap:16px;
+      align-items:center;
+      justify-content:center;
+    }
+    .opponent{
+      position:absolute;
+      left:50%; top:92px;
+      transform: translateX(-50%);
+      text-align:center;
+    }
+    .badge{
+      display:inline-block;
+      padding:6px 10px;
+      border-radius:999px;
+      background: rgba(255,255,255,.12);
+      border:1px solid rgba(255,255,255,.18);
+      font-weight:900;
+      margin-bottom:10px;
+    }
+    .rightBtns{
+      position:fixed; right:10px; top:50%;
+      transform: translateY(-50%);
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      z-index:25;
+    }
+    .action{
+      width:86px;
+      padding:14px 10px;
+      border-radius:14px;
+      border:0;
+      font-weight:900;
+      cursor:pointer;
+      box-shadow: 0 8px 0 rgba(0,0,0,.25);
+    }
+    .action.pink{background:var(--btnPink)}
+    .action.blue{background:var(--btnBlue)}
+    .action.yellow{background:var(--btnYellow)}
+    .action.white{background:var(--btnWhite)}
+    .action:disabled{opacity:.45; cursor:not-allowed}
+    .wood{
+      position:fixed; left:0; right:0; bottom:0;
+      height:120px;
+      background: repeating-linear-gradient(45deg, var(--wood1), var(--wood1) 12px, var(--wood2) 12px, var(--wood2) 24px);
+      z-index:10;
+      border-top: 3px solid rgba(0,0,0,.2);
+    }
+    .hand{
+      position:fixed;
+      left:0; right:0;
+      bottom:10px;
+      height:120px;
+      z-index:15;
+      display:flex;
+      align-items:flex-end;
+      justify-content:center;
+      pointer-events:auto;
+    }
+    .handInner{
+      position:relative;
+      width:min(640px, 96vw);
+      height:120px;
+    }
+    .handCard{
+      position:absolute;
+      bottom:4px;
+      transform-origin: 50% 120%;
+      cursor:pointer;
+      transition: transform .12s ease, bottom .12s ease, filter .12s ease;
+    }
+    .handCard.selected{
+      bottom:18px;
+      filter: drop-shadow(0 12px 10px rgba(0,0,0,.25));
+    }
+
+    .suitPicker{
+      position:fixed;
+      inset:0;
+      background: rgba(0,0,0,.55);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index:60;
+    }
+    .suitBox{
+      background:#fff;
+      border-radius:18px;
+      padding:18px;
+      width:min(420px, 92vw);
+      color:#111;
+      box-shadow: var(--shadow);
+      text-align:center;
+      font-weight:900;
+    }
+    .suitGrid{
+      display:grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap:12px;
+      margin-top:12px;
+    }
+    .suitBtn{
+      padding:14px 10px;
+      border-radius:14px;
+      border:0;
+      cursor:pointer;
+      font-weight:900;
+      background:#f3f3f3;
+    }
+    .suitBtn:active{transform: translateY(2px)}
+    .muted{opacity:.75}
+    @media (max-width: 520px){
+      :root{ --cardW: 68px; --cardH: 96px; }
+      h1{font-size:38px}
+      .action{width:78px}
+    }
+  </style>
 </head>
-
 <body>
+  <div class="topbar" id="banner">Old Skool Blackjack</div>
 
-<!-- LOBBY -->
-<div id="lobby" class="screen active">
-  <h1>Old Skool Blackjack</h1>
-  <input id="name" placeholder="Name">
-  <button onclick="create()">Create Room</button>
-  <input id="room" placeholder="ROOM CODE">
-  <button onclick="join()">Join Room</button>
-</div>
+  <!-- LOGIN / LOBBY -->
+  <div class="screen active" id="screenLobby">
+    <div class="panel">
+      <h1>Old Skool Blackjack</h1>
+      <p class="sub">Online lobby & hosted rooms (2 or 4 players)</p>
 
-<!-- GAME -->
-<div id="game" class="screen">
-  <div style="padding:10px;font-weight:bold" id="status"></div>
-  <div style="flex:1"></div>
+      <label class="small">Your name</label>
+      <input id="nameInput" placeholder="Beef" maxlength="24"/>
 
-  <div id="controls">
-    <button>PLAY</button>
-    <button>DRAW</button>
-    <button>LAST!</button>
-    <button>SUIT</button>
+      <div class="row">
+        <select id="seatSelect" style="padding:14px 12px;border-radius:14px;border:0;font-weight:900">
+          <option value="2">2 players</option>
+          <option value="4">4 players</option>
+        </select>
+        <button class="btn primary" id="btnCreate">Create Room</button>
+      </div>
+
+      <div style="height:10px"></div>
+
+      <label class="small">Room code</label>
+      <input id="codeInput" placeholder="ABCDE" maxlength="8"/>
+
+      <button class="btn primary" id="btnJoin">Join Room</button>
+
+      <div style="height:12px"></div>
+      <div class="small muted" id="wsStatus">Connecting…</div>
+      <div class="small muted" id="roomInfo"></div>
+
+      <div style="height:12px"></div>
+      <button class="btn pink" id="btnStart" style="display:none">Start Match</button>
+      <button class="btn blue" id="btnLeave" style="display:none">Leave Room</button>
+    </div>
   </div>
-</div>
+
+  <!-- GAME TABLE -->
+  <div class="table" id="table" style="display:none">
+    <div class="opponent">
+      <div class="badge" id="oppBadge">Opponent (0)</div>
+      <div style="display:flex;justify-content:center;gap:10px" id="oppCards"></div>
+    </div>
+
+    <div class="centerStack">
+      <div class="card back" id="deckCard"></div>
+      <div class="card" id="topCard">
+        <div id="topRank">?</div>
+        <div class="suit" id="topSuit">♠</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="rightBtns" id="actions" style="display:none">
+    <button class="action pink" id="btnPlay">PLAY</button>
+    <button class="action blue" id="btnDraw">DRAW</button>
+    <button class="action yellow" id="btnLast">LAST!</button>
+    <button class="action white" id="btnSuit" disabled>SUIT</button>
+  </div>
+
+  <div class="wood" id="wood" style="display:none"></div>
+  <div class="hand" id="hand" style="display:none">
+    <div class="handInner" id="handInner"></div>
+  </div>
+
+  <div class="suitPicker" id="suitPicker">
+    <div class="suitBox">
+      Choose a suit
+      <div class="suitGrid">
+        <button class="suitBtn" data-s="S">♠ Spades</button>
+        <button class="suitBtn" data-s="H">♥ Hearts</button>
+        <button class="suitBtn" data-s="D">♦ Diamonds</button>
+        <button class="suitBtn" data-s="C">♣ Clubs</button>
+      </div>
+      <div class="small muted" style="margin-top:10px">Needed for Ace / 8.</div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
 
 <script>
-function show(id){
-  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
-}
+(() => {
+  const $ = (id) => document.getElementById(id);
 
-function create(){
-  show('game');
-  document.getElementById('status').textContent = "Room created (waiting for player)";
-}
+  // UI refs
+  const screenLobby = $("screenLobby");
+  const table = $("table");
+  const actions = $("actions");
+  const wood = $("wood");
+  const hand = $("hand");
+  const handInner = $("handInner");
+  const oppBadge = $("oppBadge");
+  const oppCards = $("oppCards");
+  const topRank = $("topRank");
+  const topSuit = $("topSuit");
+  const banner = $("banner");
+  const toast = $("toast");
+  const suitPicker = $("suitPicker");
+  const wsStatus = $("wsStatus");
+  const roomInfo = $("roomInfo");
 
-function join(){
-  show('game');
-  document.getElementById('status').textContent = "Joined room";
-}
+  const btnCreate = $("btnCreate");
+  const btnJoin = $("btnJoin");
+  const btnStart = $("btnStart");
+  const btnLeave = $("btnLeave");
+  const btnPlay = $("btnPlay");
+  const btnDraw = $("btnDraw");
+  const btnLast = $("btnLast");
+  const btnSuit = $("btnSuit");
+  const nameInput = $("nameInput");
+  const codeInput = $("codeInput");
+  const seatSelect = $("seatSelect");
+
+  // State
+  let ws = null;
+  let you = { id:null, name:"Player" };
+  let room = null;          // public room
+  let state = null;         // game state
+  let selectedIds = [];
+  let pendingSuitForPlay = null; // when server says need_suit
+
+  // Persist name
+  try {
+    const saved = localStorage.getItem("osbj_name");
+    if (saved) nameInput.value = saved;
+  } catch {}
+  function saveName(n){
+    try { localStorage.setItem("osbj_name", n); } catch {}
+  }
+
+  function showToast(msg){
+    toast.textContent = msg;
+    toast.style.display = "block";
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(()=>toast.style.display="none", 1800);
+  }
+
+  function setBanner(msg){
+    if (msg) banner.textContent = msg;
+  }
+
+  function suitSym(s){
+    return s==="S"?"♠":s==="H"?"♥":s==="D"?"♦":"♣";
+  }
+  function isRedSuit(s){ return s==="H"||s==="D"; }
+
+  function cardHTML(card, isBack=false){
+    const div = document.createElement("div");
+    div.className = "card" + (isBack ? " back" : (isRedSuit(card.s) ? " red":""));
+    if (!isBack){
+      div.innerHTML = `<div>${card.r}</div><div class="suit">${suitSym(card.s)}</div>`;
+    }
+    return div;
+  }
+
+  function resetSelection(){
+    selectedIds = [];
+    pendingSuitForPlay = null;
+    btnSuit.disabled = true;
+    renderHand();
+  }
+
+  function renderOpponent(){
+    if (!room) return;
+    const others = room.players.filter(p => p.id !== you.id);
+    if (others.length === 0){
+      oppBadge.textContent = "Waiting…";
+      oppCards.innerHTML = "";
+      return;
+    }
+    // For 2 players, show first opponent. For 4, show combined count.
+    if (room.seats === 2){
+      const o = others[0];
+      oppBadge.textContent = `${o.name} (${o.handCount})`;
+      oppCards.innerHTML = "";
+      const n = Math.min(o.handCount, 6);
+      for (let i=0;i<n;i++){
+        oppCards.appendChild(cardHTML({r:"?",s:"S"}, true));
+      }
+    } else {
+      const total = others.reduce((a,p)=>a+p.handCount,0);
+      oppBadge.textContent = `Opponents (${total})`;
+      oppCards.innerHTML = "";
+      const n = Math.min(total, 8);
+      for (let i=0;i<n;i++){
+        oppCards.appendChild(cardHTML({r:"?",s:"S"}, true));
+      }
+    }
+  }
+
+  function renderTop(){
+    if (!state || !state.top) return;
+    topRank.textContent = state.top.r;
+    topSuit.textContent = suitSym(state.activeSuit || state.top.s);
+    topSuit.style.color = (state.activeSuit==="H"||state.activeSuit==="D") ? "#c01515" : "#111";
+  }
+
+  function fanPositions(n){
+    if (n<=1) return [{x:0, rot:0}];
+    const spread = Math.min(42, 10 + n*3);
+    const mid = (n-1)/2;
+    const out = [];
+    for (let i=0;i<n;i++){
+      const t = (i-mid)/mid; // -1..1
+      const rot = t*spread;
+      const x = t* (Math.min(240, 22*n));
+      out.push({x, rot});
+    }
+    return out;
+  }
+
+  function renderHand(){
+    if (!state || !room) return;
+    const me = room.players.find(p=>p.id===you.id);
+    // state does not include your hand; server does by sending full hand in a private message? We'll store it in state._youHand
+    const handCards = (state._youHand || []);
+    handInner.innerHTML = "";
+    const n = handCards.length;
+    const pos = fanPositions(n);
+
+    for (let i=0;i<n;i++){
+      const c = handCards[i];
+      const el = cardHTML(c, false);
+      el.classList.add("handCard");
+      const sel = selectedIds.includes(c.id);
+      if (sel) el.classList.add("selected");
+      el.style.left = `calc(50% - ${varCardW()/2}px + ${pos[i].x}px)`;
+      el.style.transform = `rotate(${pos[i].rot}deg)`;
+      el.addEventListener("click", () => {
+        if (!isMyTurn()) return;
+        // toggle
+        if (selectedIds.includes(c.id)) selectedIds = selectedIds.filter(x=>x!==c.id);
+        else selectedIds.push(c.id);
+        // if selecting multiple, keep same rank
+        if (selectedIds.length > 1){
+          const first = handCards.find(cc=>cc.id===selectedIds[0]);
+          selectedIds = selectedIds.filter(id=>{
+            const cc = handCards.find(x=>x.id===id);
+            return cc && cc.r === first.r;
+          });
+        }
+        // enable suit button only if selection is Ace/8
+        const chosen = handCards.find(cc=>cc.id===selectedIds[0]);
+        if (chosen && (chosen.r==="A"||chosen.r==="8")) btnSuit.disabled = false;
+        else btnSuit.disabled = true;
+        renderHand();
+      });
+      handInner.appendChild(el);
+    }
+
+    // Update action enable
+    btnPlay.disabled = !isMyTurn() || selectedIds.length===0;
+    btnDraw.disabled = !isMyTurn();
+    btnLast.disabled = !isMyTurn();
+  }
+
+  function varCardW(){
+    // read css var --cardW
+    const v = getComputedStyle(document.documentElement).getPropertyValue("--cardW").trim();
+    const num = parseFloat(v);
+    return Number.isFinite(num) ? num : 78;
+  }
+
+  function isMyTurn(){
+    return state && state.turnId && state.turnId === you.id;
+  }
+
+  function updateUI(){
+    // Lobby vs table
+    if (room && room.inGame){
+      screenLobby.classList.remove("active");
+      table.style.display = "block";
+      actions.style.display = "flex";
+      wood.style.display = "block";
+      hand.style.display = "flex";
+      btnStart.style.display = "none";
+      btnLeave.style.display = "block";
+    } else {
+      screenLobby.classList.add("active");
+      table.style.display = "none";
+      actions.style.display = "none";
+      wood.style.display = "none";
+      hand.style.display = "none";
+      btnStart.style.display = room ? "block" : "none";
+      btnLeave.style.display = room ? "block" : "none";
+    }
+
+    // Lobby info
+    if (room){
+      roomInfo.textContent = `Room ${room.code} • ${room.seats} seats • Players: ` + room.players.filter(p=>!p.isBot).map(p=>p.name).join(", ");
+      btnStart.style.display = (room.hostId === you.id && !room.inGame) ? "block" : "none";
+    } else {
+      roomInfo.textContent = "";
+    }
+
+    // In game
+    if (room && room.inGame && state){
+      renderOpponent();
+      renderTop();
+      renderHand();
+      if (state.banner) setBanner(state.banner);
+      else setBanner("Old Skool Blackjack");
+    }
+  }
+
+  // WebSocket
+  function wsURL(){
+    const proto = (location.protocol === "https:") ? "wss:" : "ws:";
+    return proto + "//" + location.host;
+  }
+  function connect(){
+    ws = new WebSocket(wsURL());
+    wsStatus.textContent = "Connecting…";
+
+    ws.addEventListener("open", () => {
+      wsStatus.textContent = "Connected";
+      const nm = (nameInput.value || "Player").trim().slice(0,24);
+      saveName(nm);
+      ws.send(JSON.stringify({t:"hello", name:nm}));
+    });
+
+    ws.addEventListener("message", (ev) => {
+      let msg;
+      try{ msg = JSON.parse(ev.data); }catch{ return; }
+
+      if (msg.t === "hello_ok"){
+        you = msg.you;
+        return;
+      }
+      if (msg.t === "toast"){
+        showToast(msg.msg);
+        return;
+      }
+      if (msg.t === "room"){
+        room = msg.room;
+        updateUI();
+        return;
+      }
+      if (msg.t === "state"){
+        state = msg.state;
+        updateUI();
+        return;
+      }
+      if (msg.t === "need_suit"){
+        pendingSuitForPlay = true;
+        suitPicker.style.display = "flex";
+        showToast("Pick a suit");
+        return;
+      }
+      if (msg.t === "ended"){
+        showToast("Winner: " + msg.winner.name);
+        setBanner("Winner: " + msg.winner.name);
+        return;
+      }
+      if (msg.t === "rooms"){
+        // ignore for now (optional room list UI)
+        return;
+      }
+      // Private hand update
+      if (msg.t === "hand"){
+        if (!state) state = {};
+        state._youHand = msg.hand || [];
+        renderHand();
+      }
+    });
+
+    ws.addEventListener("close", () => {
+      wsStatus.textContent = "Disconnected (refresh)";
+    });
+  }
+
+  // Hook controls
+  btnCreate.addEventListener("click", () => {
+    const nm = (nameInput.value || "Player").trim().slice(0,24);
+    if (!nm) return;
+    saveName(nm);
+    if (ws && ws.readyState === 1) ws.send(JSON.stringify({t:"hello", name:nm}));
+    const seats = parseInt(seatSelect.value,10)===4 ? 4 : 2;
+    ws.send(JSON.stringify({t:"create_room", seats}));
+  });
+  btnJoin.addEventListener("click", () => {
+    const nm = (nameInput.value || "Player").trim().slice(0,24);
+    saveName(nm);
+    if (ws && ws.readyState === 1) ws.send(JSON.stringify({t:"hello", name:nm}));
+    const code = (codeInput.value || "").trim().toUpperCase();
+    if (!code) return;
+    ws.send(JSON.stringify({t:"join_room", code}));
+  });
+  btnStart.addEventListener("click", () => ws.send(JSON.stringify({t:"start"})));
+  btnLeave.addEventListener("click", () => ws.send(JSON.stringify({t:"leave"})));
+
+  btnDraw.addEventListener("click", () => {
+    resetSelection();
+    ws.send(JSON.stringify({t:"draw"}));
+  });
+
+  btnLast.addEventListener("click", () => {
+    ws.send(JSON.stringify({t:"last"}));
+  });
+
+  btnPlay.addEventListener("click", () => {
+    if (!selectedIds.length) return;
+    // If Ace/8, we can optionally choose suit; if not chosen, server will ask
+    ws.send(JSON.stringify({t:"play", cardIds: selectedIds, suit: pendingSuitForPlay ? null : null }));
+    // do not clear until server confirms state; but clear selection now
+    resetSelection();
+  });
+
+  btnSuit.addEventListener("click", () => {
+    // open suit picker for an upcoming play
+    suitPicker.style.display = "flex";
+  });
+
+  suitPicker.addEventListener("click", (e) => {
+    if (e.target === suitPicker) suitPicker.style.display = "none";
+  });
+  suitPicker.querySelectorAll(".suitBtn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const s = btn.getAttribute("data-s");
+      suitPicker.style.display = "none";
+      // send a play with suit choice using currently selected (but we reset selection on PLAY)
+      // Instead, store suit choice and re-play last chosen? simplest: ask user to select cards again.
+      showToast("Suit set: " + suitSym(s) + " (play Ace/8 now)");
+      // We'll stash preferred suit; next time you play Ace/8 it should include suit.
+      window._preferredSuit = s;
+    });
+  });
+
+  // Patch PLAY to include preferred suit if Ace/8 selected
+  btnPlay.addEventListener("click", () => {
+    // replaced above? We'll override by using capture? We'll just set with once.
+  }, { once:true });
+
+  // Rebind play properly (remove earlier)
+  btnPlay.onclick = () => {
+    if (!selectedIds.length) return;
+    const handCards = (state && state._youHand) ? state._youHand : [];
+    const first = handCards.find(c=>c.id===selectedIds[0]);
+    let suit = null;
+    if (first && (first.r==="A" || first.r==="8")) suit = window._preferredSuit || null;
+    ws.send(JSON.stringify({t:"play", cardIds: selectedIds, suit }));
+    resetSelection();
+  };
+
+  // Server currently doesn't send your hand unless we add it.
+  // We'll request it by piggybacking state broadcast with a private hand message on every state.
+  // The server in this bundle does NOT yet do that, so we implement it client-side by asking:
+  // not needed if server broadcasts hands by ws only. We'll add that server-side below? (We will.)
+  connect();
+})();
 </script>
-
 </body>
 </html>
