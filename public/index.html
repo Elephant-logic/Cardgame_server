@@ -1305,7 +1305,12 @@
     function toggleSelect(i) {
       if (isProcessing) return;
       if (gameMode === "p2p" && turnIndex !== myP2PIndex) return;
-      if (gameMode !== "p2p" && gamePlayers[turnIndex].isBot) return;
+
+      if (gameMode === "online") {
+        if (turnIndex !== myOnlineIndex) return;
+      } else if (gameMode !== "p2p" && (gamePlayers[turnIndex] && gamePlayers[turnIndex].isBot)) {
+        return;
+      }
 
       const existingIdx = selectionOrder.indexOf(i);
       if (existingIdx !== -1) selectionOrder.splice(existingIdx, 1);
@@ -1784,6 +1789,9 @@
       } else if (gameMode === "p2p") {
         bottomP = gamePlayers[myP2PIndex];
         opponents = gamePlayers.filter((p, i) => i !== myP2PIndex);
+      } else if (gameMode === "online") {
+        bottomP = gamePlayers[myOnlineIndex] || gamePlayers[0];
+        opponents = gamePlayers.filter((p, i) => i !== myOnlineIndex);
       } else {
         bottomP = gamePlayers[0];
         opponents = gamePlayers.filter((p, i) => i !== 0);
@@ -1866,10 +1874,20 @@
 
     function updateControls() {
       let btnPlay = document.getElementById("btn-play");
-      btnPlay.disabled = selectionOrder.length === 0 || (gameMode === "p2p" && turnIndex !== myP2PIndex);
 
-      let p = (gameMode === "p2p") ? gamePlayers[myP2PIndex] : gamePlayers[turnIndex];
-      let effectiveHandLen = (gameMode === "p2p") ? gamePlayers[myP2PIndex].hand.length : gamePlayers[turnIndex].hand.length;
+      const p = (gameMode === "online")
+        ? (gamePlayers[myOnlineIndex] || gamePlayers[0])
+        : ((gameMode === "p2p") ? gamePlayers[myP2PIndex] : gamePlayers[turnIndex]);
+
+      const effectiveHandLen = p && p.hand ? p.hand.length : 0;
+
+      // enable play only when you have a selection and it's your turn (online/p2p)
+      const notYourTurn =
+        (gameMode === "p2p" && turnIndex !== myP2PIndex) ||
+        (gameMode === "online" && turnIndex !== myOnlineIndex);
+
+      btnPlay.disabled = selectionOrder.length === 0 || notYourTurn;
+
       let willFinish = effectiveHandLen === selectionOrder.length && selectionOrder.length > 0;
       if (willFinish && p.lastDeclared) {
         btnPlay.classList.add("winning-btn");
@@ -2199,7 +2217,9 @@
       deck = st.deck || [];
       discard = st.discard || [];
       gamePlayers = st.gamePlayers || [];
-      turnIndex = st.turnIndex || 0;
+      turnIndex = Number.isInteger(st.turnIndex) ? st.turnIndex : (Number.isInteger(turnIndex) ? turnIndex : 0);
+        if (turnIndex < 0) turnIndex = 0;
+        if (gamePlayers.length && turnIndex >= gamePlayers.length) turnIndex = 0;
       direction = st.direction || 1;
       activeSuit = st.activeSuit || null;
       pendingDraw2 = st.pendingDraw2 || 0;
