@@ -662,24 +662,7 @@
       animation: popIn 0.3s forwards;
     }
   
-    .you-label{
-      position: fixed;
-      left: 50%;
-      bottom: calc(var(--card-h) + 85px);
-      transform: translateX(-50%);
-      background: rgba(255,255,255,0.92);
-      border: 2px solid #111;
-      border-radius: 12px;
-      padding: 6px 12px;
-      font-weight: 900;
-      font-size: 18px;
-      box-shadow: 0 3px 0 rgba(0,0,0,0.35);
-      z-index: 200;
-      pointer-events: none;
-      text-transform: lowercase;
-    }
-
-</style>
+    </style>
 </head>
 <body data-cardback="classic">
   <div id="toast-notification"></div>
@@ -1827,7 +1810,7 @@
       
       // Ensure the bottom label always shows the LOCAL player's identity in online mode
       try {
-        const yl = document.getElementById("you-label");
+        const yl = document.getElementById("you_label_removed");
         if (yl && bottomP) yl.innerText = `${bottomP.name} (${bottomP.hand.length})`;
       } catch(e) {}
 if (!(gameMode === "pass_play" && bottomP.isBot)) {
@@ -1856,7 +1839,7 @@ if (!(gameMode === "pass_play" && bottomP.isBot)) {
       
       // Always show WHO YOU ARE (bottom hand) in online mode / pass&play.
       try {
-        const yl = document.getElementById("you-label");
+        const yl = document.getElementById("you_label_removed");
         if (yl) {
           if (bottomP && bottomP.name) {
             yl.textContent = `${bottomP.name} (${(bottomP.hand||[]).length})`;
