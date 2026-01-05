@@ -183,27 +183,31 @@ function startGame(room){
 
 function broadcastState(room){
   const s = room.state;
-  const payload = {
-    t:'state',
-    state: {
-      players: room.players.map(p => ({
-        id: p.id,
-        name: p.name,
-        lastDeclared: !!p.lastDeclared,
-        hand: p.hand.map(c => ({id:c.id, rank:c.rank, suit:c.suit}))
-      })),
-      turnIndex: s.turnIndex,
-      direction: s.direction,
-      activeSuit: s.activeSuit,
-      pendingDraw2: s.pendingDraw2,
-      pendingDrawJ: s.pendingDrawJ,
-      pendingSkip: s.pendingSkip,
-      topCard: s.topCard,
-      feed: s.feed,
-      awaitingSuit: s.awaitingSuit
-    }
+  const baseState = {
+    players: room.players.map(p => ({
+      id: p.id,
+      name: p.name,
+      lastDeclared: !!p.lastDeclared,
+      hand: p.hand.map(c => ({id:c.id, rank:c.rank, suit:c.suit}))
+    })),
+    turnIndex: s.turnIndex,
+    direction: s.direction,
+    activeSuit: s.activeSuit,
+    pendingDraw2: s.pendingDraw2,
+    pendingDrawJ: s.pendingDrawJ,
+    pendingSkip: s.pendingSkip,
+    topCard: s.topCard,
+    feed: s.feed,
+    awaitingSuit: s.awaitingSuit
   };
-  broadcast(room, payload);
+
+  // IMPORTANT: each client must be told who THEY are (authoritative from server)
+  // so their UI doesn't "swap" players between devices.
+  for (const [ws, info] of room.clients.entries()) {
+    send(ws, { t:'state', state: { ...baseState, you: info.id } });
+  }
+}
+
 }
 
 function currentPlayer(room){
@@ -439,7 +443,7 @@ wss.on('connection', (ws) => {
       let code = randCode(6);
       while(rooms.has(code)) code = randCode(6);
 
-      const playerId = uid();
+      const playerId = (msg.clientId ? msg.clientId.toString().slice(0,64) : uid());
       const name = (msg.name || 'Player').toString().slice(0,24);
 
       const newRoom = {
@@ -468,9 +472,13 @@ wss.on('connection', (ws) => {
             if(target.players.length >= 4) { send(ws, {t:'error', message:'Room full'}); return; }
       if(target.started) { send(ws, {t:'error', message:'Game already started'}); return; }
 
-      const playerId = uid();
+      const playerId = (msg.clientId ? msg.clientId.toString().slice(0,64) : uid());
       const name = (msg.name || 'Player').toString().slice(0,24);
       const isHost = false;
+
+      // Ensure this device id isn't duplicated in the room (rejoin safety)
+      target.players = target.players.filter(p => p.id !== playerId);
+      for (const [k,v] of target.clients.entries()) { if (v.id === playerId) target.clients.delete(k); }
 
       target.clients.set(ws, {id: playerId, name, isHost});
       target.players.push({id: playerId, name, isHost, hand:[], lastDeclared:false});
