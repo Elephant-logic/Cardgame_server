@@ -9,11 +9,11 @@ const WebSocket = require('ws');
 const PORT = process.env.PORT || 10000;
 const app = express();
 
-// Serve static files from repo root (index.html, assets if any)
-app.use(express.static(path.join(__dirname)));
+// Serve static files from /public (Render runs from /opt/render/project/src)
+app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 const server = http.createServer(app);
