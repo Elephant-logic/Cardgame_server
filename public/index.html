@@ -112,6 +112,11 @@
             margin-bottom: 15px; background: white; color: #333;
         }
         .btn-league { background: var(--sticker-yellow); transform: rotate(1deg); }
+        .btn-party {
+        }
+        .btn-online { background: #c8b6ff; }
+        .btn-online small{opacity:0.85;}
+
         .btn-party { background: var(--sticker-blue); transform: rotate(-1deg); }
         .btn-start { background: var(--sticker-pink); }
         .menu-btn:active { transform: scale(0.95); box-shadow: 1px 1px 0 #333; }
@@ -315,6 +320,12 @@
             <small>Pass & Play • Custom</small>
         </button>
 
+        
+        <button class="menu-btn btn-online" onclick="goToOnlineLobby()">
+            🌐 Online Lobby
+            <small>Create / Join • Multiplayer</small>
+        </button>
+
         <button class="menu-btn" onclick="cycleCardBack()" style="background:white;">
             🎴 Change Card Back
             <small>Unlock more by win streaks</small>
@@ -345,7 +356,38 @@
             <button class="btn-add" onclick="addLobbyHuman()">+ Friend</button>
             <button class="menu-btn btn-start" id="btn-start-party" style="width:100%; margin-top:10px;" onclick="startPartyGame()">DEAL!</button>
         </div>
+    
+    <div id="online-lobby-screen" class="screen">
+        <div class="header-row">
+            <button onclick="showScreen('menu-screen')" style="background:none; border:none; color:#333; font-size:2rem; font-weight:bold;">↩</button>
+            <h2 style="margin:0; color:#333">ONLINE LOBBY</h2>
+            <div style="width:24px"></div>
+        </div>
+
+        <div style="width:90%; max-width:520px; background:white; border-radius:16px; padding:14px; box-shadow:4px 4px 0 rgba(0,0,0,0.12);">
+            <div style="font-weight:900; margin-bottom:8px;">Your name</div>
+            <input id="online-name" placeholder="Beef" style="width:100%; padding:12px; border-radius:12px; border:2px solid #333; font-weight:800; font-size:1rem;" />
+            <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">
+                <button class="menu-btn btn-start" style="flex:1; min-width:140px;" onclick="onlineCreate()">CREATE</button>
+                <button class="menu-btn btn-party" style="flex:1; min-width:140px;" onclick="onlineJoinPrompt()">JOIN</button>
+            </div>
+        </div>
+
+        <div id="online-room-box" style="display:none; width:90%; max-width:520px; margin-top:14px; background:white; border-radius:16px; padding:14px; box-shadow:4px 4px 0 rgba(0,0,0,0.12);">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+                <div style="font-weight:900;">Room Code: <span id="online-room-code" style="letter-spacing:2px;"></span></div>
+                <button class="btn-add" onclick="onlineCopyRoom()">Copy</button>
+            </div>
+            <div style="margin-top:10px; font-weight:900;">Players</div>
+            <div id="online-players" style="margin-top:6px;"></div>
+            <button class="menu-btn btn-league" id="online-start-btn" style="width:100%; margin-top:12px;" onclick="onlineStart()" disabled>START GAME</button>
+            <button class="menu-btn" style="width:100%; margin-top:10px; background:#fff0f0;" onclick="onlineLeave()">LEAVE</button>
+            <div style="margin-top:10px; font-size:0.85rem; opacity:0.85;">
+                Tip: share the Room Code, then both of you press START.
+            </div>
+        </div>
     </div>
+</div>
 
     <div id="pass-device-screen" class="screen">
         <div class="pass-title">Pass to <span id="next-player-name" style="color:var(--sticker-yellow)">...</span></div>
@@ -769,6 +811,13 @@
     }
 
     function humanPickup() {
+        if(ONLINE && ONLINE.enabled){
+            const p = gamePlayers[turnIndex];
+            if(!p || p.id !== ONLINE.you) { showToast("Not your turn"); return; }
+            try { ONLINE.ws.send(JSON.stringify({t:"draw"})); } catch(e){ showToast("Send failed"); }
+            return;
+        }
+
         if(isProcessing) return;
         if(gamePlayers[turnIndex].isBot) return;
         isProcessing = true;
@@ -798,6 +847,13 @@
     }
 
     function humanDeclareLast() {
+        if(ONLINE && ONLINE.enabled){
+            const p = gamePlayers[turnIndex];
+            if(!p || p.id !== ONLINE.you) { showToast("Not your turn"); return; }
+            try { ONLINE.ws.send(JSON.stringify({t:"last"})); } catch(e){ showToast("Send failed"); }
+            return;
+        }
+
         if(isProcessing || gamePlayers[turnIndex].isBot) return;
         let p = gamePlayers[turnIndex];
         p.lastDeclared = true;
@@ -807,6 +863,16 @@
     }
 
     function humanPlay() {
+        if(ONLINE && ONLINE.enabled){
+            const p = gamePlayers[turnIndex];
+            if(!p || p.id !== ONLINE.you) { showToast("Not your turn"); return; }
+            if(!selectionOrder.length) return;
+            const ids = selectionOrder.map(i => p.hand[i]?.id).filter(Boolean);
+            if(ids.length !== selectionOrder.length){ showToast("Bad selection"); return; }
+            try { ONLINE.ws.send(JSON.stringify({t:"play", cards: ids})); } catch(e){ showToast("Send failed"); }
+            return;
+        }
+
         if(isProcessing || gamePlayers[turnIndex].isBot) return;
         if(!selectionOrder.length) return;
         attemptPlay(turnIndex, [...selectionOrder]);
@@ -1061,6 +1127,7 @@
 
     // --- CPU LOGIC ---
     function cpuTurn() {
+        try {
         let p = gamePlayers[turnIndex];
         let nextP = gamePlayers[(turnIndex + direction + gamePlayers.length) % gamePlayers.length];
 
@@ -1152,6 +1219,12 @@
         }
 
         attemptPlay(turnIndex, best.indices);
+        } catch(e){
+            console.error("CPU TURN ERROR", e);
+            // fail-safe: draw 1 and move on
+            try{ gamePlayers[turnIndex].hand.push(...draw(1)); }catch{}
+            selectionOrder=[]; isProcessing=false; setTimeout(nextTurn, 500);
+        }
     }
 
     // --- RENDER ---
@@ -1349,6 +1422,201 @@
         el.addEventListener("mousedown", () => { t = setTimeout(() => toggleDebug(), 600); });
         el.addEventListener("mouseup", () => { if(t) clearTimeout(t); t = null; });
     })();
+
+    // =========================
+    // ONLINE MULTIPLAYER (WS)
+    // =========================
+    let ONLINE = {
+        enabled: false,
+        ws: null,
+        room: null,
+        you: null,          // playerId
+        isHost: false,
+        serverUrl: null,
+        lastState: null,
+    };
+
+    function getWsBase() {
+        // Works on Render + local
+        const proto = (location.protocol === "https:") ? "wss" : "ws";
+        return `${proto}://${location.host}/ws`;
+    }
+
+    function goToOnlineLobby() {
+        showScreen('online-lobby-screen');
+        document.getElementById('online-name').value = (leagueData?.player?.name || "Beef");
+        ONLINE.serverUrl = getWsBase();
+        // reset UI
+        document.getElementById('online-room-box').style.display = 'none';
+        document.getElementById('online-room-code').innerText = '';
+        document.getElementById('online-players').innerHTML = '';
+        document.getElementById('online-start-btn').disabled = true;
+    }
+
+    function ensureWsConnected() {
+        return new Promise((resolve, reject) => {
+            if(ONLINE.ws && ONLINE.ws.readyState === 1) return resolve();
+            try {
+                ONLINE.ws = new WebSocket(ONLINE.serverUrl);
+            } catch(e) {
+                showToast("WebSocket failed");
+                return reject(e);
+            }
+            ONLINE.ws.onopen = () => resolve();
+            ONLINE.ws.onerror = (e) => reject(e);
+            ONLINE.ws.onmessage = (ev) => {
+                let msg;
+                try { msg = JSON.parse(ev.data); } catch { return; }
+                handleOnlineMsg(msg);
+            };
+            ONLINE.ws.onclose = () => {
+                // If you're in an online game and connection drops, show message
+                if(ONLINE.enabled) showToast("Disconnected");
+                ONLINE.enabled = false;
+            };
+        });
+    }
+
+    function onlineName() {
+        const v = (document.getElementById('online-name')?.value || "").trim();
+        return v || "Beef";
+    }
+
+    async function onlineCreate() {
+        await ensureWsConnected();
+        ONLINE.enabled = false;
+        ONLINE.room = null; ONLINE.you = null; ONLINE.isHost = true;
+        ONLINE.ws.send(JSON.stringify({t:"create", name: onlineName()}));
+    }
+
+    function onlineJoinPrompt() {
+        const code = prompt("Enter Room Code (e.g. A1B2C3):");
+        if(!code) return;
+        onlineJoin(code.trim().toUpperCase());
+    }
+
+    async function onlineJoin(code) {
+        await ensureWsConnected();
+        ONLINE.enabled = false;
+        ONLINE.room = code; ONLINE.you = null; ONLINE.isHost = false;
+        ONLINE.ws.send(JSON.stringify({t:"join", room: code, name: onlineName()}));
+    }
+
+    function onlineCopyRoom() {
+        const code = document.getElementById('online-room-code').innerText.trim();
+        if(!code) return;
+        navigator.clipboard?.writeText(code);
+        showToast("Copied!");
+    }
+
+    function onlineLeave() {
+        try { ONLINE.ws?.send(JSON.stringify({t:"leave"})); } catch {}
+        ONLINE.enabled = false;
+        ONLINE.room = null; ONLINE.you = null; ONLINE.isHost = false;
+        showScreen('online-lobby-screen');
+        document.getElementById('online-room-box').style.display = 'none';
+    }
+
+    function onlineStart() {
+        if(!ONLINE.room) return;
+        ONLINE.ws.send(JSON.stringify({t:"start"}));
+    }
+
+    function renderOnlinePlayers(players) {
+        const box = document.getElementById('online-players');
+        box.innerHTML = '';
+        players.forEach((p, i) => {
+            const div = document.createElement('div');
+            div.style.padding = '10px 12px';
+            div.style.border = '2px solid #333';
+            div.style.borderRadius = '12px';
+            div.style.marginTop = '6px';
+            div.style.fontWeight = '900';
+            div.innerHTML = `${i+1}. ${p.name} ${p.id===ONLINE.you ? "<small style='opacity:0.7'>(YOU)</small>" : ""} ${p.isHost ? "<small style='opacity:0.7'>(HOST)</small>" : ""}`;
+            box.appendChild(div);
+        });
+    }
+
+    function handleOnlineMsg(msg) {
+        if(msg.t === "created") {
+            ONLINE.room = msg.room;
+            ONLINE.you = msg.you;
+            ONLINE.isHost = true;
+            document.getElementById('online-room-box').style.display = 'block';
+            document.getElementById('online-room-code').innerText = msg.room;
+            renderOnlinePlayers(msg.players);
+            document.getElementById('online-start-btn').disabled = (msg.players.length < 2);
+        }
+        else if(msg.t === "joined") {
+            ONLINE.room = msg.room;
+            ONLINE.you = msg.you;
+            ONLINE.isHost = msg.isHost;
+            document.getElementById('online-room-box').style.display = 'block';
+            document.getElementById('online-room-code').innerText = msg.room;
+            renderOnlinePlayers(msg.players);
+            document.getElementById('online-start-btn').disabled = (!ONLINE.isHost || msg.players.length < 2);
+        }
+        else if(msg.t === "players") {
+            renderOnlinePlayers(msg.players);
+            document.getElementById('online-start-btn').disabled = (!ONLINE.isHost || msg.players.length < 2);
+        }
+        else if(msg.t === "error") {
+            showToast(msg.message || "Error");
+        }
+        else if(msg.t === "state") {
+            // enter online game
+            ONLINE.enabled = true;
+            ONLINE.lastState = msg.state;
+            applyServerState(msg.state);
+        }
+        else if(msg.t === "needSuit") {
+            // server wants suit after ace (optional)
+            if(msg.playerId === ONLINE.you) {
+                document.getElementById('suit-modal').style.display = 'flex';
+                // when user picks suit we will send it using chooseSuitOnline
+                acePending = true;
+            }
+        }
+        else if(msg.t === "ended") {
+            ONLINE.enabled = false;
+            showToast(`Winner: ${msg.winner}`);
+        }
+    }
+
+    function chooseSuitOnline(suit) {
+        if(!ONLINE.enabled) return;
+        try { ONLINE.ws.send(JSON.stringify({t:"suit", suit})); } catch {}
+    }
+
+    function applyServerState(s) {
+        // Map server state into existing UI variables (render only)
+        // Players contain {id,name,hand:[{id,rank,suit}], lastDeclared}
+        gamePlayers = s.players.map(p => ({
+            id: p.id,
+            name: p.name,
+            isBot: false,
+            hand: p.hand.map(c => ({id:c.id, rank:c.rank, suit:c.suit})),
+            lastDeclared: !!p.lastDeclared
+        }));
+        turnIndex = s.turnIndex;
+        direction = s.direction;
+        activeSuit = s.activeSuit;
+        pendingDraw2 = s.pendingDraw2;
+        pendingDrawJ = s.pendingDrawJ;
+        pendingSkip = s.pendingSkip;
+        extraTurn = false;
+        acePending = false;
+        selectionOrder = [];
+        isProcessing = false;
+        // Keep discard top for rendering
+        discard = s.topCard ? [{rank:s.topCard.rank, suit:s.topCard.suit}] : [];
+        // When online game starts, always show game screen (no pass device)
+        showScreen('game-screen');
+        updateFeed(s.feed || "Online match!");
+        updateGameUI();
+    }
+
+
 </script>
 </body>
 </html>
