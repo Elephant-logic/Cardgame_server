@@ -14,7 +14,8 @@ app.get("/health", (req, res) => res.json({ ok: true }));
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-const PORT = process.env.PORT || 3000;
+// ✅ Render injects PORT, but defaulting to 10000 matches your Docker expectation
+const PORT = process.env.PORT || 10000;
 server.listen(PORT, () => console.log("Server listening on", PORT));
 
 // ----------------------------
@@ -323,11 +324,6 @@ function applyAction(state, seat, action) {
       return { ok: true, events };
     }
 
-    // reset lastDeclared if they didn’t finish (same vibe as your file: you only need it for finishing)
-    // keep whatever you want; this keeps it “per turn”
-    // (you can shout last early, but it only matters when you go to 0)
-    // We'll keep it as-is (doesn't auto-clear here).
-
     // extra turn for King
     if (state.extraTurn) {
       state.extraTurn = false;
@@ -346,15 +342,6 @@ function applyAction(state, seat, action) {
 // ----------------------------
 // Rooms
 // ----------------------------
-const rooms = new Map();
-// roomCode -> {
-//   code,
-//   clients: Map<playerId, ws>,
-//   seats: [playerId|null, playerId|null],
-//   names: Map<playerId, name>,
-//   state: null
-// }
-
 function getRoom(code) {
   return rooms.get(code);
 }
@@ -411,8 +398,11 @@ function broadcastState(room) {
   broadcast(room, "ROOM_INFO", { room: roomInfo(room) });
 }
 
+// ✅ Your room map lives here (same as your original)
+const rooms = new Map();
+
 // ----------------------------
-// WebSocket handling
+// WebSocket handling (ONLY ONE connection handler)
 // ----------------------------
 wss.on("connection", (ws) => {
   ws._pid = rid(10); // session player id
