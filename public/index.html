@@ -71,7 +71,7 @@
         .screen.active { display: flex; }
 
         /* --- NOTEBOOK PAPER STYLE --- */
-        #login-screen, #menu-screen, #lobby-screen, #dashboard-screen {
+        #login-screen, #menu-screen, #lobby-screen, #dashboard-screen, #online-lobby-screen {
             background-color: var(--paper-white);
             background-image: linear-gradient(var(--line-blue) 1px, transparent 1px);
             background-size: 100% 25px;
@@ -356,7 +356,8 @@
             <button class="btn-add" onclick="addLobbyHuman()">+ Friend</button>
             <button class="menu-btn btn-start" id="btn-start-party" style="width:100%; margin-top:10px;" onclick="startPartyGame()">DEAL!</button>
         </div>
-    
+    </div>
+
     <div id="online-lobby-screen" class="screen">
         <div class="header-row">
             <button onclick="showScreen('menu-screen')" style="background:none; border:none; color:#333; font-size:2rem; font-weight:bold;">↩</button>
@@ -1087,14 +1088,17 @@
 
     function resolveAce(char){
         const suit = SUIT_MAP[char];
-        acePending=false;
-        document.getElementById('suit-modal').style.display='none';
-        // Online: server owns turn progression + suit state
         if(ONLINE && ONLINE.enabled){
-            chooseSuitOnline(suit);
+            activeSuit = suit;
+            acePending = false;
+            document.getElementById('suit-modal').style.display='none';
+            try{ ONLINE.ws.send(JSON.stringify({t:'suit', suit})); }catch(e){}
+            updateGameUI();
             return;
         }
-        activeSuit=suit;
+        activeSuit = suit;
+        acePending = false;
+        document.getElementById('suit-modal').style.display='none';
         nextTurn();
     }
     function openHelp() { document.getElementById('help-modal').style.display = 'flex'; }
@@ -1556,7 +1560,7 @@
             document.getElementById('online-room-box').style.display = 'block';
             document.getElementById('online-room-code').innerText = msg.room;
             renderOnlinePlayers(msg.players);
-            document.getElementById('online-start-btn').disabled = (msg.players.length < 2);
+            document.getElementById('online-start-btn').disabled = (msg.players.length < 1);
         }
         else if(msg.t === "joined") {
             ONLINE.room = msg.room;
@@ -1565,11 +1569,11 @@
             document.getElementById('online-room-box').style.display = 'block';
             document.getElementById('online-room-code').innerText = msg.room;
             renderOnlinePlayers(msg.players);
-            document.getElementById('online-start-btn').disabled = (!ONLINE.isHost || msg.players.length < 2);
+            document.getElementById('online-start-btn').disabled = (!ONLINE.isHost || msg.players.length < 1);
         }
         else if(msg.t === "players") {
             renderOnlinePlayers(msg.players);
-            document.getElementById('online-start-btn').disabled = (!ONLINE.isHost || msg.players.length < 2);
+            document.getElementById('online-start-btn').disabled = (!ONLINE.isHost || msg.players.length < 1);
         }
         else if(msg.t === "error") {
             showToast(msg.message || "Error");
@@ -1605,7 +1609,7 @@
         gamePlayers = s.players.map(p => ({
             id: p.id,
             name: p.name,
-            isBot: false,
+            isBot: !!p.isBot,
             hand: p.hand.map(c => ({id:c.id, rank:c.rank, suit:c.suit})),
             lastDeclared: !!p.lastDeclared
         }));
@@ -1617,13 +1621,6 @@
         pendingSkip = s.pendingSkip;
         extraTurn = false;
         acePending = false;
-        // If server is waiting for your Ace suit choice, show suit picker
-        if(s.awaitingSuitPlayerId && ONLINE && s.awaitingSuitPlayerId === ONLINE.you){
-            acePending = true;
-            document.getElementById('suit-modal').style.display = 'flex';
-        } else {
-            document.getElementById('suit-modal').style.display = 'none';
-        }
         selectionOrder = [];
         isProcessing = false;
         // Keep discard top for rendering
