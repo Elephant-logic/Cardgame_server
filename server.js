@@ -1,523 +1,595 @@
-const express = require("express");
-const http = require("http");
-const path = require("path");
-const WebSocket = require("ws");
 
-// ----------------------------
-// Basic server Setup
-// ----------------------------
+'use strict';
+
+const path = require('path');
+const express = require('express');
+const http = require('http');
+const WebSocket = require('ws');
+
+const PORT = process.env.PORT || 10000;
 const app = express();
-app.use(express.static(path.join(__dirname, "public")));
 
-app.get("/health", (req, res) => res.json({ ok: true }));
+// Serve static files from repo root (index.html, assets if any)
+app.use(express.static(path.join(__dirname)));
+
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
 
 const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
+const wss = new WebSocket.Server({ server, path: '/ws' });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log("Server listening on", PORT));
+// --------------------
+// Game rules (match client)
+// --------------------
+const SUITS = ["♠", "♥", "♦", "♣"];
+const RANKS = ["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
+const POWER_RANKS = new Set(["A","2","8","J","Q","K"]);
 
-// ----------------------------
-// Helpers
-// ----------------------------
-function rid(len = 5) {
+function rankVal(r){
+  if(r==="A") return 1;
+  if(r==="J") return 11;
+  if(r==="Q") return 12;
+  if(r==="K") return 13;
+  return parseInt(r,10);
+}
+function canStart(c, top, suit){
+  return c.rank==="A" || c.suit===suit || c.rank===top.rank;
+}
+function linkOk(p, n){
+  return p.rank===n.rank || (p.suit===n.suit && Math.abs(rankVal(p.rank)-rankVal(n.rank))===1);
+}
+
+function createDeck(){
+  let d=[];
+  for(const s of SUITS){
+    for(const r of RANKS){
+      d.push({id: '', suit:s, rank:r});
+    }
+  }
+  return d;
+}
+function shuffle(arr){
+  for(let i=arr.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+}
+function randCode(len=6){
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let out = "";
-  for (let i = 0; i < len; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  let out="";
+  for(let i=0;i<len;i++) out += chars[Math.floor(Math.random()*chars.length)];
   return out;
 }
-
-function send(ws, type, payload = {}) {
-  if (ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ type, ...payload }));
-  }
+function uid(){
+  return Math.random().toString(36).slice(2,10) + Date.now().toString(36).slice(-4);
 }
 
-function broadcast(room, type, payload = {}) {
-  for (const ws of room.clients.values()) send(ws, type, payload);
+// --------------------
+// Room store
+// --------------------
+/**
+room = {
+  code,
+  clients: Map(ws -> {id,name,isHost}),
+  players: [ {id,name,isHost,hand:[card], lastDeclared:false} ],
+  started: false,
+  state: { turnIndex,direction,activeSuit,pendingDraw2,pendingDrawJ,pendingSkip,topCard,feed,winner? },
+  deck: [card],
+  discard: [card],
 }
+*/
+const rooms = new Map();
 
-function safeParse(msg) {
-  try { return JSON.parse(msg); } catch { return null; }
-}
-
-// ----------------------------
-// Game Rules (SERVER AUTHORITY)
-// ----------------------------
-const POWER_RANKS = new Set(["A", "2", "8", "J", "Q", "K"]);
-
-function rankVal(r) {
-  if (r === "A") return 1;
-  if (r === "J") return 11;
-  if (r === "Q") return 12;
-  if (r === "K") return 13;
-  return parseInt(r, 10);
-}
-
-function canStart(c, top, suit) {
-  // If top is undefined (empty discard), any card is valid
-  if (!top) return true; 
-  return c.rank === "A" || c.suit === suit || c.rank === top.rank;
-}
-
-function linkOk(p, n) {
-  return p.rank === n.rank || (p.suit === n.suit && Math.abs(rankVal(p.rank) - rankVal(n.rank)) === 1);
-}
-
-function createDeck() {
-  const suits = ["♠", "♥", "♦", "♣"];
-  const ranks = ["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
-  const deck = [];
-  for (const s of suits) for (const r of ranks) deck.push({ suit: s, rank: r });
-  return deck;
-}
-
-function shuffle(a) {
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
-function topCard(state) {
-  return state.discard[state.discard.length - 1];
-}
-
-function draw(state, n, events) {
-  const out = [];
-  for (let i = 0; i < n; i++) {
-    if (state.deck.length === 0) {
-      if (state.discard.length > 1) {
-        const top = state.discard.pop();
-        const rest = state.discard;
-        state.discard = [top];
-        shuffle(rest);
-        state.deck = rest;
-        events.push({ t: "feed", m: "Reshuffled!" });
-      } else {
-        const nd = createDeck();
-        shuffle(nd);
-        state.deck = nd;
-        events.push({ t: "feed", m: "New Cards Added!" });
-      }
+function broadcast(room, msg){
+  const data = JSON.stringify(msg);
+  for(const ws of room.clients.keys()){
+    if(ws.readyState === WebSocket.OPEN){
+      ws.send(data);
     }
-    if (state.deck.length > 0) out.push(state.deck.pop());
   }
-  return out;
+}
+function send(ws, msg){
+  if(ws.readyState === WebSocket.OPEN){
+    ws.send(JSON.stringify(msg));
+  }
 }
 
-// Fallback logic if user doesn't send a suit
-function chooseSuitForBotLike(state, pidx) {
-  const p = state.players[pidx];
-  const counts = { "♠":0, "♥":0, "♦":0, "♣":0 };
-  for (const c of p.hand) counts[c.suit]++;
-  let best = "♠";
-  for (const k of Object.keys(counts)) if (counts[k] > counts[best]) best = k;
-  return best;
+function roomPlayers(room){
+  return room.players.map(p => ({id:p.id, name:p.name, isHost: p.isHost}));
 }
 
-function applyPower(state, card, pidx, isLast, events, chosenSuit) {
-  const r = card.rank;
-  const p = state.players[pidx];
+function findRoomByWs(ws){
+  for(const room of rooms.values()){
+    if(room.clients.has(ws)) return room;
+  }
+  return null;
+}
 
-  // ACE LOGIC: Updated to accept user input
-  if (r === "A" && isLast) {
-    if (chosenSuit && ["♠", "♥", "♦", "♣"].includes(chosenSuit)) {
-        state.activeSuit = chosenSuit;
-    } else {
-        state.activeSuit = chooseSuitForBotLike(state, pidx);
+function removeClient(ws){
+  const room = findRoomByWs(ws);
+  if(!room) return;
+  const info = room.clients.get(ws);
+  room.clients.delete(ws);
+  room.players = room.players.filter(p => p.id !== info.id);
+
+  // reassign host if needed
+  if(room.players.length){
+    if(!room.players.some(p=>p.isHost)){
+      room.players[0].isHost = true;
     }
-    events.push({ t: "feed", m: `Suit changed to ${state.activeSuit}` });
+  }
+
+  if(room.players.length === 0){
+    rooms.delete(room.code);
     return;
   }
 
-  if (r === "2") state.pendingDraw2 += 2;
-  else if (r === "8") state.pendingSkip += 1;
-  else if (r === "Q") {
-    state.direction *= -1;
-    events.push({ t: "feed", m: state.direction === 1 ? "Direction: Clockwise" : "Direction: Reversed!" });
+  // if game started, end it (simpler)
+  if(room.started){
+    room.started = false;
+    broadcast(room, {t:'error', message:'Player left - game ended'});
   }
-  else if (r === "K") {
-    state.extraTurn = true;
-  }
-  else if (r === "J") {
-    const isRed = (card.suit === "♥" || card.suit === "♦");
-    if (isRed) {
-      state.pendingDrawJ = 0;
-      events.push({ t: "feed", m: "Attack Blocked!" });
-    } else {
-      state.pendingDrawJ += 5;
-    }
-  }
+
+  broadcast(room, {t:'players', players: roomPlayers(room)});
 }
 
-function startNewGame(playerIdsBySeat, namesBySeat) {
-  const state = {
-    status: "playing",
-    deck: shuffle(createDeck()),
-    discard: [],
-    players: [],
+function startGame(room){
+  room.started = true;
+
+  // Build deck w/ unique ids
+  room.deck = createDeck();
+  // assign ids
+  room.deck.forEach((c, idx) => c.id = `${idx}_${uid()}`);
+  shuffle(room.deck);
+
+  // init players
+  room.players.forEach(p => {
+    p.hand = [];
+    p.lastDeclared = false;
+  });
+
+  // deal 7 each
+  for(let i=0;i<7;i++){
+    for(const p of room.players){
+      p.hand.push(room.deck.pop());
+    }
+  }
+
+  // choose a non-power start card to keep things sane
+  let top = room.deck.pop();
+  let safety=0;
+  while(POWER_RANKS.has(top.rank) && safety < 50){
+    room.deck.unshift(top);
+    top = room.deck.pop();
+    safety++;
+  }
+  room.discard = [top];
+
+  room.state = {
     turnIndex: 0,
     direction: 1,
-    activeSuit: null,
-
+    activeSuit: top.suit,
     pendingDraw2: 0,
     pendingDrawJ: 0,
     pendingSkip: 0,
-    extraTurn: false,
-
-    winnerSeat: null
+    awaitingSuitPlayerId: null,
+    _extraTurn: false,
+    topCard: {id: top.id, rank: top.rank, suit: top.suit},
+    feed: "Online match started!"
   };
 
-  for (let i = 0; i < playerIdsBySeat.length; i++) {
-    state.players.push({
-      seat: i,
-      id: playerIdsBySeat[i],
-      name: namesBySeat[i] || `Player ${i+1}`,
-      hand: [],
-      lastDeclared: false
-    });
-  }
-
-  const events = [];
-  // Deal 7 cards each
-  for (let r = 0; r < 7; r++) {
-    for (let i = 0; i < state.players.length; i++) {
-      state.players[i].hand.push(...draw(state, 1, events));
-    }
-  }
-
-  // Flip first top card
-  // Ensure it's not a power card for a clean start (optional, but good for game flow)
-  let first;
-  while(true) {
-      first = draw(state, 1, events)[0];
-      if(!POWER_RANKS.has(first.rank)) break;
-      state.deck.unshift(first); // Put back and try again
-  }
-  
-  state.discard.push(first);
-  state.activeSuit = first.suit;
-
-  events.push({ t: "feed", m: `Top card is ${first.rank}${first.suit}` });
-
-  return { state, events };
+  broadcastState(room);
 }
 
-function isPlayersTurn(state, seat) {
-  return state.turnIndex === seat;
-}
-
-function advanceTurn(state) {
-  const n = state.players.length;
-  state.turnIndex = (state.turnIndex + state.direction + n) % n;
-}
-
-function applyAction(state, seat, action) {
-  const events = [];
-  if (state.status !== "playing") return { ok: false, err: "Game not active", events };
-
-  // Allow declaring LAST out of turn (optional, but usually strict turn based in this code)
-  // For now, we restrict all actions to the active player for simplicity
-  if (!isPlayersTurn(state, seat)) return { ok: false, err: "Not your turn", events };
-
-  const p = state.players[seat];
-
-  // ---------- DECLARE LAST ----------
-  if (action.type === "DECLARE_LAST") {
-    p.lastDeclared = true;
-    events.push({ t: "feed", m: `${p.name} shouts LAST!` });
-    return { ok: true, events };
-  }
-
-  // ---------- DRAW ----------
-  if (action.type === "DRAW") {
-    let toDraw = 1;
-
-    if (state.pendingDraw2 > 0) {
-      toDraw = state.pendingDraw2;
-      state.pendingDraw2 = 0;
-      events.push({ t: "feed", m: `${p.name} draws ${toDraw} (2 stack)` });
-    } else if (state.pendingDrawJ > 0) {
-      toDraw = state.pendingDrawJ;
-      state.pendingDrawJ = 0;
-      events.push({ t: "feed", m: `${p.name} draws ${toDraw} (Jack stack)` });
-    } else if (state.pendingSkip > 0) {
-      state.pendingSkip = 0;
-      events.push({ t: "feed", m: `${p.name} is skipped!` });
-      p.lastDeclared = false; // Reset LAST on skip
-      advanceTurn(state);
-      return { ok: true, events };
-    } else {
-      events.push({ t: "feed", m: `${p.name} draws 1` });
-    }
-
-    p.hand.push(...draw(state, toDraw, events));
-    p.lastDeclared = false; // Reset LAST on draw
-    advanceTurn(state);
-    return { ok: true, events };
-  }
-
-  // ---------- PLAY ----------
-  if (action.type === "PLAY") {
-    const indices = Array.isArray(action.indices) ? action.indices.slice() : [];
-    if (indices.length === 0) return { ok: false, err: "No cards selected", events };
-
-    // Sort descending to remove safely
-    const uniq = Array.from(new Set(indices)).filter(i => Number.isInteger(i));
-    uniq.sort((a,b) => b - a);
-
-    if (uniq[0] >= p.hand.length || uniq[uniq.length-1] < 0) {
-      return { ok: false, err: "Invalid selection", events };
-    }
-
-    const cards = uniq.map(i => p.hand[i]);
-
-    // Validation
-    if (state.pendingDraw2 > 0 && cards[0].rank !== "2") return { ok: false, err: "Must play a 2!", events };
-    if (state.pendingDrawJ > 0 && cards[0].rank !== "J") return { ok: false, err: "Must play a Jack (or DRAW)!", events };
-    if (state.pendingSkip > 0 && cards[0].rank !== "8") return { ok: false, err: "Can only stack an 8!", events };
-
-    const top = topCard(state);
-    if (!canStart(cards[0], top, state.activeSuit)) return { ok: false, err: "Invalid Card", events };
-
-    for (let i = 0; i < cards.length - 1; i++) {
-      if (!linkOk(cards[i], cards[i+1])) return { ok: false, err: "Invalid Combo", events };
-    }
-
-    // Remove from hand
-    for (const i of uniq) p.hand.splice(i, 1);
-
-    const finishedNow = (p.hand.length === 0);
-    const isSet = cards.length > 1 && cards.every(c => c.rank === cards[0].rank);
-
-    // Play to discard & Apply Power
-    for (let i = 0; i < cards.length; i++) {
-      const c = cards[i];
-      state.discard.push(c);
-      const isLast = (i === cards.length - 1);
-
-      if (POWER_RANKS.has(c.rank) && (isSet || isLast)) {
-        // We pass the user's chosen suit (action.suitParam) here
-        applyPower(state, c, seat, isLast, events, action.suitParam);
-      }
-    }
-
-    const lastCard = cards[cards.length - 1];
-    // If it's NOT an Ace, the suit becomes the card's suit
-    // If it IS an Ace, applyPower handled the suit change
-    if (lastCard.rank !== "A") state.activeSuit = lastCard.suit;
-
-    events.push({ t: "feed", m: `${p.name} played ${cards.length}` });
-
-    // 1) FORGOT LAST PENALTY
-    // If you finish, but p.lastDeclared is false -> Draw 2
-    if (finishedNow && !p.lastDeclared) {
-      events.push({ t: "feed", m: `⚠️ ${p.name} Forgot LAST! Draw 2` });
-      p.hand.push(...draw(state, 2, events));
-      p.lastDeclared = false;
-      advanceTurn(state);
-      return { ok: true, events };
-    }
-
-    // 2) POWER FINISH PENALTY
-    if (finishedNow && POWER_RANKS.has(lastCard.rank)) {
-      events.push({ t: "feed", m: `Can't end on Power! Pick up 1` });
-      p.hand.push(...draw(state, 1, events));
-      p.lastDeclared = false;
-      advanceTurn(state);
-      return { ok: true, events };
-    }
-
-    // WIN CONDITION
-    if (p.hand.length === 0) {
-      state.status = "ended";
-      state.winnerSeat = seat;
-      events.push({ t: "feed", m: `🏆 ${p.name} wins!` });
-      return { ok: true, events };
-    }
-
-    p.lastDeclared = false; // Reset "Last" status after a successful play that didn't win
-
-    if (state.extraTurn) {
-      state.extraTurn = false;
-      events.push({ t: "feed", m: `KING: Play Again!` });
-      return { ok: true, events };
-    }
-
-    advanceTurn(state);
-    return { ok: true, events };
-  }
-
-  return { ok: false, err: "Unknown action", events };
-}
-
-// ----------------------------
-// Room Management
-// ----------------------------
-const rooms = new Map();
-
-function getRoom(code) { return rooms.get(code); }
-
-function makeRoom() {
-  let code;
-  do { code = rid(5); } while (rooms.has(code));
-  const room = {
-    code,
-    clients: new Map(),
-    seats: [null, null],
-    names: new Map(),
-    state: null
-  };
-  rooms.set(code, room);
-  return room;
-}
-
-function roomInfo(room) {
-  return {
-    code: room.code,
-    seats: room.seats.map((pid, i) => {
-      if (!pid) return { seat: i, occupied: false };
-      return { seat: i, occupied: true, id: pid, name: room.names.get(pid) || "Player" };
-    }),
-    started: !!room.state
-  };
-}
-
-function publicStateFor(room, viewerId) {
+function broadcastState(room){
   const s = room.state;
-  if (!s) return null;
+  const payload = {
+    t:'state',
+    state: {
+      players: room.players.map(p => ({
+        id: p.id,
+        name: p.name,
+        lastDeclared: !!p.lastDeclared,
+        hand: p.hand.map(c => ({id:c.id, rank:c.rank, suit:c.suit}))
+      })),
+      turnIndex: s.turnIndex,
+      direction: s.direction,
+      activeSuit: s.activeSuit,
+      pendingDraw2: s.pendingDraw2,
+      pendingDrawJ: s.pendingDrawJ,
+      pendingSkip: s.pendingSkip,
+      awaitingSuitPlayerId: s.awaitingSuitPlayerId || null,
+      topCard: s.topCard,
+      feed: s.feed
+    }
+  };
+  broadcast(room, payload);
+}
 
-  // Clone state to modify for public view
-  const out = JSON.parse(JSON.stringify(s));
-  
-  // Hide opponent hands
-  for (const pl of out.players) {
-    if (pl.id !== viewerId) {
-      pl.handCount = pl.hand.length;
-      pl.hand = []; // Hide actual cards
+function currentPlayer(room){
+  return room.players[room.state.turnIndex];
+}
+
+function applyPower(room, card, pidx, isLast){
+  const s = room.state;
+  const r = card.rank;
+
+  if(r==="A" && isLast){
+    // Auto-pick suit based on remaining hand (like bot)
+    const counts = {"♠":0,"♥":0,"♦":0,"♣":0};
+    room.players[pidx].hand.forEach(x => counts[x.suit]++);
+    const bestSuit = Object.keys(counts).reduce((a,b)=>counts[a]>counts[b]?a:b);
+    s.activeSuit = bestSuit;
+    s.feed = `Suit is ${bestSuit}`;
+  } else if(r==="2"){
+    s.pendingDraw2 += 2;
+  } else if(r==="8"){
+    s.pendingSkip += 1;
+  } else if(r==="Q"){
+    s.direction *= -1;
+    s.feed = (s.direction===1) ? "Direction: Clockwise" : "Direction: Reversed!";
+  } else if(r==="K"){
+    // extra turn flag handled in play action
+    s._extraTurn = true;
+  } else if(r==="J"){
+    const isRed = (card.suit==="♥" || card.suit==="♦");
+    if(isRed){
+      s.pendingDrawJ = 0;
+      s.feed = "Attack Blocked!";
+    } else {
+      s.pendingDrawJ += 5;
     }
   }
-  out.deckCount = out.deck.length;
-  return out;
 }
 
-function seatOf(room, playerId) {
-  return room.seats.findIndex(x => x === playerId);
-}
-
-function broadcastState(room) {
-  for (const [pid, ws] of room.clients.entries()) {
-    send(ws, "GAME_STATE", { state: publicStateFor(room, pid) });
+function advanceTurn(room){
+  const s = room.state;
+  if(s._extraTurn){
+    s._extraTurn = false;
+    return;
   }
-  broadcast(room, "ROOM_INFO", { room: roomInfo(room) });
+  const n = room.players.length;
+  s.turnIndex = (s.turnIndex + s.direction + n) % n;
 }
 
-// ----------------------------
-// WebSocket Handler
-// ----------------------------
-wss.on("connection", (ws) => {
-  ws._pid = rid(10);
-  ws._room = null;
 
-  send(ws, "HELLO", { playerId: ws._pid });
-
-  ws.on("message", (raw) => {
-    const msg = safeParse(raw);
-    if (!msg || !msg.type) return;
-
-    // --- CREATE ---
-    if (msg.type === "CREATE_ROOM") {
-      const room = makeRoom();
-      room.clients.set(ws._pid, ws);
-      room.names.set(ws._pid, (msg.name || "Player 1").slice(0, 18));
-      room.seats[0] = ws._pid;
-      ws._room = room.code;
-
-      send(ws, "ROOM_CREATED", { code: room.code });
-      broadcastState(room);
-      return;
-    }
-
-    // --- JOIN ---
-    if (msg.type === "JOIN_ROOM") {
-      const code = (msg.code || "").toUpperCase().trim();
-      const room = getRoom(code);
-      if (!room) return send(ws, "ERROR", { message: "Room not found" });
-
-      if (!room.seats.includes(null) && !room.seats.includes(ws._pid)) {
-        return send(ws, "ERROR", { message: "Room full" });
+function drawToHand(room, player, n){
+  for(let i=0;i<n;i++){
+    if(room.deck.length === 0){
+      // reshuffle discard except top
+      if(room.discard.length > 1){
+        const top = room.discard[room.discard.length-1];
+        const rest = room.discard.slice(0,-1);
+        shuffle(rest);
+        room.deck = rest;
+        room.discard = [top];
+      } else {
+        break;
       }
+    }
+    const card = room.deck.pop();
+    if(card) player.hand.push(card);
+  }
+}
 
-      room.clients.set(ws._pid, ws);
-      room.names.set(ws._pid, (msg.name || "Player").slice(0, 18));
+function doDraw(room, ws){
+  const s = room.state;
+  const p = currentPlayer(room);
+  if(!p) return;
 
-      if (room.seats[0] === null) room.seats[0] = ws._pid;
-      else if (room.seats[1] === null) room.seats[1] = ws._pid;
+  // Skip mechanic: drawing while skip pending consumes skip and passes (matches client)
+  if(s.pendingSkip > 0){
+    s.pendingSkip -= 1;
+    p.lastDeclared = false;
+    s.feed = `${p.name} missed turn! (${s.pendingSkip} left)`;
+    advanceTurn(room);
+    broadcastState(room);
+    return;
+  }
 
-      ws._room = room.code;
+  let pen = 1;
+  if(s.pendingDraw2 > 0) pen = s.pendingDraw2;
+  else if(s.pendingDrawJ > 0) pen = s.pendingDrawJ;
 
-      send(ws, "ROOM_JOINED", { code: room.code });
-      broadcastState(room);
+  if(s.pendingDraw2 > 0){
+    s.pendingDraw2 = 0;
+    s.feed = `${p.name} drew ${pen}`;
+  } else if(s.pendingDrawJ > 0){
+    s.pendingDrawJ = 0;
+    s.feed = `${p.name} drew ${pen}`;
+  } else {
+    s.feed = `${p.name} drew 1`;
+  }
+
+  for(let i=0;i<pen;i++){
+    if(room.deck.length === 0){
+      // reshuffle discard except top
+      if(room.discard.length > 1){
+        const top = room.discard[room.discard.length-1];
+        const rest = room.discard.slice(0,-1);
+        shuffle(rest);
+        room.deck = rest;
+        room.discard = [top];
+      } else {
+        break;
+      }
+    }
+    const card = room.deck.pop();
+    if(card) p.hand.push(card);
+  }
+  p.lastDeclared = false;
+
+  advanceTurn(room);
+  broadcastState(room);
+}
+
+function doLast(room){
+  const p = currentPlayer(room);
+  if(!p) return;
+  p.lastDeclared = true;
+  room.state.feed = `${p.name} shouts LAST!`;
+  broadcastState(room);
+}
+
+function doPlay(room, cardIds){
+  const s = room.state;
+  const pidx = s.turnIndex;
+  const p = room.players[pidx];
+  const top = room.discard[room.discard.length-1];
+
+  if(!Array.isArray(cardIds) || cardIds.length === 0){
+    return {ok:false, err:"No cards"};
+  }
+
+  // map ids to cards in hand in the order received
+  const handMap = new Map(p.hand.map(c => [c.id, c]));
+  const cards = [];
+  for(const id of cardIds){
+    const c = handMap.get(id);
+    if(!c) return {ok:false, err:"Invalid selection"};
+    cards.push(c);
+  }
+
+  // validate pending requirements
+  if(s.pendingDraw2 > 0 && cards[0].rank !== "2") return {ok:false, err:"Must play a 2!"};
+  if(s.pendingDrawJ > 0 && cards[0].rank !== "J") return {ok:false, err:"Must play a Jack (or DRAW)!"};
+  if(s.pendingSkip > 0 && cards[0].rank !== "8") return {ok:false, err:"Can only stack an 8!"};
+
+  // validate start
+  if(!canStart(cards[0], top, s.activeSuit)) return {ok:false, err:"Invalid Card"};
+
+  // validate combo chain
+  for(let i=0;i<cards.length-1;i++){
+    if(!linkOk(cards[i], cards[i+1])) return {ok:false, err:"Invalid Combo"};
+  }
+
+  // remove from hand (all instances)
+  const removeSet = new Set(cardIds);
+  p.hand = p.hand.filter(c => !removeSet.has(c.id));
+
+  // apply to discard and powers
+  const finishedNow = (p.hand.length === 0);
+  const isSet = cards.length>1 && cards.every(c=>c.rank===cards[0].rank);
+
+  cards.forEach((c, i) => {
+    room.discard.push(c);
+    const isLast = (i===cards.length-1);
+    if(POWER_RANKS.has(c.rank) && (isSet || isLast)){
+      applyPower(room, c, pidx, isLast);
+    }
+  });
+
+  // active suit is last card suit unless Ace
+  const lastCard = cards[cards.length-1];
+  if(lastCard.rank !== "A"){
+    s.activeSuit = lastCard.suit;
+  }
+
+  // feed
+  s.topCard = {id: lastCard.id, rank:lastCard.rank, suit:lastCard.suit};
+  s.feed = `${p.name} played ${cards.length} card(s)`;
+
+// Forgot LAST rule: if player tries to go to 0 without declaring, they draw 2 and do NOT win.
+if(finishedNow && !p.lastDeclared){
+  s.feed = `⚠️ ${p.name} Forgot LAST! Draw 2`;
+  drawToHand(room, p, 2);
+  p.lastDeclared = false;
+  advanceTurn(room);
+  return {ok:true};
+}
+
+  // Power finish rule (match client)
+  if(finishedNow && POWER_RANKS.has(lastCard.rank)){
+    // Can't end on power: pick up 1
+    if(room.deck.length === 0 && room.discard.length > 1){
+      const top2 = room.discard[room.discard.length-1];
+      const rest = room.discard.slice(0,-1);
+      shuffle(rest);
+      room.deck = rest;
+      room.discard = [top2];
+    }
+    if(room.deck.length){
+      p.hand.push(room.deck.pop());
+    }
+    p.lastDeclared = false;
+    s.feed = "Can't end on Power! Pick up 1";
+    advanceTurn(room);
+    return {ok:true};
+  }
+
+// If last card is Ace and player did not finish, pause for suit choice (client will send t:'suit')
+if(lastCard.rank === "A" && !finishedNow){
+  s.awaitingSuitPlayerId = p.id;
+  s.feed = `${p.name} played an Ace — choose suit`;
+  broadcast(room, {t:'needSuit', playerId: p.id});
+  // Do not advance turn yet. State will be broadcast by caller.
+  return {ok:true, needsSuit:true};
+}
+
+  // Win condition
+  if(p.hand.length === 0){
+    s.winner = p.name;
+    s.feed = `Winner: ${p.name}`;
+    broadcast(room, {t:'ended', winner: p.name});
+    // keep state broadcast for final view
+    broadcastState(room);
+    room.started = false;
+    return {ok:true};
+  }
+
+  // clear last declared if finished? (client resets)
+  if(finishedNow) p.lastDeclared = false;
+
+  // advance
+  advanceTurn(room);
+  return {ok:true};
+}
+
+// --------------------
+// WS handlers
+// --------------------
+wss.on('connection', (ws) => {
+  ws._id = uid();
+  ws.on('message', (data) => {
+    let msg;
+    try { msg = JSON.parse(data.toString()); } catch { return; }
+
+    const room = findRoomByWs(ws);
+
+    if(msg.t === 'create'){
+      // leave old room if any
+      if(room) removeClient(ws);
+
+      let code = randCode(6);
+      while(rooms.has(code)) code = randCode(6);
+
+      const playerId = uid();
+      const name = (msg.name || 'Player').toString().slice(0,24);
+
+      const newRoom = {
+        code,
+        clients: new Map(),
+        players: [],
+        started: false,
+        state: null,
+        deck: [],
+        discard: []
+      };
+
+      newRoom.clients.set(ws, {id: playerId, name, isHost:true});
+      newRoom.players.push({id: playerId, name, isHost:true, hand:[], lastDeclared:false});
+      rooms.set(code, newRoom);
+
+      send(ws, {t:'created', room: code, you: playerId, players: roomPlayers(newRoom)});
       return;
     }
 
-    // --- START ---
-    if (msg.type === "START_GAME") {
-      const room = ws._room ? getRoom(ws._room) : null;
-      if (!room) return;
-      if (room.seats.includes(null)) return send(ws, "ERROR", { message: "Waiting for P2..." });
+    if(msg.t === 'join'){
+      if(room) removeClient(ws);
+      const code = (msg.room || '').toString().toUpperCase().trim();
+      const target = rooms.get(code);
+      if(!target) { send(ws, {t:'error', message:'Room not found'}); return; }
+      if(target.players.length >= 6) { send(ws, {t:'error', message:'Room full'}); return; }
+      if(target.started) { send(ws, {t:'error', message:'Game already started'}); return; }
 
-      if (!room.state) {
-        const names = room.seats.map(pid => room.names.get(pid) || "Player");
-        const { state, events } = startNewGame(room.seats, names);
-        room.state = state;
-        broadcast(room, "FEED", { events });
+      const playerId = uid();
+      const name = (msg.name || 'Player').toString().slice(0,24);
+      const isHost = false;
+
+      target.clients.set(ws, {id: playerId, name, isHost});
+      target.players.push({id: playerId, name, isHost, hand:[], lastDeclared:false});
+
+      // Notify all
+      broadcast(target, {t:'players', players: roomPlayers(target)});
+      send(ws, {t:'joined', room: code, you: playerId, isHost:false, players: roomPlayers(target)});
+      return;
+    }
+
+    if(!room){
+      send(ws, {t:'error', message:'Not in a room'}); 
+      return;
+    }
+
+    // Identify player
+    const info = room.clients.get(ws);
+    const s = room.state;
+
+    if(msg.t === 'leave'){
+      removeClient(ws);
+      return;
+    }
+
+    if(msg.t === 'start'){
+      // only host
+      const host = room.players.find(p=>p.isHost);
+      if(!host || host.id !== info.id){ send(ws,{t:'error',message:'Only host can start'}); return; }
+      if(room.players.length < 2){ send(ws,{t:'error',message:'Need 2+ players'}); return; }
+      startGame(room);
+      return;
+    }
+
+    if(!room.started || !s){
+      send(ws, {t:'error', message:'Game not started'});
+      return;
+    }
+
+    const cur = currentPlayer(room);
+    if(!cur || cur.id !== info.id){
+      send(ws, {t:'error', message:'Not your turn'});
+      return;
+    }
+
+// If awaiting suit choice after an Ace, only allow suit selection.
+if(s.awaitingSuitPlayerId){
+  if(msg.t === 'suit'){
+    // handled below
+  } else {
+    send(ws, {t:'error', message:'Choose suit first'});
+    return;
+  }
+}
+
+    if(msg.t === 'draw'){
+      doDraw(room, ws);
+      return;
+    }
+    if(msg.t === 'last'){
+      doLast(room);
+      return;
+    }
+    if(msg.t === 'play'){
+      const res = doPlay(room, msg.cards);
+      if(!res.ok){
+        send(ws, {t:'error', message: res.err || 'Invalid move'});
+      } else {
         broadcastState(room);
       }
       return;
     }
-
-    // --- ACTION ---
-    if (msg.type === "ACTION") {
-      const room = ws._room ? getRoom(ws._room) : null;
-      if (!room || !room.state) return;
-
-      const seat = seatOf(room, ws._pid);
-      if (seat < 0) return;
-
-      const res = applyAction(room.state, seat, msg.action || {});
-      if (!res.ok) {
-        send(ws, "ERROR", { message: res.err || "Invalid" });
+    if(msg.t === 'suit'){
+      // Player chooses suit after playing an Ace
+      const suit = (msg.suit || '').toString();
+      if(!SUITS.includes(suit)){ send(ws,{t:'error',message:'Bad suit'}); return; }
+      if(s.awaitingSuitPlayerId && s.awaitingSuitPlayerId !== info.id){
+        send(ws,{t:'error',message:'Not awaiting your suit'}); return;
       }
-      if (res.events.length) broadcast(room, "FEED", { events: res.events });
+      if(!s.awaitingSuitPlayerId){
+        // nothing pending; ignore
+        return;
+      }
+      s.activeSuit = suit;
+      s.awaitingSuitPlayerId = null;
+      s.feed = `Suit is ${suit}`;
+      advanceTurn(room);
       broadcastState(room);
       return;
     }
   });
 
-  ws.on("close", () => {
-    const code = ws._room;
-    if (!code) return;
-    const room = getRoom(code);
-    if (!room) return;
+  ws.on('close', () => removeClient(ws));
+});
 
-    room.clients.delete(ws._pid);
-    
-    // Clear seat
-    const seat = seatOf(room, ws._pid);
-    if (seat >= 0) room.seats[seat] = null;
-
-    if (room.clients.size === 0) {
-      rooms.delete(room.code);
-      return;
-    }
-
-    if (room.state && room.state.status === "playing") {
-      room.state.status = "ended";
-      broadcast(room, "FEED", { events: [{ t:"feed", m:"Opponent left. Game ended." }] });
-    }
-    broadcastState(room);
-  });
+server.listen(PORT, () => {
+  console.log(`Server listening on ${PORT}`);
 });
