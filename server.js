@@ -509,43 +509,39 @@ wss.on('connection', (ws) => {
       return;
     }
 
-    const cur = currentPlayer(room);
-    if(!cur || cur.id !== info.id){
-      send(ws, {t:'error', message:'Not your turn'});
-      
-    // If we're waiting for a suit selection (Ace), only that player can send it
-    if(room.state.awaitingSuit){
-      if(msg.t !== 'suit'){
-        send(ws,{t:'error', message:'Pick a suit first'});
+    // If we're waiting for a suit selection (Ace), ONLY that player can act, and ONLY with 'suit'
+    if (room.state.awaitingSuit) {
+      if (msg.t !== 'suit') {
+        send(ws, { t: 'error', message: 'Pick a suit first' });
         return;
       }
-    }
+      if (room.state.awaitingSuit !== info.id) {
+        send(ws, { t: 'error', message: 'Waiting for other player to pick suit' });
+        return;
+      }
 
-    if(msg.t === 'suit'){
-      const s = room.state;
-      if(!s.awaitingSuit || s.awaitingSuit !== info.id){
-        send(ws,{t:'error', message:'Not waiting for your suit'});
-        return;
-      }
-      let suit = String(msg.suit||'').trim();
+      let suit = String(msg.suit || '').trim();
       // accept letters or symbols
-      const map = {H:'♥', D:'♦', C:'♣', S:'♠'};
-      if(map[suit]) suit = map[suit];
-      if(!['♠','♥','♦','♣'].includes(suit)){
-        send(ws,{t:'error', message:'Invalid suit'});
+      const map = { H: '♥', D: '♦', C: '♣', S: '♠' };
+      if (map[suit]) suit = map[suit];
+      if (!['♠', '♥', '♦', '♣'].includes(suit)) {
+        send(ws, { t: 'error', message: 'Invalid suit' });
         return;
       }
-      s.activeSuit = suit;
-      s.awaitingSuit = null;
-      s.feed = `Suit is ${suit}`;
+      room.state.activeSuit = suit;
+      room.state.awaitingSuit = null;
+      room.state.feed = `Suit is ${suit}`;
       advanceTurn(room);
       broadcastState(room);
       return;
     }
 
-return;
+    // Otherwise, only the current turn player can act
+    const cur = currentPlayer(room);
+    if (!cur || cur.id !== info.id) {
+      send(ws, { t: 'error', message: 'Not your turn' });
+      return;
     }
-
     if(msg.t === 'draw'){
       doDraw(room, ws);
       return;
@@ -561,10 +557,6 @@ return;
       } else {
         broadcastState(room);
       }
-      return;
-    }
-    if(msg.t === 'suit'){
-      // suit is auto-picked in applyPower; accept but ignore for now
       return;
     }
   });
