@@ -1675,6 +1675,15 @@
     }
 
     function resolveAce(char) {
+      // In online mode, suit choice is sent to server (authoritative)
+      if (gameMode === "online") {
+        const sym = SUIT_MAP[char];
+        document.getElementById("suit-modal").style.display = "none";
+        acePending = false;
+        netSend({ t: "suit", suit: sym });
+        return;
+      }
+      // Offline/local
       activeSuit = SUIT_MAP[char];
       acePending = false;
       document.getElementById("suit-modal").style.display = "none";
@@ -2425,48 +2434,63 @@
     }
 
     function applyOnlineState(st){
-      // Convert server state to the game's internal variables.
-      // The server is authoritative.
+      // Server -> client state sync (authoritative)
       try {
-        gamePlayers = (st.players || []).map(p => ({
+        const players = (st.players || []).map(p => ({
+          id: p.id,
           name: p.name,
           isBot: false,
           hand: (p.hand || []).map(c => ({ id: c.id, rank: c.rank, suit: c.suit })),
           lastDeclared: !!p.lastDeclared
         }));
 
-        turnIndex = st.turnIndex || 0;
+        gamePlayers = players;
+
+        // Identify "me" by id (NOT name)
+        const meIdx = players.findIndex(p => p.id === myOnlineId);
+        myOnlineIndex = (meIdx >= 0) ? meIdx : 0;
+
+        // Copy core state
+        turnIndex = Number.isInteger(st.turnIndex) ? st.turnIndex : 0;
         direction = st.direction || 1;
         activeSuit = st.activeSuit || null;
         pendingDraw2 = st.pendingDraw2 || 0;
         pendingDrawJ = st.pendingDrawJ || 0;
         pendingSkip = st.pendingSkip || 0;
-        extraTurn = false;
 
-        // update discard/top card
-        discard = st.topCard ? [st.topCard] : discard;
+        // Clamp in case of any edge case during join/leave
+        if (!players.length) turnIndex = 0;
+        if (turnIndex < 0 || turnIndex >= players.length) turnIndex = 0;
 
-
-        selectionOrder = [];
-        isProcessing = false;
-        // compute my index (reliable: use server player id)
-        myOnlineIndex = 0;
-        const sp = (st.players || []);
-        for (let i=0;i<sp.length;i++){
-          if (sp[i] && sp[i].id === myOnlineId) { myOnlineIndex = i; break; }
+        // Discard / top
+        if (st.topCard) {
+          discard = [{ id: st.topCard.id, rank: st.topCard.rank, suit: st.topCard.suit }];
         }
-// switch mode + show game screen
-        gameMode = "online";
-        isLeagueMode = false;
-        isPassAndPlay = false;
 
+        // Show suit picker ONLY when server says it's waiting for MY suit choice
+        const suitModal = document.getElementById("suit-modal");
+        if (suitModal) {
+          if (st.awaitingSuit && st.awaitingSuit === myOnlineId) {
+            suitModal.style.display = "flex";
+            acePending = true;
+          } else {
+            suitModal.style.display = "none";
+            acePending = false;
+          }
+        }
+
+        // Ensure we are on the game screen
         if (typeof showScreen === "function") showScreen("game-screen");
+
+        // Refresh UI safely
         if (typeof updateControls === "function") updateControls();
         if (typeof updateGameUI === "function") updateGameUI();
-        if (document.getElementById("status-feed") && st.feed) document.getElementById("status-feed").innerText = st.feed;
 
+        if (document.getElementById("status-feed") && st.feed) {
+          document.getElementById("status-feed").innerText = st.feed;
+        }
       } catch(e){
-        console.error(e);
+        console.error("applyOnlineState error:", e);
       }
     }
 
