@@ -2416,14 +2416,21 @@ opponents.forEach((p) => {
       NET.ws.send(JSON.stringify(payload));
     }
 
-    function netName(){
-      let fallback = "Player";
-      try {
-        if (leagueData && leagueData.player && leagueData.player.name) fallback = leagueData.player.name;
-      } catch(e){}
+    function netName(requireExplicit=true){
+      // Each device/browser can have its own saved online name
+      let saved = "";
+      try { saved = localStorage.getItem("osbj_online_name") || ""; } catch(e){}
       const el = document.getElementById("net-name");
-      const v = el ? el.value.trim() : "";
-      return (v || fallback).slice(0,24);
+      if (el && !el.value.trim() && saved) el.value = saved;
+
+      let v = el ? el.value.trim() : "";
+      if (!v && requireExplicit) {
+        v = (prompt("Enter your player name (this device):") || "").trim();
+        if (el) el.value = v;
+      }
+      v = (v || saved || "Player").slice(0,24);
+      try { localStorage.setItem("osbj_online_name", v); } catch(e){}
+      return v;
     }
 
     function netCreateRoom(){
