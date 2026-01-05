@@ -1,303 +1,89 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Old Skool Blackjack</title>
-
 <style>
 html,body{
   margin:0;
   padding:0;
   height:100%;
   background:#2f6b3f;
-  font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu;
-  color:#fff;
-  overflow:hidden;
+  font-family:sans-serif;
 }
-#screen{position:absolute;inset:0}
-.hidden{display:none}
-
-/* ===== Lobby ===== */
-#lobby{
+.screen{
+  position:absolute;
+  inset:0;
+  display:none;
+}
+.screen.active{
   display:flex;
+}
+#lobby{
   flex-direction:column;
   align-items:center;
   justify-content:center;
   gap:12px;
 }
-input,button{
-  font-size:18px;
-  padding:10px 14px;
-  border-radius:10px;
-  border:none;
-}
-button{cursor:pointer}
-#roomCode{letter-spacing:3px;text-transform:uppercase}
-
-/* ===== Game ===== */
 #game{
-  position:absolute;
-  inset:0;
+  flex-direction:column;
 }
-#banner{
-  position:absolute;
-  top:0;
-  left:0;
-  right:0;
-  background:#1f4e30;
-  text-align:center;
-  padding:8px;
-  font-weight:700;
+button,input{
+  font-size:18px;
+  padding:10px;
 }
-#opponent{
-  position:absolute;
-  top:60px;
-  width:100%;
-  text-align:center;
-}
-.name{
-  display:inline-block;
-  background:#eee;
-  color:#000;
-  padding:4px 10px;
-  border-radius:12px;
-  font-weight:700;
-}
-.cards{
-  margin-top:10px;
-  display:flex;
-  justify-content:center;
-  gap:4px;
-}
-.card{
-  width:48px;
-  height:68px;
-  background:#111;
-  border-radius:6px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-weight:900;
-}
-.back{background:#222}
-
-#pile{
-  position:absolute;
-  top:45%;
-  left:50%;
-  transform:translate(-50%,-50%);
-  display:flex;
-  gap:10px;
-}
-
-#hand{
-  position:absolute;
-  bottom:60px;
-  width:100%;
-  display:flex;
-  justify-content:center;
-  gap:8px;
-}
-.hand-card{
-  width:60px;
-  height:90px;
-  background:#fff;
-  color:#000;
-  border-radius:8px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-weight:900;
-  cursor:pointer;
-}
-.hand-card.selected{
-  outline:4px solid #ff0;
-}
-
 #controls{
-  position:absolute;
+  position:fixed;
   right:10px;
-  bottom:60px;
+  bottom:20px;
   display:flex;
   flex-direction:column;
   gap:8px;
-}
-.ctrl{
-  font-size:16px;
-  font-weight:700;
-}
-.play{background:#ff7fa8}
-.draw{background:#6ecbff}
-.last{background:#ffe66d}
-.suit{background:#fff;color:#000}
-
-#suits{
-  position:absolute;
-  bottom:160px;
-  right:10px;
-  display:flex;
-  flex-direction:column;
-  gap:6px;
-}
-.suitBtn{
-  font-size:20px;
 }
 </style>
 </head>
 
 <body>
-<div id="screen">
 
-<!-- ===== LOBBY ===== -->
-<div id="lobby">
+<!-- LOBBY -->
+<div id="lobby" class="screen active">
   <h1>Old Skool Blackjack</h1>
-  <input id="nameInput" placeholder="Name">
-  <button onclick="createRoom()">Create Room</button>
-  <input id="roomCode" placeholder="ROOM CODE">
-  <button onclick="joinRoom()">Join Room</button>
-  <div id="lobbyMsg"></div>
+  <input id="name" placeholder="Name">
+  <button onclick="create()">Create Room</button>
+  <input id="room" placeholder="ROOM CODE">
+  <button onclick="join()">Join Room</button>
 </div>
 
-<!-- ===== GAME ===== -->
-<div id="game" class="hidden">
-  <div id="banner"></div>
-
-  <div id="opponent">
-    <div id="oppName" class="name"></div>
-    <div id="oppCards" class="cards"></div>
-  </div>
-
-  <div id="pile">
-    <div class="card back"></div>
-    <div id="topCard" class="card"></div>
-  </div>
-
-  <div id="hand"></div>
+<!-- GAME -->
+<div id="game" class="screen">
+  <div style="padding:10px;font-weight:bold" id="status"></div>
+  <div style="flex:1"></div>
 
   <div id="controls">
-    <button class="ctrl play" onclick="play()">PLAY</button>
-    <button class="ctrl draw" onclick="draw()">DRAW</button>
-    <button class="ctrl last" onclick="declareLast()">LAST!</button>
-    <button class="ctrl suit" onclick="toggleSuits()">SUIT</button>
+    <button>PLAY</button>
+    <button>DRAW</button>
+    <button>LAST!</button>
+    <button>SUIT</button>
   </div>
-
-  <div id="suits" class="hidden">
-    <button class="suitBtn" onclick="pickSuit('♠')">♠</button>
-    <button class="suitBtn" onclick="pickSuit('♥')">♥</button>
-    <button class="suitBtn" onclick="pickSuit('♦')">♦</button>
-    <button class="suitBtn" onclick="pickSuit('♣')">♣</button>
-  </div>
-</div>
-
 </div>
 
 <script>
-let ws;
-let state=null;
-let selected=[];
-let pendingSuit=null;
-
-function connect(){
-  ws=new WebSocket((location.protocol==="https:"?"wss://":"ws://")+location.host);
-  ws.onmessage=e=>{
-    const m=JSON.parse(e.data);
-    if(m.t==="created"||m.t==="joined"){
-      document.getElementById("lobby").classList.add("hidden");
-      document.getElementById("game").classList.remove("hidden");
-    }
-    if(m.t==="state"){
-      state=m.state;
-      render();
-    }
-    if(m.t==="started"){
-      banner("Online match started!");
-    }
-    if(m.t==="error"){
-      alert(m.error);
-    }
-    if(m.t==="game_over"){
-      banner("GAME OVER");
-    }
-  };
-}
-connect();
-
-/* ===== Lobby actions ===== */
-function createRoom(){
-  ws.send(JSON.stringify({t:"create",name:nameInput.value||"Player"}));
-}
-function joinRoom(){
-  ws.send(JSON.stringify({t:"join",room:roomCode.value,name:nameInput.value||"Player"}));
+function show(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
 }
 
-/* ===== Game actions ===== */
-function play(){
-  if(!selected.length)return;
-  ws.send(JSON.stringify({t:"play",cards:selected,suit:pendingSuit}));
-  selected=[];
-  pendingSuit=null;
-  document.getElementById("suits").classList.add("hidden");
-}
-function draw(){
-  ws.send(JSON.stringify({t:"draw"}));
-}
-function declareLast(){
-  ws.send(JSON.stringify({t:"last"}));
-}
-function toggleSuits(){
-  document.getElementById("suits").classList.toggle("hidden");
-}
-function pickSuit(s){
-  pendingSuit=s;
-  document.getElementById("suits").classList.add("hidden");
+function create(){
+  show('game');
+  document.getElementById('status').textContent = "Room created (waiting for player)";
 }
 
-/* ===== Render ===== */
-function banner(t){
-  document.getElementById("banner").textContent=t;
-}
-
-function render(){
-  if(!state)return;
-  banner(state.feed||"");
-
-  const me=state.players.find(p=>p.id===state.you);
-  const opp=state.players.find(p=>p.id!==state.you);
-
-  // opponent
-  document.getElementById("oppName").textContent=opp.name+" ("+opp.hand.length+")";
-  const oc=document.getElementById("oppCards");
-  oc.innerHTML="";
-  for(let i=0;i<opp.hand.length;i++){
-    const d=document.createElement("div");
-    d.className="card back";
-    oc.appendChild(d);
-  }
-
-  // top card
-  document.getElementById("topCard").textContent=
-    state.topCard.rank+state.topCard.suit;
-
-  // hand
-  const h=document.getElementById("hand");
-  h.innerHTML="";
-  me.hand.forEach(c=>{
-    const d=document.createElement("div");
-    d.className="hand-card";
-    d.textContent=c.rank+c.suit;
-    if(selected.includes(c.id))d.classList.add("selected");
-    d.onclick=()=>{
-      if(selected.includes(c.id)){
-        selected=selected.filter(x=>x!==c.id);
-      }else{
-        selected.push(c.id);
-      }
-      render();
-    };
-    h.appendChild(d);
-  });
+function join(){
+  show('game');
+  document.getElementById('status').textContent = "Joined room";
 }
 </script>
+
 </body>
 </html>
