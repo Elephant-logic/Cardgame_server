@@ -677,6 +677,7 @@
       z-index:50;
       pointer-events:none;
       text-transform:lowercase;
+          color:black;
     }
 
 </style>
@@ -1853,7 +1854,19 @@ if (!(gameMode === "pass_play" && bottomP.isBot)) {
         });
       }
 
-      opponents.forEach((p) => {
+      
+      // Always show WHO YOU ARE (bottom hand) in online mode / pass&play.
+      try {
+        const yl = document.getElementById("you-label");
+        if (yl) {
+          if (bottomP && bottomP.name) {
+            yl.textContent = `${bottomP.name} (${(bottomP.hand||[]).length})`;
+          } else {
+            yl.textContent = "";
+          }
+        }
+      } catch(e) {}
+opponents.forEach((p) => {
         let wrap = document.createElement("div");
         wrap.className = "opponent-wrapper " + (p === activeP ? "active-turn" : "inactive");
         let nameDiv = document.createElement("div");
