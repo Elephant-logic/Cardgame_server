@@ -1445,7 +1445,7 @@
     function getWsBase() {
         // Works on Render + local
         const proto = (location.protocol === "https:") ? "wss" : "ws";
-        return `${proto}://${location.host}/ws`;
+        return `${proto}://${location.host}`;
     }
 
     function goToOnlineLobby() {
@@ -1461,25 +1461,57 @@
 
     function ensureWsConnected() {
         return new Promise((resolve, reject) => {
-            if(ONLINE.ws && ONLINE.ws.readyState === 1) return resolve();
-            try {
-                ONLINE.ws = new WebSocket(ONLINE.serverUrl);
-            } catch(e) {
-                showToast("WebSocket failed");
-                return reject(e);
+            if (ONLINE.ws && ONLINE.ws.readyState === 1) return resolve();
+
+            const tryUrls = [];
+            // Preferred: same-origin base (server accepts any WS path)
+            tryUrls.push(ONLINE.serverUrl);
+            // Fallback: /ws (older server config)
+            if (!ONLINE.serverUrl.endsWith("/ws")) {
+                tryUrls.push(ONLINE.serverUrl.replace(/\/$/, "") + "/ws");
             }
-            ONLINE.ws.onopen = () => resolve();
-            ONLINE.ws.onerror = (e) => reject(e);
-            ONLINE.ws.onmessage = (ev) => {
-                let msg;
-                try { msg = JSON.parse(ev.data); } catch { return; }
-                handleOnlineMsg(msg);
-            };
-            ONLINE.ws.onclose = () => {
-                // If you're in an online game and connection drops, show message
-                if(ONLINE.enabled) showToast("Disconnected");
-                ONLINE.enabled = false;
-            };
+
+            let attempt = 0;
+
+            function tryConnect() {
+                const url = tryUrls[Math.min(attempt, tryUrls.length - 1)];
+                attempt++;
+
+                try {
+                    ONLINE.ws = new WebSocket(url);
+                } catch (e) {
+                    return fail(e);
+                }
+
+                let opened = false;
+
+                ONLINE.ws.onopen = () => {
+                    opened = true;
+                    resolve();
+                };
+
+                ONLINE.ws.onerror = (e) => {
+                    // If first URL failed and we have a fallback, try once more.
+                    if (!opened && attempt < tryUrls.length) {
+                        try { ONLINE.ws.close(); } catch {}
+                        return tryConnect();
+                    }
+                    fail(e);
+                };
+
+                ONLINE.ws.onmessage = (ev) => {
+                    let msg;
+                    try { msg = JSON.parse(ev.data); } catch { return; }
+                    handleOnlineMsg(msg);
+                };
+            }
+
+            function fail(e) {
+                showToast("WebSocket failed");
+                reject(e);
+            }
+
+            tryConnect();
         });
     }
 
