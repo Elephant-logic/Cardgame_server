@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Old Skool Black Jack — Director's Cut (Patched + Fanned + Unlocks)</title>
+    <title>Schoolyard Switch (Online)</title>
     <style>
         :root {
             --chalk-green: #3a5f42;
@@ -33,34 +33,9 @@
 
         @media (max-width: 600px) {
             :root { --card-w: 60px; --card-h: 84px; }
-            .hud-btn { padding: 10px 8px !important; font-size: 0.75rem !important; }
+            .hud-btn { padding: 10px 10px !important; font-size: 0.8rem !important; }
+            #game-info-bar { font-size: 0.8rem !important; padding: 4px !important; }
         }
-
-        /* --- ANIMATIONS --- */
-        @keyframes shake {
-            0% { transform: translateX(0) translateY(-25px); }
-            25% { transform: translateX(-5px) rotate(-5deg) translateY(-25px); }
-            50% { transform: translateX(5px) rotate(5deg) translateY(-25px); }
-            75% { transform: translateX(-5px) rotate(-5deg) translateY(-25px); }
-            100% { transform: translateX(0) translateY(-25px); }
-        }
-        .shake { animation: shake 0.4s ease-in-out; border-color: #ff5252 !important; }
-
-        @keyframes popIn {
-            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
-            80% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
-            100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-        }
-
-        @keyframes rainbow-glow {
-            0% { box-shadow: 0 0 10px #ff0000; border-color: #ff0000; }
-            20% { box-shadow: 0 0 10px #ff9a00; border-color: #ff9a00; }
-            40% { box-shadow: 0 0 10px #d0de21; border-color: #d0de21; }
-            60% { box-shadow: 0 0 10px #4fd125; border-color: #4fd125; }
-            80% { box-shadow: 0 0 10px #25d1cb; border-color: #25d1cb; }
-            100% { box-shadow: 0 0 10px #ff00c8; border-color: #ff00c8; }
-        }
-        .winning-btn { animation: rainbow-glow 0.5s infinite; transform: scale(1.05) !important; background: white !important; color: black !important; }
 
         /* --- SCREENS --- */
         .screen {
@@ -71,34 +46,28 @@
         .screen.active { display: flex; }
 
         /* --- NOTEBOOK PAPER STYLE --- */
-        #login-screen, #menu-screen, #lobby-screen, #dashboard-screen, #online-lobby-screen {
+        #login-screen, #menu-screen, #lobby-screen, #online-lobby-screen, #dashboard-screen {
             background-color: var(--paper-white);
             background-image: linear-gradient(var(--line-blue) 1px, transparent 1px);
             background-size: 100% 25px;
             color: #333;
         }
 
-        /* --- BRANDING / LOGO --- */
-        .logo-wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 25px; cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent; }
-        .logo-badge {
-            display: inline-flex; align-items: center; gap: 10px;
-            background: white; padding: 10px 16px;
-            border: 3px solid #333; border-radius: 12px;
-            box-shadow: 5px 5px 0 rgba(0,0,0,0.2);
-            transform: rotate(-2deg);
+        /* LOGO */
+        .logo-text {
+            font-size: 3rem; font-weight: 900; color: #d32f2f;
+            text-transform: uppercase; text-align: center; margin-bottom: 20px;
+            text-shadow: 2px 2px 0px #333; transform: rotate(-3deg);
+            background: white; padding: 10px 20px; border: 2px solid #333;
+            border-radius: 10px; box-shadow: 5px 5px 0 rgba(0,0,0,0.2);
         }
-        .logo-mark {
-            width: 42px; height: 42px;
-            display: inline-flex; align-items: center; justify-content: center;
-            border: 2px solid #333; border-radius: 10px;
-            background: var(--sticker-yellow);
-            box-shadow: 2px 2px 0 rgba(0,0,0,0.2);
-            font-size: 26px; line-height: 1; color: black;
-        }
-        .logo-text { font-size: 2.2rem; font-weight: 900; color: #111; text-transform: uppercase; text-align: left; margin: 0; text-shadow: 2px 2px 0px rgba(0,0,0,0.15); letter-spacing: 0.5px; line-height: 0.9; }
-        .logo-sub { margin-top: -5px; font-weight: 900; font-size: 0.95rem; background: var(--sticker-pink); color: #333; padding: 6px 12px; border: 2px solid #333; border-radius: 999px; box-shadow: 3px 3px 0 rgba(0,0,0,0.15); transform: rotate(1deg); }
 
-        input[type="text"] { padding: 10px; font-family: inherit; font-size: 1.5rem; background: transparent; color: #333; border: none; border-bottom: 3px solid #333; width: 250px; text-align: center; margin-bottom: 30px; outline: none; }
+        input[type="text"] {
+            padding: 10px; font-family: inherit; font-size: 1.5rem;
+            background: transparent; color: #333; border: none;
+            border-bottom: 3px solid #333; width: 250px; text-align: center;
+            margin-bottom: 30px; outline: none;
+        }
 
         /* BUTTONS */
         .menu-btn {
@@ -112,21 +81,17 @@
             margin-bottom: 15px; background: white; color: #333;
         }
         .btn-league { background: var(--sticker-yellow); transform: rotate(1deg); }
-        .btn-party {
-        }
-        .btn-online { background: #c8b6ff; }
-        .btn-online small{opacity:0.85;}
-
         .btn-party { background: var(--sticker-blue); transform: rotate(-1deg); }
         .btn-start { background: var(--sticker-pink); }
         .menu-btn:active { transform: scale(0.95); box-shadow: 1px 1px 0 #333; }
         .menu-btn small { font-size: 0.8rem; font-weight: normal; opacity: 0.8; text-transform: none; }
 
-        /* HEADER ROW */
-        .header-row { width: 90%; max-width: 420px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; border-bottom: 2px dashed #ccc; padding-bottom: 10px; }
-
         /* DASHBOARD */
-        .standings-box { background: white; width: 90%; border: 3px solid #333; border-radius: 10px; padding: 10px; margin-bottom: 20px; box-shadow: 5px 5px 0 rgba(0,0,0,0.1); }
+        .standings-box {
+            background: white; width: 90%; border: 3px solid #333;
+            border-radius: 10px; padding: 10px; margin-bottom: 20px;
+            box-shadow: 5px 5px 0 rgba(0,0,0,0.1);
+        }
         table { width: 100%; border-collapse: collapse; font-size: 1rem; }
         th { text-align: left; color: #d32f2f; border-bottom: 2px dashed #333; padding: 8px; }
         td { padding: 10px 8px; border-bottom: 1px solid #ddd; font-weight: bold; }
@@ -135,117 +100,92 @@
         .lobby-list { width: 90%; background: white; border: 3px solid #333; border-radius: 10px; padding: 10px; margin-bottom: 20px; min-height: 200px; }
         .lobby-item { display: flex; justify-content: space-between; padding: 12px; border-bottom: 1px dashed #ccc; font-weight: bold; font-size: 1.2rem; }
         .btn-add { flex: 1; padding: 12px; background: white; border: 2px solid #333; border-radius: 10px; font-weight: bold; cursor: pointer; box-shadow: 3px 3px 0 #ccc; }
-
+        
         /* --- GAME TABLE UI --- */
-        #status-feed { position: absolute; top: 0; left: 0; width: 100%; height: 35px; background: rgba(0,0,0,0.3); color: white; font-family: 'Chalkduster', fantasy, sans-serif; font-size: 1rem; display: flex; align-items: center; justify-content: center; z-index: 20; }
-        #game-info-bar { position: absolute; top: 40px; left: 10px; right: 10px; padding: 0; z-index: 5; height: 35px; display: grid; grid-template-columns: 1fr auto 1fr auto; align-items: center; gap: 8px; }
-        #turn-status { justify-self: start; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: bold;}
-        #attack-status { justify-self: end; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--sticker-yellow); font-weight: bold; text-shadow: 1px 1px 0 #000; }
-        .help-btn { background: var(--sticker-yellow); color: black; border: 2px solid black; border-radius: 50%; width: 35px; height: 35px; font-weight: 900; cursor: pointer; font-family: inherit; font-size: 1.2rem; box-shadow: 2px 2px 0 rgba(0,0,0,0.5); justify-self: end; }
+        #status-feed {
+            position: absolute; top: 0; left: 0; width: 100%; height: 35px;
+            background: rgba(0,0,0,0.3); color: white;
+            font-family: 'Chalkduster', fantasy, sans-serif;
+            font-size: 1rem; display: flex; align-items: center; justify-content: center;
+            z-index: 20;
+        }
 
-        #cpu-area { position: absolute; top: 80px; width: 100%; display: flex; justify-content: space-around; align-items: flex-start; height: 120px; padding: 0 10px; box-sizing: border-box; }
+        #game-info-bar { 
+            position: absolute; top: 40px; left: 10px; right: 10px;
+            background: none; padding: 0; font-size: 1rem; text-align: center; z-index: 5;
+            display: flex; justify-content: space-between; align-items: center; height: 35px;
+        }
+        
+        .help-btn {
+            background: var(--sticker-yellow); color: black; border: 2px solid black;
+            border-radius: 50%; width: 35px; height: 35px;
+            font-weight: 900; cursor: pointer; font-family: inherit; font-size: 1.2rem;
+            box-shadow: 2px 2px 0 rgba(0,0,0,0.5);
+        }
+
+        #cpu-area { 
+            position: absolute; top: 80px; width: 100%; 
+            display: flex; justify-content: space-around; align-items: flex-start;
+            height: 120px; padding: 0 10px; box-sizing: border-box;
+        }
         .opponent-wrapper { display: flex; flex-direction: column; align-items: center; transform: scale(0.85); transition: opacity 0.3s; }
         .opponent-wrapper.active-turn { opacity: 1; transform: scale(1.1); }
         .opponent-wrapper.inactive { opacity: 0.5; }
-        .opponent-name { background: white; color: black; border: 2px solid black; border-radius: 15px 15px 15px 0; padding: 4px 10px; font-size: 14px; margin-bottom: 5px; font-weight: bold; box-shadow: 2px 2px 0 rgba(0,0,0,0.3); }
-
-        #center-area { position: absolute; top: 52%; left: 50%; transform: translate(-50%, -50%); display: flex; gap: 20px; z-index: 2; }
-        #current-suit-bg {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            font-size: 200px; opacity: 0.1; pointer-events: none; z-index: 1;
-            color: white; font-weight: bold;
+        .opponent-name { 
+            background: white; color: black; border: 2px solid black; border-radius: 15px 15px 15px 0;
+            padding: 4px 10px; font-size: 14px; margin-bottom: 5px; font-weight: bold;
+            box-shadow: 2px 2px 0 rgba(0,0,0,0.3);
         }
 
-        /* Game HUD */
-        #game-hud { position: absolute; top: 62%; right: 10px; transform: translateY(-50%); display: flex; flex-direction: column; gap: 10px; z-index: 100; }
-        .hud-btn { padding: 15px 10px; color: black; border: 3px solid black; border-radius: 10px; font-weight: 900; cursor: pointer; box-shadow: 4px 4px 0 rgba(0,0,0,0.3); font-size: 0.9rem; text-transform: uppercase; font-family: inherit; }
+        #center-area { position: absolute; top: 52%; left: 50%; transform: translate(-50%, -50%); display: flex; gap: 20px; z-index: 2; }
+        
+        #game-hud { 
+            position: absolute; top: 62%; right: 10px; transform: translateY(-50%);
+            display: flex; flex-direction: column; gap: 10px; z-index: 100;
+        }
+        .hud-btn { 
+            padding: 15px 10px; color: black; border: 3px solid black; border-radius: 10px;
+            font-weight: 900; cursor: pointer; box-shadow: 4px 4px 0 rgba(0,0,0,0.3); 
+            font-size: 0.9rem; text-transform: uppercase; font-family: inherit;
+        }
         #btn-play { background: var(--sticker-pink); transform: rotate(-2deg); }
         #btn-pickup { background: var(--sticker-blue); transform: rotate(2deg); }
         #btn-last { background: var(--sticker-yellow); transform: rotate(-1deg); }
         .hud-btn:disabled { background: #ccc; color: #777; border-color: #777; transform: none; box-shadow: none; }
-        #btn-last.called { background: #4caf50; color: white; box-shadow: none; transform: scale(0.95); }
 
-        #player-area {
-            position: absolute; bottom: 0; width: 100%;
-            height: calc(var(--card-h) + 90px);
-            z-index: 50;
-            overflow-x: auto; overflow-y: visible;
-            white-space: nowrap;
+        #player-area { 
+            position: absolute; bottom: 0; width: 100%; height: calc(var(--card-h) + 50px);
+            z-index: 50; overflow-x: auto; overflow-y: visible; white-space: nowrap;
             padding: 0 20px; -webkit-overflow-scrolling: touch;
-            background-color: #d2a679;
+            background-color: #d2a679; /* Wood */
             background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(0,0,0,0.05) 10px, rgba(0,0,0,0.05) 20px);
             border-top: 5px solid #8d6e63;
             box-shadow: 0 -5px 15px rgba(0,0,0,0.5);
         }
-        .hand { display: inline-flex; justify-content: center; align-items: flex-end; min-width: 100%; padding-top: 25px; padding-bottom: 10px; position: relative; }
+        .hand { display: inline-flex; justify-content: center; min-width: 100%; padding-top: 25px; }
 
         /* --- CARDS --- */
         .card {
-            width: var(--card-w); height: var(--card-h);
+            width: var(--card-w); height: var(--card-h); 
             background: white; border-radius: 8px; border: 2px solid #333;
-            box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
-            position: relative; display: inline-flex; flex-direction: column; color: black;
-            flex-shrink: 0; margin-left: -35px; cursor: pointer;
-
-            /* FAN SUPPORT */
-            --fan-rot: 0deg;
-            --fan-y: 0px;
-            transform: rotate(var(--fan-rot)) translateY(var(--fan-y));
-            transform-origin: bottom center;
-            transition: transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1), margin 0.1s, box-shadow 0.2s;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.3); 
+            position: relative; display: inline-flex; 
+            flex-direction: column; color: black; flex-shrink: 0;
+            transition: transform 0.1s, margin 0.1s; cursor: pointer;
         }
         .card:first-child { margin-left: 0; }
         .card.red { color: #d32f2f; }
-
-        /* Card backs: default + unlockable skins */
-        .card.back {
+        
+        .card.back { 
             background-color: #000;
-            background-image:
-                radial-gradient(white 15%, transparent 16%),
-                radial-gradient(white 15%, transparent 16%);
-            background-size: 10px 10px;
-            background-position: 0 0, 5px 5px;
-            border: 3px solid white;
+            background-image: radial-gradient(white 15%, transparent 16%), radial-gradient(white 15%, transparent 16%);
+            background-size: 10px 10px; background-position: 0 0, 5px 5px;
+            border: 3px solid white; 
         }
-        body[data-cardback="blueberry"] .card.back {
-            background-color: #0d1b2a;
-            background-image:
-                radial-gradient(rgba(255,255,255,0.75) 16%, transparent 17%),
-                radial-gradient(rgba(255,255,255,0.35) 16%, transparent 17%),
-                linear-gradient(135deg, rgba(255,255,255,0.08), transparent 45%),
-                linear-gradient(225deg, rgba(255,255,255,0.06), transparent 45%);
-            background-size: 12px 12px, 18px 18px, 100% 100%, 100% 100%;
-            background-position: 0 0, 6px 6px, 0 0, 0 0;
-            border-color: #a2d2ff;
-        }
-        body[data-cardback="graph"] .card.back {
-            background-color: #ffffff;
-            background-image:
-                linear-gradient(rgba(0,0,0,0.08) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0,0,0,0.08) 1px, transparent 1px);
-            background-size: 12px 12px;
-            border-color: #333;
-        }
-        body[data-cardback="graffiti"] .card.back {
-            background-color: #111;
-            background-image:
-                radial-gradient(circle at 20% 30%, rgba(255,128,171,0.65), transparent 35%),
-                radial-gradient(circle at 70% 40%, rgba(128,216,255,0.55), transparent 35%),
-                radial-gradient(circle at 40% 75%, rgba(255,235,59,0.55), transparent 35%),
-                linear-gradient(135deg, rgba(255,255,255,0.08), transparent 55%);
-            background-size: 100% 100%;
-            border-color: #ff80ab;
-        }
-
         .card.back * { display: none; }
-
-        .card.selected {
-            border: 4px solid var(--sticker-pink);
-            transform: rotate(var(--fan-rot)) translateY(calc(var(--fan-y) - 40px)) scale(1.1);
-            z-index: 100 !important;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.4);
-        }
+        .card.selected { border: 4px solid var(--sticker-pink); transform: translateY(-25px); z-index: 100 !important; }
         .selection-badge { position: absolute; top: -10px; right: -10px; background: var(--sticker-pink); color: black; border-radius: 50%; width: 24px; height: 24px; text-align: center; line-height: 24px; font-weight: bold; z-index: 101; border: 2px solid black; }
+        
         .card-corner { position: absolute; top: 2px; left: 4px; display: flex; flex-direction: column; align-items: center; line-height: 0.9; }
         .card-corner .rank { font-size: 22px; font-weight: 900; }
         .card-corner .suit { font-size: 20px; margin-top: -2px; }
@@ -260,76 +200,32 @@
         .pass-btn { padding: 20px 60px; font-size: 1.5rem; background: var(--sticker-yellow); color: black; border: 4px solid black; font-family: inherit; font-weight: bold; cursor: pointer; border-radius: 50px; }
 
         /* Modals */
-        #match-result-modal, #suit-modal, #help-modal, #input-modal {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.9);
-            display: none; justify-content: center; align-items: center; z-index: 200;
-            flex-direction: column; color: white; font-family: inherit;
+        #match-result-modal, #suit-modal, #help-modal { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.9); display: none; justify-content: center; align-items: center; 
+            z-index: 200; flex-direction: column; color: white; font-family: inherit;
         }
-        .suit-btn { font-size: 50px; width: 80px; height: 80px; margin: 10px; cursor: pointer; background: white; border-radius: 20px; border: 3px solid black; box-shadow: 5px 5px 0 rgba(0,0,0,0.5); transition: transform 0.1s; }
-        .suit-btn:active { transform: scale(0.9); }
+        .suit-btn { font-size: 50px; width: 80px; height: 80px; margin: 10px; cursor: pointer; background: white; border-radius: 20px; border: 3px solid black; box-shadow: 5px 5px 0 rgba(0,0,0,0.5); }
+        
         .help-content { background: white; color: #333; border: 4px solid black; padding: 20px; width: 90%; max-width: 400px; max-height: 80vh; overflow-y: auto; border-radius: 20px; }
         .help-row { display: flex; justify-content: space-between; border-bottom: 2px dashed #aaa; padding: 10px 0; }
         .help-key { font-weight: 900; color: #d32f2f; width: 40px; font-size: 1.4rem; }
 
-        /* CHALK TOAST NOTIFICATION */
-        #toast-notification {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.9);
-            background: var(--chalk-green); color: var(--chalk-white);
-            padding: 20px 40px; border: 4px dashed var(--chalk-white); border-radius: 15px;
-            font-family: 'Chalkduster', fantasy, sans-serif; font-size: 1.5rem;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5); opacity: 0; pointer-events: none;
-            transition: opacity 0.2s, transform 0.2s; z-index: 300; text-align: center;
-        }
-        #toast-notification.show { opacity: 1; transform: translate(-50%, -50%) scale(1); animation: popIn 0.3s forwards; }
     </style>
 </head>
-<body data-cardback="classic">
-
-    <div id="toast-notification"></div>
+<body>
 
     <div id="login-screen" class="screen active">
-        <div class="logo-wrap" id="logo-wrap">
-            <div class="logo-badge">
-              <div class="logo-mark">♠</div>
-              <div>
-                <div class="logo-text">Old Skool<br>Black Jack</div>
-              </div>
-            </div>
-            <div class="logo-sub">Director's Cut</div>
-        </div>
+        <div class="logo-text">Schoolyard<br>Switch</div>
         <input type="text" id="username-input" placeholder="Your Name" maxlength="10">
         <button class="menu-btn btn-start" onclick="signUp()">Join Class</button>
     </div>
 
     <div id="menu-screen" class="screen">
-        <div style="font-size:1.1rem; font-weight:900; margin-bottom:10px; padding:10px 14px; background:white; border:2px solid #333; border-radius:12px; box-shadow:4px 4px 0 rgba(0,0,0,0.12); color:#333;">
-            Student: <span id="menu-username"></span>
-        </div>
-        <div style="font-size:0.95rem; font-weight:900; margin-bottom:16px; padding:8px 12px; background:var(--sticker-yellow); border:2px solid #333; border-radius:999px; box-shadow:3px 3px 0 rgba(0,0,0,0.12); color:#333;">
-            Streak: <span id="menu-streak">0</span> • Card Back: <span id="menu-back">classic</span>
-        </div>
-
-        <button class="menu-btn btn-league" onclick="goToLeague()">
-            🏆 Honor Roll
-            <small>Solo Career • Ranked</small>
-        </button>
-
-        <button class="menu-btn btn-party" onclick="goToPartyLobby()">
-            ⚽ Recess Mode
-            <small>Pass & Play • Custom</small>
-        </button>
-
-        
-        <button class="menu-btn btn-online" onclick="goToOnlineLobby()">
-            🌐 Online Lobby
-            <small>Create / Join • Multiplayer</small>
-        </button>
-
-        <button class="menu-btn" onclick="cycleCardBack()" style="background:white;">
-            🎴 Change Card Back
-            <small>Unlock more by win streaks</small>
-        </button>
+        <div class="logo-text" style="font-size: 1.5rem; margin-bottom:10px; border:none; background:none; box-shadow:none; transform:none;">Student: <span id="menu-username"></span></div>
+        <button class="menu-btn btn-league" onclick="goToLeague()">🏆 Honor Roll<small>Solo Career • Ranked</small></button>
+        <button class="menu-btn btn-party" onclick="goToPartyLobby()">⚽ Recess Mode<small>Pass & Play • Custom</small></button>
+        <button class="menu-btn btn-start" style="background: var(--sticker-blue); transform: rotate(1deg);" onclick="goToOnlineLobby()">🌐 Online Lobby<small>Create/Join • Room Code</small></button>
     </div>
 
     <div id="dashboard-screen" class="screen">
@@ -358,37 +254,32 @@
         </div>
     </div>
 
+
     <div id="online-lobby-screen" class="screen">
         <div class="header-row">
-            <button onclick="showScreen('menu-screen')" style="background:none; border:none; color:#333; font-size:2rem; font-weight:bold;">↩</button>
+            <button onclick="exitOnlineToMenu()" style="background:none; border:none; color:#333; font-size:2rem; font-weight:bold;">↩</button>
             <h2 style="margin:0; color:#333">ONLINE LOBBY</h2>
             <div style="width:24px"></div>
         </div>
 
-        <div style="width:90%; max-width:520px; background:white; border-radius:16px; padding:14px; box-shadow:4px 4px 0 rgba(0,0,0,0.12);">
-            <div style="font-weight:900; margin-bottom:8px;">Your name</div>
-            <input id="online-name" placeholder="Beef" style="width:100%; padding:12px; border-radius:12px; border:2px solid #333; font-weight:800; font-size:1rem;" />
-            <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">
-                <button class="menu-btn btn-start" style="flex:1; min-width:140px;" onclick="onlineCreate()">CREATE</button>
-                <button class="menu-btn btn-party" style="flex:1; min-width:140px;" onclick="onlineJoinPrompt()">JOIN</button>
+        <div class="standings-box" style="width:90%; max-width:420px;">
+            <div style="font-weight:900; color:#d32f2f; margin-bottom:8px;">Room Code</div>
+            <input type="text" id="online-room-input" placeholder="ABCDE" maxlength="8" style="width: 200px; font-size:1.6rem; text-transform:uppercase;">
+            <div style="display:flex; gap:10px; width:100%; justify-content:center; margin-top:10px; flex-wrap:wrap;">
+                <button class="btn-add" onclick="onlineCreateRoom()">Create</button>
+                <button class="btn-add" onclick="onlineJoinRoom()">Join</button>
             </div>
+            <div id="online-status" style="margin-top:12px; font-weight:bold; color:#333;">Not connected</div>
         </div>
 
-        <div id="online-room-box" style="display:none; width:90%; max-width:520px; margin-top:14px; background:white; border-radius:16px; padding:14px; box-shadow:4px 4px 0 rgba(0,0,0,0.12);">
-            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
-                <div style="font-weight:900;">Room Code: <span id="online-room-code" style="letter-spacing:2px;"></span></div>
-                <button class="btn-add" onclick="onlineCopyRoom()">Copy</button>
-            </div>
-            <div style="margin-top:10px; font-weight:900;">Players</div>
-            <div id="online-players" style="margin-top:6px;"></div>
-            <button class="menu-btn btn-league" id="online-start-btn" style="width:100%; margin-top:12px;" onclick="onlineStart()" disabled>START GAME</button>
-            <button class="menu-btn" style="width:100%; margin-top:10px; background:#fff0f0;" onclick="onlineLeave()">LEAVE</button>
-            <div style="margin-top:10px; font-size:0.85rem; opacity:0.85;">
-                Tip: share the Room Code, then both of you press START.
-            </div>
+        <div class="lobby-list" id="online-player-list" style="max-width:420px;"></div>
+
+        <button class="menu-btn btn-start" id="btn-online-start" style="width:90%; max-width:420px;" onclick="onlineStartGame()" disabled>START GAME</button>
+        <div style="width:90%; max-width:420px; font-size:0.95rem; color:#333; opacity:0.9; text-align:center;">
+            Tip: Share the room code. Host is the first player in the room.
         </div>
     </div>
-</div>
+
 
     <div id="pass-device-screen" class="screen">
         <div class="pass-title">Pass to <span id="next-player-name" style="color:var(--sticker-yellow)">...</span></div>
@@ -397,18 +288,13 @@
     </div>
 
     <div id="game-screen" class="screen">
-        <div id="current-suit-bg">♠</div>
         <div id="status-feed">Recess Started!</div>
-
         <div id="game-info-bar">
             <div id="turn-status"></div>
-            <div style="font-weight:900; color:white; font-size:0.8rem; text-shadow:1px 1px 0 #000; opacity:0.9;">Old Skool Black Jack</div>
-            <div id="attack-status"></div>
+            <div id="attack-status" style="color: var(--sticker-yellow); font-weight: bold; font-size: 0.9rem; text-shadow: 1px 1px 0 #000;"></div>
             <button class="help-btn" onclick="openHelp()">?</button>
         </div>
-
         <div id="cpu-area"></div>
-
         <div id="center-area">
             <div id="draw-pile" class="card back" onclick="humanPickup()"></div>
             <div id="discard-pile"></div>
@@ -417,7 +303,7 @@
             <button class="hud-btn" id="btn-play" onclick="humanPlay()">PLAY</button>
             <button class="hud-btn" id="btn-pickup" onclick="humanPickup()">DRAW</button>
             <button class="hud-btn" id="btn-last" onclick="humanDeclareLast()">LAST!</button>
-            <button class="hud-btn" id="btn-sort" onclick="toggleSort()" style="background:#fff; border-color:#333">SUIT</button>
+            <button class="hud-btn" onclick="sortPlayerHand()" style="background:#fff; border-color:#333">SORT</button>
         </div>
         <div id="player-area"><div id="player-hand" class="hand"></div></div>
     </div>
@@ -427,9 +313,9 @@
         <p id="result-desc" style="font-size: 1.5rem; color: #fff;"></p>
         <button class="menu-btn btn-start" onclick="exitGame()">Back to Class</button>
     </div>
-
+    
     <div id="suit-modal">
-        <h2 style="color:white; text-align:center;">Change Suit To...</h2>
+        <h2 style="color:white">Pick a Suit!</h2>
         <div style="display:flex; flex-wrap:wrap; justify-content:center;">
             <button class="suit-btn" onclick="resolveAce('H')" style="color:#b71c1c">♥</button>
             <button class="suit-btn" onclick="resolveAce('D')" style="color:#b71c1c">♦</button>
@@ -438,62 +324,216 @@
         </div>
     </div>
 
-    <div id="input-modal">
-        <div style="background:var(--paper-white); padding:20px; border-radius:10px; border:4px solid #333; transform:rotate(-1deg); text-align:center; width: 85%; max-width: 320px;">
-            <h2 style="margin-top:0; color:#333;">NEW CHALLENGER</h2>
-            <input type="text" id="custom-modal-input" placeholder="Name..." maxlength="10" style="margin-bottom:15px; width:100%; box-sizing:border-box;">
-            <div style="display:flex; gap:10px; justify-content:center;">
-                <button class="menu-btn btn-start" onclick="confirmInputModal()" style="width:auto; padding:10px 20px; margin:0;">OK</button>
-                <button class="menu-btn" onclick="closeInputModal()" style="width:auto; padding:10px 20px; background:#ccc; margin:0;">Cancel</button>
-            </div>
-        </div>
-    </div>
-
     <div id="help-modal" onclick="closeHelp()">
         <div class="help-content" onclick="event.stopPropagation()">
             <h2 style="margin-top:0; color:#333; text-align:center; border-bottom:2px dashed #333; padding-bottom:10px;">CHEAT SHEET</h2>
             <div class="help-row"><div class="help-key">2</div><div class="help-val">Draw 2 (Stacks!)</div></div>
-            <div class="help-row"><div class="help-key">8</div><div class="help-val">Skip Next Person (Stacks!)</div></div>
-            <div class="help-row"><div class="help-key">J</div><div class="help-val">Black: Draw 5 (Stacks!)<br>Red: Blocks!</div></div>
+            <div class="help-row"><div class="help-key">8</div><div class="help-val">Skip Next Person</div></div>
+            <div class="help-row"><div class="help-key">J</div><div class="help-val">Black: Draw 5<br>Red: Blocks Draw 5</div></div>
             <div class="help-row"><div class="help-key">Q</div><div class="help-val">Reverse Turn</div></div>
             <div class="help-row"><div class="help-key">K</div><div class="help-val">Go Again!</div></div>
             <div class="help-row"><div class="help-key">A</div><div class="help-val">Wild Card (Any Suit)</div></div>
-            <div class="help-row"><div class="help-key">LAST</div><div class="help-val">Call before you finish (go to 0)</div></div>
-            <div class="help-row"><div class="help-key">⚠️</div><div class="help-val">Power Finish = Pick Up 1</div></div>
-            <div style="margin-top:10px; font-style:italic; font-size:0.9rem; text-align:center;">Runs (6♠,7♠,8♠) & Sets (8♠,8♥) OK</div>
-            <div style="margin-top:5px; font-style:italic; font-size:0.8rem; text-align:center; color:#888;">Long-press Logo for Debug Mode</div>
             <button class="menu-btn btn-league" style="width:100%; margin-top:20px;" onclick="closeHelp()">OKAY!</button>
         </div>
     </div>
 
 <script>
-    // --- SOUND ENGINE ---
-    const AudioEngine = {
-        ctx: null,
-        init: function() {
-            if(!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-        },
-        playTone: function(freq, type, duration, vol) {
-            this.init();
-            if(this.ctx.state === 'suspended') this.ctx.resume();
-            const osc = this.ctx.createOscillator();
-            const gain = this.ctx.createGain();
-            osc.type = type;
-            osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
-            gain.gain.setValueAtTime(vol || 0.1, this.ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
-            osc.connect(gain);
-            gain.connect(this.ctx.destination);
-            osc.start();
-            osc.stop(this.ctx.currentTime + duration);
-        },
-        playCardSnap: function() { this.playTone(600, 'triangle', 0.1, 0.15); },
-        playError: function() { this.playTone(150, 'sawtooth', 0.3, 0.2); },
-        playCall: function() { this.playTone(800, 'square', 0.1, 0.1); },
-        playWin: function() {
-            [400, 500, 600, 800].forEach((f, i) => setTimeout(() => this.playTone(f, 'square', 0.3, 0.1), i*100));
-        }
+
+// --- SFX (no external files; uses WebAudio so it always works) ---
+let _audioCtx = null;
+function sfxTone(freq=440, dur=0.06, type="sine", vol=0.07) {
+    try {
+        if(!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const ctx = _audioCtx;
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = type;
+        o.frequency.value = freq;
+        g.gain.value = vol;
+        o.connect(g); g.connect(ctx.destination);
+        o.start();
+        o.stop(ctx.currentTime + dur);
+    } catch(e) {}
+}
+const SFX = {
+    click: () => sfxTone(620, 0.04, "square", 0.05),
+    draw:  () => sfxTone(320, 0.06, "sine", 0.06),
+    play:  () => sfxTone(520, 0.06, "triangle", 0.06),
+    win:   () => { sfxTone(660, 0.08, "sine", 0.07); setTimeout(()=>sfxTone(880,0.10,"sine",0.07),90); }
+};
+function sfx(name){ if(SFX[name]) SFX[name](); }
+
+// --- ONLINE (host-authoritative sync; does NOT change game rules) ---
+let ws = null;
+let isOnline = false;
+let isHost = false;
+let myOnlineId = null;
+let roomCode = null;
+
+function wsUrl() {
+    const proto = (location.protocol === "https:") ? "wss" : "ws";
+    return `${proto}://${location.host}/ws`;
+}
+
+function setOnlineStatus(t){ const el=document.getElementById("online-status"); if(el) el.innerText=t; }
+function renderOnlinePlayers(list){
+    const box = document.getElementById("online-player-list");
+    if(!box) return;
+    box.innerHTML = "";
+    list.forEach((p, idx)=>{
+        const row = document.createElement("div");
+        row.className = "lobby-item";
+        const hostTag = p.isHost ? " <small style='color:#d32f2f'>(HOST)</small>" : "";
+        row.innerHTML = `<span>${idx+1}. ${p.name}${hostTag}</span>`;
+        box.appendChild(row);
+    });
+}
+
+function goToOnlineLobby(){
+    showScreen("online-lobby-screen");
+    setOnlineStatus("Not connected");
+    renderOnlinePlayers([]);
+    document.getElementById("btn-online-start").disabled = true;
+}
+
+function exitOnlineToMenu(){
+    onlineDisconnect();
+    showScreen("menu-screen");
+}
+
+function onlineDisconnect(){
+    try{ if(ws) ws.close(); }catch(e){}
+    ws = null; isOnline=false; isHost=false; myOnlineId=null; roomCode=null;
+}
+
+function onlineConnect(){
+    return new Promise((resolve, reject)=>{
+        try{
+            ws = new WebSocket(wsUrl());
+            ws.onopen = ()=>resolve();
+            ws.onerror = ()=>reject(new Error("ws error"));
+            ws.onclose = ()=>{ setOnlineStatus("Disconnected"); document.getElementById("btn-online-start").disabled=true; };
+            ws.onmessage = (e)=>{
+
+if(msg.type==="roster" && isHost){
+    // Start a fresh online game using roster (no bots in online)
+    const cfg = msg.players.map(p=>({ id:p.id, name:p.name, isBot:false }));
+    isLeagueMode = false;
+    initGame(cfg);
+    showScreen("game-screen");
+    updateGameUI();
+    gameLoop();
+    syncState();
+}
+
+                let msg; try{ msg=JSON.parse(e.data); }catch{ return; }
+                if(msg.type==="room_update"){
+                    isHost = !!msg.isHost;
+                    myOnlineId = msg.you;
+                    isOnline = true;
+                    roomCode = msg.room;
+                    setOnlineStatus(`Connected • Room ${msg.room} ${isHost?"(HOST)":""}`);
+                    renderOnlinePlayers(msg.players);
+                    document.getElementById("btn-online-start").disabled = !isHost || msg.players.length < 2;
+                }
+                if(msg.type==="state"){
+                    // non-host just renders whatever host sends
+                    if(!isHost){
+                        importGameState(msg.state);
+                        showScreen("game-screen");
+                        updateGameUI();
+                        updateControls();
+                    }
+                }
+                if(msg.type==="action" && isHost){
+                    // host applies remote player actions
+                    applyRemoteAction(msg.action);
+                }
+            };
+        }catch(e){ reject(e); }
+    });
+}
+
+function onlineCreateRoom(){
+    const input = document.getElementById("online-room-input");
+    const want = (input.value||"").trim().toUpperCase();
+    const code = want || Math.random().toString(36).slice(2,7).toUpperCase();
+    onlineConnect().then(()=>{
+        ws.send(JSON.stringify({ type:"join", room: code, name: leagueData.player.name }));
+    }).catch(()=>setOnlineStatus("WebSocket failed"));
+}
+
+function onlineJoinRoom(){
+    const input = document.getElementById("online-room-input");
+    const code = (input.value||"").trim().toUpperCase();
+    if(!code) return alert("Enter room code");
+    onlineConnect().then(()=>{
+        ws.send(JSON.stringify({ type:"join", room: code, name: leagueData.player.name }));
+    }).catch(()=>setOnlineStatus("WebSocket failed"));
+}
+
+function onlineStartGame(){
+    if(!isHost) return;
+    // host tells server to broadcast "start" intent; host will init locally then push state
+    ws.send(JSON.stringify({ type:"host_start", room: roomCode }));
+    // init will happen when host receives its own room_update roster, so do it here safely:
+    startOnlineMatchFromRoster();
+}
+
+function startOnlineMatchFromRoster(){
+    if(!isHost) return;
+    // Build player config from last rendered roster by requesting server's current view:
+    // We already have roster in UI; simpler: request roster state via a ping.
+    ws.send(JSON.stringify({ type:"need_roster" }));
+}
+
+function exportGameState(){
+    return {
+        deck, discard, gamePlayers, turnIndex, direction, activeSuit,
+        pendingDraw2, pendingDrawJ, pendingSkip, selectionOrder,
+        isProcessing, acePending, isPassAndPlay, extraTurn, isLeagueMode
     };
+}
+
+function importGameState(s){
+    deck = s.deck; discard = s.discard; gamePlayers = s.gamePlayers;
+    turnIndex = s.turnIndex; direction = s.direction; activeSuit = s.activeSuit;
+    pendingDraw2 = s.pendingDraw2; pendingDrawJ = s.pendingDrawJ; pendingSkip = s.pendingSkip;
+    selectionOrder = s.selectionOrder || [];
+    isProcessing = !!s.isProcessing; acePending = !!s.acePending;
+    isPassAndPlay = false; // online: no pass device
+    extraTurn = !!s.extraTurn; isLeagueMode = !!s.isLeagueMode;
+}
+
+function syncState(){
+    if(isOnline && isHost && ws && ws.readyState===1){
+        ws.send(JSON.stringify({ type:"state", room: roomCode, state: exportGameState() }));
+    }
+}
+
+function sendAction(action){
+    if(isOnline && !isHost && ws && ws.readyState===1){
+        ws.send(JSON.stringify({ type:"action", room: roomCode, action: { ...action, playerId: myOnlineId } }));
+    }
+}
+
+function applyRemoteAction(action){
+    // Host only
+    if(!isHost || !isOnline) return;
+    const current = gamePlayers[turnIndex];
+    if(!current || current.id !== action.playerId) return; // not their turn
+    if(action.type==="draw") { humanPickup(); return; }
+    if(action.type==="last") { humanDeclareLast(); syncState(); return; }
+    if(action.type==="play") {
+        selectionOrder = action.indices || [];
+        humanPlay();
+        return;
+    }
+    if(action.type==="aceSuit") {
+        resolveAce(action.char);
+        return;
+    }
+}
 
     // --- DATA ---
     const BOTS = [
@@ -504,121 +544,33 @@
         { name: "Sporty Sam", wins: 0, losses: 0, pts: 0 }
     ];
 
-    const CARD_BACKS = [
-        { id: "classic", label: "classic", unlockAt: 0 },
-        { id: "blueberry", label: "blueberry", unlockAt: 3 },
-        { id: "graph", label: "graph", unlockAt: 5 },
-        { id: "graffiti", label: "graffiti", unlockAt: 10 }
-    ];
-
-    let leagueData = {
-        player: {
-            name: "",
-            wins: 0, losses: 0, pts: 0,
-            winStreak: 0, bestStreak: 0,
-            unlockedBacks: ["classic"],
-            selectedBack: "classic"
-        },
-        bots: JSON.parse(JSON.stringify(BOTS)),
-        isLoggedIn: false
-    };
-
+    let leagueData = { player: { name: "", wins: 0, losses: 0, pts: 0 }, bots: JSON.parse(JSON.stringify(BOTS)), isLoggedIn: false };
     let lobbyPlayers = [];
     let isLeagueMode = false;
-    let debugMode = false;
 
     // --- SETUP ---
     function loadData() {
-        const saved = localStorage.getItem('tc_school_final_DIRECTOR');
-        if(saved) {
-            try {
-                leagueData = JSON.parse(saved);
-            } catch(e) {}
-        }
-        // Migrate missing fields safely
-        leagueData.player = leagueData.player || {};
-        if(typeof leagueData.player.winStreak !== "number") leagueData.player.winStreak = 0;
-        if(typeof leagueData.player.bestStreak !== "number") leagueData.player.bestStreak = 0;
-        if(!Array.isArray(leagueData.player.unlockedBacks)) leagueData.player.unlockedBacks = ["classic"];
-        if(!leagueData.player.selectedBack) leagueData.player.selectedBack = "classic";
-        if(!leagueData.bots) leagueData.bots = JSON.parse(JSON.stringify(BOTS));
-        if(typeof leagueData.isLoggedIn !== "boolean") leagueData.isLoggedIn = false;
-
-        applyCardBack();
-        updateMenuBadges();
-
-        if(leagueData.isLoggedIn && leagueData.player.name) {
-            document.getElementById('menu-username').innerText = leagueData.player.name;
-            showScreen('menu-screen');
-        }
-    }
-    function saveData() {
-        localStorage.setItem('tc_school_final_DIRECTOR', JSON.stringify(leagueData));
-        applyCardBack();
-        updateMenuBadges();
-    }
-
-    function updateMenuBadges() {
-        const streakEl = document.getElementById('menu-streak');
-        const backEl = document.getElementById('menu-back');
-        if(streakEl) streakEl.innerText = String(leagueData.player.winStreak || 0);
-        if(backEl) backEl.innerText = String(leagueData.player.selectedBack || "classic");
-    }
-
-    function applyCardBack() {
-        const id = (leagueData.player && leagueData.player.selectedBack) ? leagueData.player.selectedBack : "classic";
-        document.body.setAttribute("data-cardback", id);
-    }
-
-    function unlockBackIfNeeded() {
-        const streak = leagueData.player.winStreak || 0;
-        const unlocked = new Set(leagueData.player.unlockedBacks || ["classic"]);
-        let newlyUnlocked = [];
-
-        CARD_BACKS.forEach(b => {
-            if(streak >= b.unlockAt && !unlocked.has(b.id)) {
-                unlocked.add(b.id);
-                newlyUnlocked.push(b.id);
+        const saved = localStorage.getItem('tc_school_v2');
+        if(saved) { 
+            leagueData = JSON.parse(saved); 
+            if(leagueData.isLoggedIn) {
+                document.getElementById('menu-username').innerText = leagueData.player.name;
+                showScreen('menu-screen');
             }
-        });
-
-        leagueData.player.unlockedBacks = Array.from(unlocked);
-
-        if(newlyUnlocked.length) {
-            showToast(`Unlocked: ${newlyUnlocked.join(", ")}!`);
         }
     }
-
-    function cycleCardBack() {
-        const unlocked = leagueData.player.unlockedBacks || ["classic"];
-        const current = leagueData.player.selectedBack || "classic";
-        const idx = unlocked.indexOf(current);
-        const next = unlocked[(idx + 1 + unlocked.length) % unlocked.length];
-        leagueData.player.selectedBack = next;
-        saveData();
-        showToast(`Card back: ${next}`);
-    }
-
-    function toggleDebug() {
-        debugMode = !debugMode;
-        showToast(debugMode ? "Debug Mode: ON" : "Debug Mode: OFF");
-    }
+    function saveData() { localStorage.setItem('tc_school_v2', JSON.stringify(leagueData)); }
 
     function signUp() {
         const name = document.getElementById('username-input').value.trim();
-        if(!name) return showToast("Write your name!");
-        leagueData.player.name = name;
-        leagueData.isLoggedIn = true;
-        saveData();
-        document.getElementById('menu-username').innerText = name;
-        showScreen('menu-screen');
+        if(!name) return alert("Write your name!");
+        leagueData.player.name = name; leagueData.isLoggedIn = true; saveData(); 
+        document.getElementById('menu-username').innerText = name; showScreen('menu-screen');
     }
 
     function showScreen(id) {
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
         document.getElementById(id).classList.add('active');
-        AudioEngine.init();
-        updateMenuBadges();
     }
 
     function goToLeague() { showScreen('dashboard-screen'); renderStandings(); }
@@ -636,36 +588,16 @@
         });
     }
 
-    // --- INPUT MODAL LOGIC ---
-    let inputCallback = null;
-    function showInputModal(callback) {
-        document.getElementById('input-modal').style.display = 'flex';
-        let inp = document.getElementById('custom-modal-input');
-        inp.value = ''; inp.focus();
-        inputCallback = callback;
-    }
-    function confirmInputModal() {
-        const val = document.getElementById('custom-modal-input').value.trim();
-        if(val && inputCallback) inputCallback(val);
-        closeInputModal();
-    }
-    function closeInputModal() {
-        document.getElementById('input-modal').style.display = 'none';
-        inputCallback = null;
-    }
-
     // --- LOBBY ---
     function addLobbyBot() {
-        if(lobbyPlayers.length >= 4) return showToast("Table Full!");
+        if(lobbyPlayers.length >= 4) return alert("Table Full!");
         let bot = leagueData.bots[Math.floor(Math.random() * leagueData.bots.length)];
         lobbyPlayers.push({ name: bot.name, isBot: true }); renderLobby();
     }
     function addLobbyHuman() {
-        if(lobbyPlayers.length >= 4) return showToast("Table Full!");
-        showInputModal((name) => {
-             lobbyPlayers.push({ name: name, isBot: false });
-             renderLobby();
-        });
+        if(lobbyPlayers.length >= 4) return alert("Table Full!");
+        let name = prompt("Friend's Name:", `Player ${lobbyPlayers.length+1}`);
+        if(name) { lobbyPlayers.push({ name: name, isBot: false }); renderLobby(); }
     }
     function removeLobby(i) { if(i===0) return; lobbyPlayers.splice(i,1); renderLobby(); }
     function renderLobby() {
@@ -682,9 +614,7 @@
 
     function startLeagueMatch() {
         isLeagueMode = true;
-        let totalGames = leagueData.player.wins + leagueData.player.losses;
-        let oppIndex = totalGames % leagueData.bots.length;
-        let opp = leagueData.bots[oppIndex];
+        let opp = leagueData.bots[Math.floor(Math.random() * leagueData.bots.length)];
         initGame([{ name: leagueData.player.name, isBot: false }, { name: opp.name, isBot: true }]);
     }
     function startPartyGame() { isLeagueMode = false; initGame(lobbyPlayers); }
@@ -692,7 +622,7 @@
     // --- GAME ENGINE ---
     const SUITS = ["♠", "♥", "♦", "♣"];
     const RANKS = ["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
-    const POWER_RANKS = new Set(["A","2","8","J","Q","K"]);
+    const POWER_RANKS = new Set(["A","2","8","J","Q","K"]); 
     const SUIT_MAP = {'H': '♥', 'D': '♦', 'C': '♣', 'S': '♠'};
 
     let deck=[], discard=[], gamePlayers=[], turnIndex=0, direction=1, activeSuit=null;
@@ -700,37 +630,14 @@
     let selectionOrder = [], isProcessing=false, acePending=false;
     let isPassAndPlay = false, extraTurn = false;
 
-    let sortByRank = false;
-    let bottomIndex = 0;
-
-    // --- SORT UI SYNC (PATCH) ---
-    function updateSortUI() {
-        const btn = document.getElementById('btn-sort');
-        if(!btn) return;
-        btn.innerText = sortByRank ? "RANK" : "SUIT";
-        btn.style.background = sortByRank ? "var(--sticker-pink)" : "white";
-        btn.style.borderColor = "#333";
-    }
-
-    function startTurn() {
-        isProcessing = false;
-        showScreen('game-screen');
-        updateSortUI();
-        updateGameUI();
-        gameLoop();
-    }
-
     function initGame(config) {
         deck = createDeck(); shuffle(deck); discard = [];
         turnIndex = 0; direction = 1; activeSuit = null;
         pendingDraw2=0; pendingDrawJ=0; pendingSkip=0;
         selectionOrder = []; isProcessing = false; extraTurn = false;
-        acePending = false;
 
-        gamePlayers = config.map(p => ({ name: p.name, isBot: p.isBot, hand: [], lastDeclared: false }));
+        gamePlayers = config.map(p => ({ id: p.id || (Math.random().toString(36).slice(2,10)), name: p.name, isBot: p.isBot, hand: [], lastDeclared: false }));
         isPassAndPlay = gamePlayers.some((p, i) => i > 0 && !p.isBot);
-
-        bottomIndex = isPassAndPlay ? turnIndex : 0;
 
         for(let i=0; i<7; i++) gamePlayers.forEach(p => p.hand.push(deck.pop()));
 
@@ -740,189 +647,123 @@
             deck.unshift(start);
         }
 
-        // Initial sort
-        sortHandForPlayer(0, true);
-        updateSortUI(); // sync sort button on game start
-
+        sortHand(gamePlayers[0].hand);
         updateFeed("Class is in session!");
 
         if(isPassAndPlay) triggerPassScreen();
         else { showScreen('game-screen'); updateGameUI(); gameLoop(); }
+        syncState();
     }
 
     function triggerPassScreen() {
-        isProcessing = true;
-        bottomIndex = turnIndex;
         let p = gamePlayers[turnIndex];
         document.getElementById('next-player-name').innerText = p.name;
         showScreen('pass-device-screen');
     }
 
+    function startTurn() { showScreen('game-screen'); updateGameUI(); gameLoop(); }
+
     function createDeck() { let d=[]; for(let s of SUITS) for(let r of RANKS) d.push({suit:s, rank:r}); return d; }
     function shuffle(arr) { for(let i=arr.length-1; i>0; i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; }}
 
     function gameLoop() {
-        if(gamePlayers.some(p => p.hand.length===0)) return;
+        if(gamePlayers.some(p => p.hand.length===0)) return; 
         updateGameUI();
-        updateControls();
-        updateSortUI();
-
         let p = gamePlayers[turnIndex];
         let statusDiv = document.getElementById('turn-status');
         let atkDiv = document.getElementById('attack-status');
-
+        
         statusDiv.innerText = p.isBot ? `${p.name} thinking...` : `${p.name}'S TURN`;
         statusDiv.style.color = p.isBot ? "#ccc" : "white";
 
-        let msg = "";
-        if(pendingDraw2) msg = `⚠️ DRAW +${pendingDraw2}`;
-        else if(pendingDrawJ) msg = `⚠️ DRAW +${pendingDrawJ}`;
-        else if(pendingSkip) msg = `⚠️ SKIPPED! x${pendingSkip}`;
-        atkDiv.innerText = msg;
-
-        if(p.isBot) { setTimeout(cpuTurn, 900); }
+        if(p.isBot) { setTimeout(cpuTurn, 1000); } 
         else {
-            if(document.getElementById('game-screen').classList.contains('active')) {
-                isProcessing = false;
-            }
+            isProcessing = false; updateControls();
+            let msg = "";
+            if(pendingDraw2) msg = `⚠️ DRAW +${pendingDraw2}`;
+            else if(pendingDrawJ) msg = `⚠️ DRAW +${pendingDrawJ}`;
+            else if(pendingSkip) msg = `⚠️ SKIPPED! (8 or Draw)`;
+            atkDiv.innerText = msg;
         }
     }
 
     function nextTurn() {
+        syncState();
         turnIndex = (turnIndex + direction + gamePlayers.length) % gamePlayers.length;
-        if(isPassAndPlay && !gamePlayers[turnIndex].isBot) setTimeout(triggerPassScreen, 650);
+        if(isPassAndPlay && !gamePlayers[turnIndex].isBot) setTimeout(triggerPassScreen, 800);
         else gameLoop();
     }
 
     // --- ACTIONS ---
     function toggleSelect(i) {
+        sfx("click");
         if(isProcessing || gamePlayers[turnIndex].isBot) return;
         const existingIdx = selectionOrder.indexOf(i);
         if (existingIdx !== -1) selectionOrder.splice(existingIdx, 1);
-        else {
-            selectionOrder.push(i);
-            AudioEngine.playTone(300, 'sine', 0.05, 0.05);
-        }
-        renderHandUI();
-        updateControls();
-
-        let p = gamePlayers[turnIndex];
-        let willFinish = (p.hand.length === selectionOrder.length && selectionOrder.length > 0);
-        if(willFinish && !p.lastDeclared) showToast("⚠️ Call LAST to go out!");
+        else selectionOrder.push(i);
+        renderHandUI(); updateControls();
     }
 
     function humanPickup() {
-        if(ONLINE && ONLINE.enabled){
-            const p = gamePlayers[turnIndex];
-            if(!p || p.id !== ONLINE.you) { showToast("Not your turn"); return; }
-            try { ONLINE.ws.send(JSON.stringify({t:"draw"})); } catch(e){ showToast("Send failed"); }
-            return;
-        }
-
-        if(isProcessing) return;
-        if(gamePlayers[turnIndex].isBot) return;
-        isProcessing = true;
+        sfx("draw");
+        if(isOnline && !isHost){ sendAction({type:"draw"}); return; }
+        if(isProcessing) return; isProcessing = true;
+        sfx("play");
         let p = gamePlayers[turnIndex];
-
+        
         if(pendingSkip > 0) {
-            pendingSkip--;
-            updateFeed(`${p.name} missed turn! (${pendingSkip} left)`);
+            pendingSkip = 0; updateFeed(`${p.name} missed turn!`);
             p.lastDeclared = false; selectionOrder = []; nextTurn(); return;
         }
 
-        let pen = 1;
-        if(pendingDraw2 > 0) pen = pendingDraw2;
-        else if(pendingDrawJ > 0) pen = pendingDrawJ;
-
-        if(pendingDraw2 > 0) { pendingDraw2 = 0; updateFeed(`${p.name} drew ${pen}`); }
-        else if(pendingDrawJ > 0) { pendingDrawJ = 0; updateFeed(`${p.name} drew ${pen}`); }
-
+        let pen = pendingDraw2 || pendingDrawJ || 1;
+        if(pendingDraw2) { pendingDraw2=0; updateFeed(`${p.name} drew ${pen}`); }
+        else if(pendingDrawJ) { pendingDrawJ=0; updateFeed(`${p.name} drew ${pen}`); }
+        
         p.hand.push(...draw(pen));
-        AudioEngine.playCardSnap();
-        p.lastDeclared = false;
-
-        sortHandForPlayer(turnIndex, true);
-
-        selectionOrder = [];
-        nextTurn();
+        p.lastDeclared = false; sortHand(p.hand); selectionOrder = []; nextTurn();
     }
 
     function humanDeclareLast() {
-        if(ONLINE && ONLINE.enabled){
-            const p = gamePlayers[turnIndex];
-            if(!p || p.id !== ONLINE.you) { showToast("Not your turn"); return; }
-            try { ONLINE.ws.send(JSON.stringify({t:"last"})); } catch(e){ showToast("Send failed"); }
-            return;
-        }
-
-        if(isProcessing || gamePlayers[turnIndex].isBot) return;
-        let p = gamePlayers[turnIndex];
-        p.lastDeclared = true;
-        AudioEngine.playCall();
-        updateFeed("You shout LAST!");
+        if(isOnline && !isHost){ sendAction({type:"last"}); return; }
+        gamePlayers[turnIndex].lastDeclared = true;
+        document.getElementById('turn-status').innerText = "CALLED LAST!";
         updateControls();
     }
 
     function humanPlay() {
-        if(ONLINE && ONLINE.enabled){
-            const p = gamePlayers[turnIndex];
-            if(!p || p.id !== ONLINE.you) { showToast("Not your turn"); return; }
-            if(!selectionOrder.length) return;
-            const ids = selectionOrder.map(i => p.hand[i]?.id).filter(Boolean);
-            if(ids.length !== selectionOrder.length){ showToast("Bad selection"); return; }
-            try { ONLINE.ws.send(JSON.stringify({t:"play", cards: ids})); } catch(e){ showToast("Send failed"); }
-            return;
-        }
-
-        if(isProcessing || gamePlayers[turnIndex].isBot) return;
-        if(!selectionOrder.length) return;
-        attemptPlay(turnIndex, [...selectionOrder]);
+        if(isOnline && !isHost){ if(!selectionOrder.length) return; sendAction({type:"play", indices:[...selectionOrder]}); selectionOrder=[]; renderHandUI(); updateControls(); return; }
+        if(isProcessing || !selectionOrder.length) return;
+        let p = gamePlayers[turnIndex];
+        let remaining = p.hand.length - selectionOrder.length;
+        if (remaining === 1 && !p.lastDeclared) { alert("⚠️ Call LAST before playing!"); return; }
+        attemptPlay(turnIndex, [...selectionOrder]); 
     }
 
     function attemptPlay(pidx, indices) {
         isProcessing = true;
-        acePending = false;
         let p = gamePlayers[pidx];
         let cards = indices.map(i => p.hand[i]);
-
+        
         let err = null;
         if(pendingDraw2 > 0 && cards[0].rank !== "2") err = "Must play a 2!";
-        else if(pendingDrawJ > 0 && cards[0].rank !== "J") err = "Must play a Jack (or DRAW)!";
-        else if(pendingSkip > 0 && cards[0].rank !== "8") err = "Can only stack an 8!";
+        else if(pendingDrawJ > 0 && cards[0].rank !== "J") err = "Must play a Jack!";
+        else if(pendingSkip > 0 && cards[0].rank !== "8") err = "Play an 8 or Draw!";
         else if(!canStart(cards[0], getTop(), activeSuit)) err = "Invalid Card";
         else {
             for(let i=0; i<cards.length-1; i++) {
                 if(!linkOk(cards[i], cards[i+1])) err = `Invalid Combo`;
             }
         }
+        
+        let willFinish = (p.hand.length === cards.length);
+        if(willFinish && POWER_RANKS.has(cards[cards.length-1].rank) && cards[cards.length-1].rank !== "K") err = "No power card finish!"; 
+        
+        if(err) { if(!p.isBot) alert(err); isProcessing = false; return; }
 
-        if(debugMode && err) {
-            console.warn("PLAY REJECTED:", err, {
-                pendingDraw2, pendingDrawJ, pendingSkip,
-                activeSuit, top: getTop(),
-                attempted: cards.map(c => `${c.rank}${c.suit}`),
-                indices
-            });
-        }
-
-        if(err) {
-            if(!p.isBot) {
-                showToast(err);
-                shakeCards(indices);
-                AudioEngine.playError();
-            } else {
-                p.lastDeclared = false;
-            }
-            isProcessing = false;
-            return;
-        }
-
-        AudioEngine.playCardSnap();
         let removeIndices = [...indices].sort((a,b) => b-a);
         for(let i of removeIndices) p.hand.splice(i, 1);
-
-        let finishedNow = (p.hand.length === 0);
-
+        
         let isSet = cards.length>1 && cards.every(c=>c.rank===cards[0].rank);
         cards.forEach((c, i) => {
             discard.push(c);
@@ -930,37 +771,13 @@
             if(POWER_RANKS.has(c.rank) && (isSet || isLast)) applyPower(c, pidx, isLast);
         });
 
+        updateFeed(`${p.name} played ${cards.length} card(s)`);
         if(cards[cards.length-1].rank !== "A") activeSuit = cards[cards.length-1].suit;
 
-        updateFeed(`${p.name} played ${cards.length} card(s)`);
-
-        // 1. FORGOT LAST
-        if(finishedNow && !p.lastDeclared) {
-            updateFeed(`⚠️ ${p.name} Forgot LAST! Draw 2`);
+        if(willFinish && p.hand.length === 0 && !p.lastDeclared && p.hand.length > 0) {
+            if(!p.isBot) alert("Forgot LAST! Draw 2");
             p.hand.push(...draw(2));
-            sortHandForPlayer(pidx, true);
-            selectionOrder = [];
-            isProcessing = false;
-            p.lastDeclared = false;
-            updateGameUI();
-            setTimeout(nextTurn, 850);
-            return;
         }
-
-        // 2. POWER CARD FINISH
-        if(finishedNow && POWER_RANKS.has(cards[cards.length-1].rank)) {
-             updateFeed(`Can't end on Power! Pick up 1`);
-             p.hand.push(...draw(1));
-             sortHandForPlayer(pidx, true);
-             selectionOrder = [];
-             isProcessing = false;
-             p.lastDeclared = false;
-             updateGameUI();
-             setTimeout(nextTurn, 850);
-             return;
-        }
-
-        if(finishedNow) p.lastDeclared = false;
 
         selectionOrder = [];
         if(p.hand.length === 0) { endMatch(pidx); return; }
@@ -968,24 +785,21 @@
         if(extraTurn) {
             extraTurn = false;
             updateFeed("KING: Play Again!");
-            if(p.isBot) { setTimeout(cpuTurn, 700); }
+            if(p.isBot) { setTimeout(cpuTurn, 1000); }
             else { isProcessing = false; document.getElementById('turn-status').innerText = "PLAY AGAIN!"; updateControls(); }
             return;
         }
 
         if(acePending && !p.isBot) { document.getElementById('suit-modal').style.display = 'flex'; }
-        else { setTimeout(nextTurn, 850); }
+        else { setTimeout(nextTurn, 1000); }
     }
 
     // --- UTILS ---
     function getTop(){ return discard[discard.length-1]; }
     function rankVal(r){ if(r==="A")return 1; if(r==="J")return 11; if(r==="Q")return 12; if(r==="K")return 13; return parseInt(r); }
     function canStart(c, top, suit){ return c.rank==="A" || c.suit===suit || c.rank===top.rank; }
-
-    function linkOk(p, n){
-        return p.rank===n.rank || (p.suit===n.suit && Math.abs(rankVal(p.rank)-rankVal(n.rank))===1);
-    }
-
+    function linkOk(p, n){ return p.rank===n.rank || (p.suit===n.suit && Math.abs(rankVal(p.rank)-rankVal(n.rank))===1); }
+    
     function draw(n){
         let arr=[];
         for(let i=0; i<n; i++){
@@ -1003,7 +817,7 @@
         }
         return arr;
     }
-
+    
     function applyPower(c, pidx, isLast){
         let r=c.rank;
         if(r==="A" && isLast) {
@@ -1016,229 +830,83 @@
         }
         else if(r==="2") pendingDraw2+=2;
         else if(r==="8") pendingSkip++;
-        else if(r==="Q") {
-            direction *= -1;
-            updateFeed(direction === 1 ? "Direction: Clockwise" : "Direction: Reversed!");
-        }
-        else if(r==="K") extraTurn = true;
+        else if(r==="Q") { direction *= -1; updateFeed("Direction Reversed!"); }
+        else if(r==="K") extraTurn = true; 
         else if(r==="J") {
-            const isRed = (c.suit==="♥"||c.suit==="♦");
-            if(isRed) { pendingDrawJ = 0; updateFeed("Attack Blocked!"); }
-            else { pendingDrawJ += 5; }
+            if(c.suit==="♥"||c.suit==="♦") { if(pendingDrawJ>0) pendingDrawJ=0; updateFeed("Attack Blocked!"); }
+            else pendingDrawJ+=5;
         }
     }
 
     function updateFeed(msg) { document.getElementById('status-feed').innerText = msg; }
-    function showToast(msg) {
-        const t = document.getElementById('toast-notification');
-        t.innerText = msg; t.classList.add('show');
-        setTimeout(()=>t.classList.remove('show'), 2000);
-    }
-    function shakeCards(indices) {
-        let handDiv = document.getElementById('player-hand');
-        indices.forEach(i => {
-            if(handDiv.children[i]) {
-                handDiv.children[i].classList.add('shake');
-                setTimeout(()=>handDiv.children[i].classList.remove('shake'), 450);
-            }
-        });
-    }
 
     function endMatch(winnerIdx) {
-        AudioEngine.playWin();
+        sfx("win");
         let title = document.getElementById('result-title');
         let desc = document.getElementById('result-desc');
         let modal = document.getElementById('match-result-modal');
         let winner = gamePlayers[winnerIdx];
-
         if(isLeagueMode) {
-            if(winnerIdx === 0) {
-                leagueData.player.wins++;
-                leagueData.player.pts += 3;
-
-                // WIN STREAK (UNLOCKS)
-                leagueData.player.winStreak = (leagueData.player.winStreak || 0) + 1;
-                leagueData.player.bestStreak = Math.max(leagueData.player.bestStreak || 0, leagueData.player.winStreak || 0);
-                unlockBackIfNeeded();
-
-                title.innerText = "A+";
-                desc.innerText = `You Passed! (Streak: ${leagueData.player.winStreak})`;
-            } else {
-                leagueData.player.losses++;
-
-                // streak resets on loss
-                leagueData.player.winStreak = 0;
-
-                title.innerText = "F";
-                desc.innerText = `${winner.name} is top of class`;
-            }
+            if(winnerIdx === 0) { leagueData.player.wins++; leagueData.player.pts+=3; title.innerText = "A+"; desc.innerText = "You Passed!"; }
+            else { leagueData.player.losses++; title.innerText = "F"; desc.innerText = `${winner.name} is top of class`; }
             saveData();
-        } else {
-            title.innerText = `${winner.name} WINS!`;
-            desc.innerText = "Recess Over!";
-        }
+        } else { title.innerText = `${winner.name} WINS!`; desc.innerText = "Recess Over!"; }
         modal.style.display = 'flex';
     }
 
     function exitGame() {
         document.getElementById('match-result-modal').style.display = 'none';
-        if(isLeagueMode) showScreen('dashboard-screen');
-        else showScreen('lobby-screen');
+        if(isLeagueMode) showScreen('dashboard-screen'); else showScreen('lobby-screen');
     }
 
     function resolveAce(char){
-        const suit = SUIT_MAP[char];
-        if(ONLINE && ONLINE.enabled){
-            activeSuit = suit;
-            acePending = false;
-            document.getElementById('suit-modal').style.display='none';
-            try{ ONLINE.ws.send(JSON.stringify({t:'suit', suit})); }catch(e){}
-            updateGameUI();
-            return;
-        }
-        activeSuit = suit;
-        acePending = false;
-        document.getElementById('suit-modal').style.display='none';
-        nextTurn();
-    }
+        if(isOnline && !isHost){ sendAction({type:"aceSuit", char}); document.getElementById('suit-modal').style.display='none'; return; } activeSuit=SUIT_MAP[char]; acePending=false; document.getElementById('suit-modal').style.display='none'; nextTurn(); }
     function openHelp() { document.getElementById('help-modal').style.display = 'flex'; }
     function closeHelp() { document.getElementById('help-modal').style.display = 'none'; }
 
-    // --- HELPER FOR BOT RUNS ---
-    function buildBestRun(hand, startIdx) {
-        const start = hand[startIdx];
-        const suit = start.suit;
-
-        let runDown = [startIdx];
-        let cur = rankVal(start.rank);
-        let usedDown = new Set([startIdx]);
-        while(true){
-            let found = -1;
-            for(let i=0; i<hand.length; i++){
-                if(!usedDown.has(i) && hand[i].suit === suit && rankVal(hand[i].rank) === cur - 1){
-                    found = i; break;
-                }
-            }
-            if(found > -1) { runDown.push(found); usedDown.add(found); cur--; }
-            else break;
-        }
-
-        let runUp = [startIdx];
-        cur = rankVal(start.rank);
-        let usedUp = new Set([startIdx]);
-        while(true){
-            let found = -1;
-            for(let i=0; i<hand.length; i++){
-                if(!usedUp.has(i) && hand[i].suit === suit && rankVal(hand[i].rank) === cur + 1){
-                    found = i; break;
-                }
-            }
-            if(found > -1) { runUp.push(found); usedUp.add(found); cur++; }
-            else break;
-        }
-
-        return (runDown.length > runUp.length) ? runDown : runUp;
-    }
-
-    // --- CPU LOGIC ---
     function cpuTurn() {
-        try {
         let p = gamePlayers[turnIndex];
-        let nextP = gamePlayers[(turnIndex + direction + gamePlayers.length) % gamePlayers.length];
-
-        if(p.hand.length === 1 && !p.lastDeclared) {
-            p.lastDeclared = true;
-            AudioEngine.playCall();
-            updateFeed(`${p.name} shouts LAST!`);
-            updateGameUI();
-        }
-
-        if(pendingDraw2 > 0) {
+        // DEFENSE
+        if(pendingDraw2) {
             let idx = p.hand.findIndex(c=>c.rank==="2");
-            if(idx>-1) { attemptPlay(turnIndex, [idx]); return; }
-            let drawn = draw(pendingDraw2); p.hand.push(...drawn); pendingDraw2=0;
-            p.lastDeclared = false;
-            updateFeed(`drew ${drawn.length} cards`); updateGameUI(); setTimeout(nextTurn, 900); return;
+            if(idx>-1) attemptPlay(turnIndex,[idx]); 
+            else { 
+                let drawn = draw(pendingDraw2); p.hand.push(...drawn); pendingDraw2=0; 
+                updateFeed(`${p.name} drew ${drawn.length} cards`); updateGameUI(); setTimeout(nextTurn, 1500); 
+            } return;
         }
-
-        if(pendingDrawJ > 0) {
-            let redJ = p.hand.findIndex(c=>c.rank==="J" && (c.suit==="♥"||c.suit==="♦"));
-            if(redJ > -1) { attemptPlay(turnIndex, [redJ]); return; }
-
-            let blackJ = p.hand.findIndex(c=>c.rank==="J" && (c.suit==="♠"||c.suit==="♣"));
-            if(blackJ > -1) { attemptPlay(turnIndex, [blackJ]); return; }
-
-            let drawn = draw(pendingDrawJ); p.hand.push(...drawn); pendingDrawJ=0;
-            p.lastDeclared = false;
-            updateFeed(`drew ${drawn.length} cards`); updateGameUI(); setTimeout(nextTurn, 900); return;
+        if(pendingDrawJ) {
+            let idx = p.hand.findIndex(c=>c.rank==="J");
+            if(idx>-1) attemptPlay(turnIndex,[idx]); 
+            else { 
+                let drawn = draw(pendingDrawJ); p.hand.push(...drawn); pendingDrawJ=0; 
+                updateFeed(`${p.name} drew ${drawn.length} cards`); updateGameUI(); setTimeout(nextTurn, 1500);
+            } return;
         }
-
         if(pendingSkip > 0) {
             let idx = p.hand.findIndex(c=>c.rank==="8");
-            if(idx>-1) { attemptPlay(turnIndex, [idx]); return; }
-            pendingSkip--; updateFeed("Skipped!"); setTimeout(nextTurn, 900); return;
-        }
-
-        let moves = [];
-        p.hand.forEach((c,i)=>{
-            if(canStart(c, getTop(), activeSuit)) {
-
-                let setIndices = [i];
-                p.hand.forEach((x,xi)=>{ if(xi!==i && x.rank===c.rank) setIndices.push(xi); });
-                setIndices.sort((a,b)=>a-b);
-                moves.push({ indices: setIndices, card: c, score: 0, type: 'set' });
-
-                let runIndices = buildBestRun(p.hand, i);
-                if(runIndices.length >= 3) {
-                    let lastIdx = runIndices[runIndices.length-1];
-                    moves.push({ indices: runIndices, card: p.hand[lastIdx], score: 0, type: 'run' });
-                }
-            }
-        });
-
-        if(moves.length === 0) {
-            let drawn = draw(1); p.hand.push(...drawn);
-            p.lastDeclared=false;
-            updateFeed("drew 1 card"); updateGameUI(); setTimeout(nextTurn, 900);
+            if(idx > -1) attemptPlay(turnIndex, [idx]);
+            else { pendingSkip = 0; updateFeed(`${p.name} skipped!`); setTimeout(nextTurn, 1500); }
             return;
         }
-
-        moves.forEach(m => {
-            let remaining = p.hand.length - m.indices.length;
-            m.score += m.indices.length * 10;
-
-            if(nextP.hand.length <= 2 && remaining > 0) {
-                if(m.card.rank === "J") m.score += 80;
-                else if(m.card.rank === "8") m.score += 60;
-                else if(m.card.rank === "Q") m.score += 50;
-            }
-
-            if(nextP.hand.length > 2 && remaining > 0) {
-                if(["2","J","A"].includes(m.card.rank)) m.score -= 20;
-            }
-
-            if(remaining === 0) {
-                if(POWER_RANKS.has(m.card.rank)) m.score = 200;
-                else m.score = 9999;
+        
+        // ATTACK
+        let bestMove=null; let bestScore=-999;
+        p.hand.forEach((c,i)=>{
+            if(canStart(c, getTop(), activeSuit)) {
+                let setIndices=[i];
+                p.hand.forEach((x,xi)=>{ if(xi!==i && x.rank===c.rank) setIndices.push(xi); });
+                let score = setIndices.length * 10;
+                if(c.rank === "K") score += 50; 
+                if(score > bestScore) { bestScore=score; bestMove=setIndices; }
             }
         });
-
-        moves.sort((a,b) => b.score - a.score);
-        let best = moves[0];
-
-        if(p.hand.length - best.indices.length <= 0 && !p.lastDeclared) {
-            p.lastDeclared = true;
-            AudioEngine.playCall();
-            updateFeed(`${p.name} shouts LAST!`);
-            updateGameUI();
-        }
-
-        attemptPlay(turnIndex, best.indices);
-        } catch(e){
-            console.error("CPU TURN ERROR", e);
-            // fail-safe: draw 1 and move on
-            try{ gamePlayers[turnIndex].hand.push(...draw(1)); }catch{}
-            selectionOrder=[]; isProcessing=false; setTimeout(nextTurn, 500);
+        if(bestMove) {
+            if(p.hand.length - bestMove.length === 1) p.lastDeclared=true;
+            attemptPlay(turnIndex, bestMove);
+        } else {
+            let drawn = draw(1); p.hand.push(...drawn); p.lastDeclared=false; 
+            updateFeed(`${p.name} drew a card`); updateGameUI(); setTimeout(nextTurn, 1500);
         }
     }
 
@@ -1249,59 +917,39 @@
             let top=discard[discard.length-1];
             let cardDiv = createCardDiv(top, -1, false);
             dp.appendChild(cardDiv);
-        }
-        if(activeSuit) {
-            let bg = document.getElementById('current-suit-bg');
-            bg.innerText = activeSuit;
-            bg.style.color = (activeSuit==="♥"||activeSuit==="♦") ? "#d32f2f" : "white";
+            if(top.rank==="A" && activeSuit) {
+                 let sDiv = document.createElement('div');
+                 sDiv.innerText = activeSuit;
+                 sDiv.style.cssText = "position:absolute; bottom:-10px; right:-10px; background:white; width:30px; height:30px; border-radius:50%; text-align:center; font-size:20px; line-height:30px; color:" + (activeSuit==="♥"||activeSuit==="♦"?"#b71c1c":"black") + "; border:2px solid black;";
+                 dp.appendChild(sDiv);
+            }
         }
         renderHandUI();
     }
 
-    // FANNED HAND (UPGRADE)
     function renderHandUI() {
         let ph = document.getElementById('player-hand'); ph.innerHTML = '';
         let cpuArea = document.getElementById('cpu-area'); cpuArea.innerHTML = '';
         let activeP = gamePlayers[turnIndex];
         let bottomP, opponents;
-
         if(isPassAndPlay) {
-            bottomP = gamePlayers[bottomIndex];
-            opponents = gamePlayers.filter((_,i) => i !== bottomIndex);
+            bottomP = activeP;
+            opponents = gamePlayers.filter(p => p !== activeP);
         } else {
             bottomP = gamePlayers[0];
-            opponents = gamePlayers.filter((_,i) => i !== 0);
+            opponents = gamePlayers.filter((p,i) => i !== 0);
         }
 
-        if(isPassAndPlay && bottomP.isBot) {
-            let showCount = Math.min(bottomP.hand.length, 12);
-            for(let k=0; k<showCount; k++) {
-                let card = document.createElement('div');
-                card.className = 'card back';
-                card.style.marginLeft = (k===0 ? "0" : "-35px");
-                ph.appendChild(card);
-            }
-        } else {
-            const totalCards = bottomP.hand.length;
-            const maxAngle = 20;
-            const degreesPerCard = 3;
-
+        if(isPassAndPlay && bottomP.isBot) { /* Hide bot hand */ } else {
             bottomP.hand.forEach((c,i) => {
                 let isMyTurn = (bottomP === activeP);
                 let cardDiv = createCardDiv(c, i, isMyTurn);
 
-                // Fan rotation around center
-                let centerIdx = (totalCards - 1) / 2;
-                let distFromCenter = i - centerIdx;
-                let angle = distFromCenter * degreesPerCard;
-                angle = Math.max(-maxAngle, Math.min(maxAngle, angle));
-
-                // Subtle arch: edges lower
-                let yOffset = Math.abs(distFromCenter) * 4;
-
-                cardDiv.style.setProperty('--fan-rot', `${angle}deg`);
-                cardDiv.style.setProperty('--fan-y', `${yOffset}px`);
-                cardDiv.style.zIndex = (i + 1);
+                // Dynamic fan: wider for small hands, tighter for big hands
+                const spread = Math.min(40, Math.max(12, 320 / bottomP.hand.length));
+                const mid = (bottomP.hand.length - 1) / 2;
+                cardDiv.style.marginLeft = (i === 0) ? "0px" : `-${spread}px`;
+                cardDiv.style.transform = `rotate(${(i - mid) * 1.2}deg)`;
 
                 ph.appendChild(cardDiv);
             });
@@ -1317,7 +965,7 @@
             let handDiv = document.createElement('div');
             handDiv.style.display = 'flex';
             handDiv.style.transform = 'scale(0.7)';
-            let showCount = Math.min(p.hand.length, 5);
+            let showCount = Math.min(p.hand.length, 5); 
             for(let k=0; k<showCount; k++) {
                 let card = document.createElement('div');
                 card.className = 'card back';
@@ -1337,301 +985,30 @@
         let bottom = document.createElement('div'); bottom.className = 'card-bottom'; bottom.innerHTML = `<div class="rank">${c.rank}</div><div class="suit">${c.suit}</div>`; d.appendChild(bottom);
 
         if(isClickable) {
-            let orderIdx = selectionOrder.indexOf(i);
-            if(orderIdx !== -1) {
+             let orderIdx = selectionOrder.indexOf(i);
+             if(orderIdx !== -1) {
                 d.classList.add('selected');
                 let badge = document.createElement('div');
                 badge.className = 'selection-badge';
                 badge.innerText = orderIdx + 1;
                 d.appendChild(badge);
-            }
-            d.onclick = () => toggleSelect(i);
+             }
+             d.onclick = (e) => toggleSelect(i);
         }
         return d;
     }
 
     function updateControls() {
-        let btnPlay = document.getElementById('btn-play');
+        document.getElementById('btn-play').disabled = (selectionOrder.length === 0);
         let btnLast = document.getElementById('btn-last');
-        let p = gamePlayers[turnIndex];
-
-        btnPlay.disabled = (selectionOrder.length === 0);
-
-        if(p.lastDeclared) { btnLast.classList.add('called'); btnLast.innerText = "CALLED"; }
-        else { btnLast.classList.remove('called'); btnLast.innerText = "LAST!"; }
-
-        let potentialFinish = (p.hand.length === selectionOrder.length && selectionOrder.length > 0);
-        if(p.hand.length !== 1 && !potentialFinish) {
-            btnLast.disabled = true;
-            btnLast.style.opacity = "0.5";
-        } else {
-            btnLast.disabled = false;
-            btnLast.style.opacity = "1";
-        }
-
-        let willFinish = (p.hand.length === selectionOrder.length && selectionOrder.length > 0);
-        let legalFinish = true;
-
-        if(willFinish) {
-            let cards = selectionOrder.map(i => p.hand[i]);
-            if(POWER_RANKS.has(cards[cards.length-1].rank)) legalFinish = false;
-        }
-
-        if(willFinish && legalFinish && p.lastDeclared) {
-            btnPlay.classList.add('winning-btn');
-            btnPlay.innerText = "WIN IT!";
-        } else {
-            btnPlay.classList.remove('winning-btn');
-            btnPlay.innerText = "PLAY";
-        }
+        if(gamePlayers[turnIndex].lastDeclared) { btnLast.style.background = "#4caf50"; btnLast.innerText = "CALLED"; }
+        else { btnLast.style.background = "var(--sticker-yellow)"; btnLast.innerText = "LAST!"; }
     }
 
-    function toggleSort() {
-        if (isProcessing) return;
-        if (isPassAndPlay && bottomIndex !== turnIndex) return;
-
-        sortByRank = !sortByRank;
-        updateSortUI();
-
-        const idx = isPassAndPlay ? bottomIndex : 0;
-        sortHandForPlayer(idx, false);
-    }
-
-    function sortHandForPlayer(pIndex, silent) {
-        const p = gamePlayers[pIndex];
-
-        const isBottom = (!isPassAndPlay && pIndex === 0) || (isPassAndPlay && pIndex === bottomIndex);
-        const selectedCards = (isBottom && !silent) ? selectionOrder.map(idx => p.hand[idx]) : [];
-
-        p.hand.sort((a,b) => {
-            if(sortByRank){
-                let r = rankVal(a.rank) - rankVal(b.rank);
-                if(r!==0) return r;
-                return SUITS.indexOf(a.suit) - SUITS.indexOf(b.suit);
-            } else {
-                let s = SUITS.indexOf(a.suit) - SUITS.indexOf(b.suit);
-                if(s!==0) return s;
-                return rankVal(a.rank) - rankVal(b.rank);
-            }
-        });
-
-        if(isBottom && !silent){
-            let newSelection = [];
-            p.hand.forEach((card, newIndex) => {
-                if(selectedCards.includes(card)) newSelection.push(newIndex);
-            });
-            selectionOrder = newSelection;
-            renderHandUI();
-            updateControls();
-        }
-    }
+    function sortPlayerHand() { sortHand(gamePlayers[turnIndex].hand); selectionOrder = []; renderHandUI(); }
+    function sortHand(h) { h.sort((a,b) => { let s = SUITS.indexOf(a.suit) - SUITS.indexOf(b.suit); if(s!==0) return s; return rankVal(a.rank) - rankVal(b.rank); }); }
 
     loadData();
-
-    (function setupLongPressDebug(){
-        const el = document.getElementById("logo-wrap");
-        if(!el) return;
-        let t = null;
-        el.addEventListener("touchstart", () => { t = setTimeout(() => toggleDebug(), 600); }, {passive:true});
-        el.addEventListener("touchend", () => { if(t) clearTimeout(t); t = null; }, {passive:true});
-        el.addEventListener("mousedown", () => { t = setTimeout(() => toggleDebug(), 600); });
-        el.addEventListener("mouseup", () => { if(t) clearTimeout(t); t = null; });
-    })();
-
-    // =========================
-    // ONLINE MULTIPLAYER (WS)
-    // =========================
-    let ONLINE = {
-        enabled: false,
-        ws: null,
-        room: null,
-        you: null,          // playerId
-        isHost: false,
-        serverUrl: null,
-        lastState: null,
-    };
-
-    function getWsBase() {
-        // Works on Render + local
-        const proto = (location.protocol === "https:") ? "wss" : "ws";
-        return `${proto}://${location.host}/ws`;
-    }
-
-    function goToOnlineLobby() {
-        showScreen('online-lobby-screen');
-        document.getElementById('online-name').value = (leagueData?.player?.name || "Beef");
-        ONLINE.serverUrl = getWsBase();
-        // reset UI
-        document.getElementById('online-room-box').style.display = 'none';
-        document.getElementById('online-room-code').innerText = '';
-        document.getElementById('online-players').innerHTML = '';
-        document.getElementById('online-start-btn').disabled = true;
-    }
-
-    function ensureWsConnected() {
-        return new Promise((resolve, reject) => {
-            if(ONLINE.ws && ONLINE.ws.readyState === 1) return resolve();
-            try {
-                ONLINE.ws = new WebSocket(ONLINE.serverUrl);
-            } catch(e) {
-                showToast("WebSocket failed");
-                return reject(e);
-            }
-            ONLINE.ws.onopen = () => resolve();
-            ONLINE.ws.onerror = (e) => reject(e);
-            ONLINE.ws.onmessage = (ev) => {
-                let msg;
-                try { msg = JSON.parse(ev.data); } catch { return; }
-                handleOnlineMsg(msg);
-            };
-            ONLINE.ws.onclose = () => {
-                // If you're in an online game and connection drops, show message
-                if(ONLINE.enabled) showToast("Disconnected");
-                ONLINE.enabled = false;
-            };
-        });
-    }
-
-    function onlineName() {
-        const v = (document.getElementById('online-name')?.value || "").trim();
-        return v || "Beef";
-    }
-
-    async function onlineCreate() {
-        await ensureWsConnected();
-        ONLINE.enabled = false;
-        ONLINE.room = null; ONLINE.you = null; ONLINE.isHost = true;
-        ONLINE.ws.send(JSON.stringify({t:"create", name: onlineName()}));
-    }
-
-    function onlineJoinPrompt() {
-        const code = prompt("Enter Room Code (e.g. A1B2C3):");
-        if(!code) return;
-        onlineJoin(code.trim().toUpperCase());
-    }
-
-    async function onlineJoin(code) {
-        await ensureWsConnected();
-        ONLINE.enabled = false;
-        ONLINE.room = code; ONLINE.you = null; ONLINE.isHost = false;
-        ONLINE.ws.send(JSON.stringify({t:"join", room: code, name: onlineName()}));
-    }
-
-    function onlineCopyRoom() {
-        const code = document.getElementById('online-room-code').innerText.trim();
-        if(!code) return;
-        navigator.clipboard?.writeText(code);
-        showToast("Copied!");
-    }
-
-    function onlineLeave() {
-        try { ONLINE.ws?.send(JSON.stringify({t:"leave"})); } catch {}
-        ONLINE.enabled = false;
-        ONLINE.room = null; ONLINE.you = null; ONLINE.isHost = false;
-        showScreen('online-lobby-screen');
-        document.getElementById('online-room-box').style.display = 'none';
-    }
-
-    function onlineStart() {
-        if(!ONLINE.room) return;
-        ONLINE.ws.send(JSON.stringify({t:"start"}));
-    }
-
-    function renderOnlinePlayers(players) {
-        const box = document.getElementById('online-players');
-        box.innerHTML = '';
-        players.forEach((p, i) => {
-            const div = document.createElement('div');
-            div.style.padding = '10px 12px';
-            div.style.border = '2px solid #333';
-            div.style.borderRadius = '12px';
-            div.style.marginTop = '6px';
-            div.style.fontWeight = '900';
-            div.innerHTML = `${i+1}. ${p.name} ${p.id===ONLINE.you ? "<small style='opacity:0.7'>(YOU)</small>" : ""} ${p.isHost ? "<small style='opacity:0.7'>(HOST)</small>" : ""}`;
-            box.appendChild(div);
-        });
-    }
-
-    function handleOnlineMsg(msg) {
-        if(msg.t === "created") {
-            ONLINE.room = msg.room;
-            ONLINE.you = msg.you;
-            ONLINE.isHost = true;
-            document.getElementById('online-room-box').style.display = 'block';
-            document.getElementById('online-room-code').innerText = msg.room;
-            renderOnlinePlayers(msg.players);
-            document.getElementById('online-start-btn').disabled = (msg.players.length < 1);
-        }
-        else if(msg.t === "joined") {
-            ONLINE.room = msg.room;
-            ONLINE.you = msg.you;
-            ONLINE.isHost = msg.isHost;
-            document.getElementById('online-room-box').style.display = 'block';
-            document.getElementById('online-room-code').innerText = msg.room;
-            renderOnlinePlayers(msg.players);
-            document.getElementById('online-start-btn').disabled = (!ONLINE.isHost || msg.players.length < 1);
-        }
-        else if(msg.t === "players") {
-            renderOnlinePlayers(msg.players);
-            document.getElementById('online-start-btn').disabled = (!ONLINE.isHost || msg.players.length < 1);
-        }
-        else if(msg.t === "error") {
-            showToast(msg.message || "Error");
-        }
-        else if(msg.t === "state") {
-            // enter online game
-            ONLINE.enabled = true;
-            ONLINE.lastState = msg.state;
-            applyServerState(msg.state);
-        }
-        else if(msg.t === "needSuit") {
-            // server wants suit after ace (optional)
-            if(msg.playerId === ONLINE.you) {
-                document.getElementById('suit-modal').style.display = 'flex';
-                // when user picks suit we will send it using chooseSuitOnline
-                acePending = true;
-            }
-        }
-        else if(msg.t === "ended") {
-            ONLINE.enabled = false;
-            showToast(`Winner: ${msg.winner}`);
-        }
-    }
-
-    function chooseSuitOnline(suit) {
-        if(!ONLINE.enabled) return;
-        try { ONLINE.ws.send(JSON.stringify({t:"suit", suit})); } catch {}
-    }
-
-    function applyServerState(s) {
-        // Map server state into existing UI variables (render only)
-        // Players contain {id,name,hand:[{id,rank,suit}], lastDeclared}
-        gamePlayers = s.players.map(p => ({
-            id: p.id,
-            name: p.name,
-            isBot: !!p.isBot,
-            hand: p.hand.map(c => ({id:c.id, rank:c.rank, suit:c.suit})),
-            lastDeclared: !!p.lastDeclared
-        }));
-        turnIndex = s.turnIndex;
-        direction = s.direction;
-        activeSuit = s.activeSuit;
-        pendingDraw2 = s.pendingDraw2;
-        pendingDrawJ = s.pendingDrawJ;
-        pendingSkip = s.pendingSkip;
-        extraTurn = false;
-        acePending = false;
-        selectionOrder = [];
-        isProcessing = false;
-        // Keep discard top for rendering
-        discard = s.topCard ? [{rank:s.topCard.rank, suit:s.topCard.suit}] : [];
-        // When online game starts, always show game screen (no pass device)
-        showScreen('game-screen');
-        updateFeed(s.feed || "Online match!");
-        updateGameUI();
-    }
-
-
 </script>
 </body>
 </html>
