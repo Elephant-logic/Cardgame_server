@@ -1,536 +1,588 @@
-/* server.js  (CommonJS) - Old Skool Blackjack / Switch style
-   Authoritative server with lobby rooms.
-   IMPORTANT: This server sends PER-CLIENT state so each player only sees their own hand.
-*/
+/**
+ * Old Skool Blackjack (Switch) - Online Lobby + Authoritative Server
+ * - Rooms (2 or 4 players; bots auto-fill if needed)
+ * - Server is source of truth: hands, turn, top card, active suit, effects
+ *
+ * Protocol (client->server):
+ *  {t:"hello", name}
+ *  {t:"create_room", seats:2|4}
+ *  {t:"join_room", code}
+ *  {t:"start"}                          (host only)
+ *  {t:"play", cardIds:[...], suit?: "S"|"H"|"D"|"C"}
+ *  {t:"draw"}
+ *  {t:"last"}                           (marks last-called for NEXT finish)
+ *  {t:"leave"}
+ *
+ * Server->client:
+ *  {t:"hello_ok", you:{id,name}}
+ *  {t:"rooms", rooms:[{code,seats,count,inGame}]}
+ *  {t:"room", room:{code,seats,hostId,players:[{id,name,isBot,handCount}], inGame}}
+ *  {t:"state", state:{...}}             (full state for room)
+ *  {t:"toast", msg}
+ *  {t:"need_suit"}                      (your play requires suit choice)
+ *  {t:"ended", winner:{id,name}}
+ */
+
 const path = require("path");
 const http = require("http");
 const express = require("express");
 const WebSocket = require("ws");
 
+const PORT = process.env.PORT || 10000;
+
 const app = express();
 
-// Serve /public as your front-end
-app.use(express.static(path.join(__dirname, "public")));
+// Hard no-cache so you don't get "same old index" problems on Render/CDNs
+app.use((req, res, next) => {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+  next();
+});
 
-app.get("/health", (req, res) => res.status(200).send("ok"));
+app.use(express.static(path.join(__dirname, "public"), {
+  setHeaders(res) {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+  }
+}));
 
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-const PORT = process.env.PORT || 10000;
-
-// -------------------- Utils --------------------
-function uid() {
-  return Math.random().toString(16).slice(2) + Date.now().toString(16);
+/** -------------------- Helpers -------------------- */
+function uid(prefix="p") {
+  return prefix + Math.random().toString(36).slice(2,10) + Date.now().toString(36).slice(2,6);
 }
-
-function randCode(n = 6) {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+function roomCode() {
+  const chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
   let out = "";
-  for (let i = 0; i < n; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  for (let i=0;i<5;i++) out += chars[(Math.random()*chars.length)|0];
   return out;
 }
-
-function send(ws, msg) {
-  if (ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify(msg));
+function safeSend(ws, obj) {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  ws.send(JSON.stringify(obj));
+}
+function broadcast(room, obj) {
+  for (const p of room.players) {
+    if (p.ws) safeSend(p.ws, obj);
   }
 }
-
-function findRoomByWs(ws) {
-  for (const room of rooms.values()) {
-    if (room.clients.has(ws)) return room;
-  }
-  return null;
+function publicRoom(room) {
+  return {
+    code: room.code,
+    seats: room.seats,
+    hostId: room.hostId,
+    inGame: room.inGame,
+    players: room.players.map(p => ({ id:p.id, name:p.name, isBot:!!p.isBot, handCount:p.hand.length }))
+  };
 }
 
-function roomPlayers(room) {
-  return room.players.map((p) => ({ id: p.id, name: p.name }));
-}
-
-function broadcast(room, msg) {
-  const data = JSON.stringify(msg);
-  for (const ws of room.clients.keys()) {
-    if (ws.readyState === WebSocket.OPEN) ws.send(data);
-  }
-}
-
-// -------------------- Game Logic --------------------
-// Card ranks used by client: "A","2"... "10","J","Q","K"
-const SUITS = ["♠", "♥", "♦", "♣"];
-const RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+/** -------------------- Game Engine -------------------- */
+const RANKS = ["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
+const SUITS = ["S","H","D","C"];
 
 function makeDeck() {
   const deck = [];
-  for (const s of SUITS) {
-    for (const r of RANKS) {
-      deck.push({ id: uid(), rank: r, suit: s });
-    }
+  for (const s of SUITS) for (const r of RANKS) {
+    deck.push({ id: uid("c"), r, s });
   }
-  // shuffle
+  // Fisher–Yates
   for (let i = deck.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = (Math.random() * (i + 1)) | 0;
     [deck[i], deck[j]] = [deck[j], deck[i]];
   }
   return deck;
 }
 
-function drawCard(room) {
-  if (room.deck.length === 0) {
-    // reshuffle discard except top card
-    const top = room.state?.topCard;
-    const keep = top ? [top] : [];
-    const rest = room.discard.filter((c) => !top || c.id !== top.id);
-
-    // shuffle rest into deck
-    for (let i = rest.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [rest[i], rest[j]] = [rest[j], rest[i]];
-    }
-    room.deck = rest;
-    room.discard = keep;
+function draw(deck, n=1) {
+  const out = [];
+  for (let i=0;i<n;i++) {
+    if (deck.length === 0) break;
+    out.push(deck.pop());
   }
-  return room.deck.pop();
+  return out;
 }
 
-function startGame(room) {
-  room.started = true;
-  room.deck = makeDeck();
-  room.discard = [];
-
-  // Deal 7 each (your screenshots show 7)
-  for (const p of room.players) {
-    p.hand = [];
-    p.lastDeclared = false;
-    for (let i = 0; i < 7; i++) p.hand.push(drawCard(room));
-  }
-
-  // Flip first top card (ensure not null)
-  const top = drawCard(room);
-  room.discard.push(top);
-
-  room.state = {
-    turnIndex: 0,
-    direction: 1,
-    activeSuit: top.suit, // current suit follows top initially
-    pendingDraw2: 0,      // stacking 2s (if your rules do)
-    pendingDrawJ: 0,      // stacking Js (if your rules do)
-    pendingSkip: 0,       // skip count
-    topCard: { id: top.id, rank: top.rank, suit: top.suit },
-    feed: "Online match started!"
-  };
-
-  broadcastState(room);
+function cardLabel(c) {
+  const suitSym = c.s === "S" ? "♠" : c.s === "H" ? "♥" : c.s === "D" ? "♦" : "♣";
+  return `${c.r}${suitSym}`;
 }
 
-function currentPlayer(room) {
-  return room.players[room.state.turnIndex];
+function canPlayOn(card, top, activeSuit) {
+  if (!card || !top) return false;
+  if (card.r === "A") return true;               // Ace wild
+  if (card.r === "8") {                          // 8 wild BUT if top is 8, only 8 or A
+    return true;
+  }
+  if (top.r === "8") {
+    // User requirement: can't play on 8 unless it's an 8 (or Ace)
+    return false;
+  }
+  return card.r === top.r || card.s === activeSuit;
 }
 
-function nextTurn(room, steps = 1) {
-  const n = room.players.length;
-  room.state.turnIndex = (room.state.turnIndex + steps * room.state.direction + n) % n;
+function validateMultiPlay(hand, cardIds, top, activeSuit) {
+  if (!Array.isArray(cardIds) || cardIds.length === 0) return { ok:false, err:"No cards selected." };
+  const picked = cardIds.map(id => hand.find(c => c.id === id)).filter(Boolean);
+  if (picked.length !== cardIds.length) return { ok:false, err:"One or more cards not in your hand." };
+  const rank = picked[0].r;
+  for (const c of picked) {
+    if (c.r !== rank) return { ok:false, err:"Multi-play must be same rank." };
+  }
+  // First card must be playable
+  if (!canPlayOn(picked[0], top, activeSuit)) return { ok:false, err:"That rank/suit doesn't match." };
+  // If playing on top 8, only allow 8s or Aces, but multi-play is same rank so already handled
+  return { ok:true, picked };
 }
 
-function canPlayOn(card, topCard, activeSuit) {
-  // Basic rule: match rank OR match suit (activeSuit)
-  if (!card || !topCard) return false;
-  if (card.rank === topCard.rank) return true;
-  if (card.suit === activeSuit) return true;
+function applyEffects(room, playedCards, suitChoice) {
+  // Determine new active suit / top
+  const last = playedCards[playedCards.length - 1];
+  room.top = last;
 
-  // Ace can go on anything (you stated that)
-  if (card.rank === "A") return true;
-
-  return false;
-}
-
-function removeCardsFromHand(hand, cardIds) {
-  const set = new Set(cardIds);
-  const removed = [];
-  const kept = [];
-  for (const c of hand) {
-    if (set.has(c.id)) removed.push(c);
-    else kept.push(c);
-  }
-  return { removed, kept };
-}
-
-function applyPlay(room, playerId, cardIds, chosenSuit) {
-  const s = room.state;
-  const p = room.players.find((x) => x.id === playerId);
-  if (!p) return { ok: false, err: "no_player" };
-
-  // Must be your turn
-  if (currentPlayer(room).id !== playerId) return { ok: false, err: "not_your_turn" };
-
-  // If pending skip must be consumed by skipping (client should enforce, server enforces too)
-  if (s.pendingSkip > 0) {
-    s.pendingSkip = 0;
-    s.feed = `${p.name} was skipped`;
-    nextTurn(room, 1);
-    return { ok: true };
-  }
-
-  // If pending draw stacks exist, you may be forced to pick up unless you play same penalty card.
-  // NOTE: Your exact rules are specific; this keeps it simple:
-  // - pendingDraw2 can be stacked only by playing a 2
-  // - pendingDrawJ can be stacked only by playing a J
-  const { removed, kept } = removeCardsFromHand(p.hand, cardIds);
-  if (removed.length !== cardIds.length) return { ok: false, err: "cards_not_in_hand" };
-
-  // Validate all cards playable in sequence (your client likely sends a run)
-  // We'll enforce first card playable vs current top.
-  const first = removed[0];
-  if (!canPlayOn(first, s.topCard, s.activeSuit)) {
-    return { ok: false, err: "illegal_play" };
-  }
-
-  // Enforce stacking rules if needed
-  if (s.pendingDraw2 > 0 && first.rank !== "2") return { ok: false, err: "must_play_2_or_draw" };
-  if (s.pendingDrawJ > 0 && first.rank !== "J") return { ok: false, err: "must_play_J_or_draw" };
-
-  // Apply play
-  p.hand = kept;
-
-  // Put cards onto discard in order
-  for (const c of removed) room.discard.push(c);
-
-  const lastCard = removed[removed.length - 1];
-  s.topCard = { id: lastCard.id, rank: lastCard.rank, suit: lastCard.suit };
-
-  // Default active suit follows top suit
-  s.activeSuit = lastCard.suit;
-
-  // POWER CARDS behaviour (adjust to YOUR rules; this matches your messages)
-  // - A (Ace): choose suit (do NOT auto-pick). If chosenSuit absent, keep current suit as-is.
-  if (lastCard.rank === "A") {
-    if (chosenSuit && SUITS.includes(chosenSuit)) s.activeSuit = chosenSuit;
-    s.feed = `${p.name} played ${removed.length} card(s)`;
-  }
-  // - 8: change suit (only playable if 8 or matching suit/rank; client enforces)
-  else if (lastCard.rank === "8") {
-    if (chosenSuit && SUITS.includes(chosenSuit)) s.activeSuit = chosenSuit;
-    s.feed = `${p.name} played ${removed.length} card(s)`;
-  }
-  // - Q: reverse direction (you said Q reverses direction, not suit)
-  else if (lastCard.rank === "Q") {
-    s.direction *= -1;
-    s.feed = `${p.name} reversed direction`;
-  }
-  // - J: pickup penalty (your “blackjack”)
-  else if (lastCard.rank === "J") {
-    s.pendingDrawJ += 1; // each J adds 1 pickup (change if yours is 2)
-    s.feed = `${p.name} played J (pickup pending)`;
-  }
-  // - 2: pickup 2
-  else if (lastCard.rank === "2") {
-    s.pendingDraw2 += 2;
-    s.feed = `${p.name} played 2 (+2 pending)`;
-  }
-  // - K as power card you can't finish on (you said this earlier)
-  else if (lastCard.rank === "K") {
-    s.feed = `${p.name} played K`;
+  // Suit choice required for A or 8
+  if (last.r === "A" || last.r === "8") {
+    if (!suitChoice || !SUITS.includes(suitChoice)) return { needSuit:true };
+    room.activeSuit = suitChoice;
   } else {
-    s.feed = `${p.name} played ${removed.length} card(s)`;
+    room.activeSuit = last.s;
   }
 
-  // WIN / LAST rules:
-  // You said:
-  // - You can only go to 0 if you called LAST at the end of your previous turn.
-  // - If you try to finish without calling, penalty.
-  //
-  // We will enforce:
-  // - If hand is now 0 and lastDeclared was not already true => penalty pickup 2 and keep playing.
-  // - If hand is 0 and lastDeclared true => win.
-  if (p.hand.length === 0) {
-    if (!p.lastDeclared) {
-      // penalty: pick up 2 (or 1 depending your rule)
-      p.hand.push(drawCard(room));
-      p.hand.push(drawCard(room));
-      s.feed = `${p.name} tried to finish without LAST! (+2 penalty)`;
-    } else {
-      s.feed = `${p.name} wins!`;
-      room.started = false; // ends game
-      broadcastState(room);
-      broadcast(room, { t: "game_over", winner: p.id, name: p.name });
-      return { ok: true, gameOver: true };
-    }
+  // Effects are based on rank (stackable if multiple same rank)
+  const rank = last.r;
+
+  if (rank === "Q") {
+    room.direction *= -1;
   }
 
-  // Reset lastDeclared after their turn
-  // (they must declare again on future attempts if needed)
-  p.lastDeclared = false;
+  if (rank === "J") {
+    // skip next player
+    room.skipNext = true;
+  }
 
-  // Advance turn
-  nextTurn(room, 1);
-  return { ok: true };
+  if (rank === "2") {
+    room.pendingDraw += 2 * playedCards.length;
+  }
+
+  // K is a "power card you can't finish on"
+  // handled in finish validation, no extra effect
+  return { needSuit:false };
 }
 
-function applyDraw(room, playerId) {
-  const s = room.state;
-  const p = room.players.find((x) => x.id === playerId);
-  if (!p) return { ok: false, err: "no_player" };
-  if (currentPlayer(room).id !== playerId) return { ok: false, err: "not_your_turn" };
+function nextTurn(room, steps=1) {
+  const n = room.players.length;
+  let idx = room.turnIndex;
+  for (let i=0;i<steps;i++) {
+    idx = (idx + room.direction + n) % n;
+  }
+  room.turnIndex = idx;
+}
 
-  // Apply pending pickups first
-  if (s.pendingDraw2 > 0) {
-    const n = s.pendingDraw2;
-    for (let i = 0; i < n; i++) p.hand.push(drawCard(room));
-    s.pendingDraw2 = 0;
-    s.feed = `${p.name} picked up ${n}`;
+function maybeBotAct(room) {
+  const current = room.players[room.turnIndex];
+  if (!current || !current.isBot || room.ended) return;
+
+  // Simple bot: if pendingDraw, draw and pass
+  if (room.pendingDraw > 0) {
+    current.hand.push(...draw(room.deck, room.pendingDraw));
+    room.pendingDraw = 0;
+    if (room.skipNext) room.skipNext = false;
     nextTurn(room, 1);
-    return { ok: true };
-  }
-  if (s.pendingDrawJ > 0) {
-    const n = s.pendingDrawJ;
-    for (let i = 0; i < n; i++) p.hand.push(drawCard(room));
-    s.pendingDrawJ = 0;
-    s.feed = `${p.name} picked up ${n}`;
-    nextTurn(room, 1);
-    return { ok: true };
-  }
-
-  // normal draw 1
-  p.hand.push(drawCard(room));
-  s.feed = `${p.name} drew 1`;
-  nextTurn(room, 1);
-  return { ok: true };
-}
-
-function applyDeclareLast(room, playerId) {
-  const p = room.players.find((x) => x.id === playerId);
-  if (!p) return { ok: false, err: "no_player" };
-
-  // LAST can be declared at end of your turn BEFORE you can finish.
-  // We store it and validate on next finish attempt.
-  p.lastDeclared = true;
-  room.state.feed = `${p.name} declared LAST!`;
-  return { ok: true };
-}
-
-// -------------------- Personalized State Sync --------------------
-function broadcastState(room) {
-  const s = room.state;
-  if (!s) return;
-
-  // Send a personalized state to each client:
-  // - You see your real hand.
-  // - Opponents: only correct card count via placeholder objects.
-  for (const [ws, meta] of room.clients.entries()) {
-    if (ws.readyState !== WebSocket.OPEN) continue;
-    const youId = meta.id;
-
-    const playersForYou = room.players.map((p) => {
-      if (p.id === youId) {
-        return {
-          id: p.id,
-          name: p.name,
-          lastDeclared: !!p.lastDeclared,
-          hand: p.hand.map((c) => ({ id: c.id, rank: c.rank, suit: c.suit }))
-        };
-      }
-      const n = (p.hand || []).length;
-      const dummy = [];
-      for (let i = 0; i < n; i++) dummy.push({ id: `${p.id}:${i}` });
-      return {
-        id: p.id,
-        name: p.name,
-        lastDeclared: !!p.lastDeclared,
-        hand: dummy
-      };
-    });
-
-    const payload = {
-      t: "state",
-      state: {
-        you: youId,
-        players: playersForYou,
-        turnIndex: s.turnIndex,
-        direction: s.direction,
-        activeSuit: s.activeSuit,
-        pendingDraw2: s.pendingDraw2,
-        pendingDrawJ: s.pendingDrawJ,
-        pendingSkip: s.pendingSkip,
-        topCard: s.topCard,
-        feed: s.feed
-      }
-    };
-
-    try {
-      ws.send(JSON.stringify(payload));
-    } catch {}
-  }
-}
-
-// -------------------- Rooms --------------------
-const rooms = new Map(); // code -> room
-
-function removeClient(ws) {
-  const room = findRoomByWs(ws);
-  if (!room) return;
-
-  const meta = room.clients.get(ws);
-  room.clients.delete(ws);
-
-  // remove player
-  room.players = room.players.filter((p) => p.id !== meta.id);
-
-  // if empty room, delete it
-  if (room.clients.size === 0) {
-    rooms.delete(room.code);
     return;
   }
 
-  // notify remaining clients
-  broadcast(room, { t: "players", room: room.code, players: roomPlayers(room) });
+  // Find playable cards
+  const playable = current.hand.filter(c => canPlayOn(c, room.top, room.activeSuit));
+  if (playable.length === 0) {
+    current.hand.push(...draw(room.deck, 1));
+    nextTurn(room, 1);
+    return;
+  }
 
-  // if game started, end it
-  if (room.started) {
-    room.started = false;
-    if (room.state) room.state.feed = "Player left — game ended";
-    broadcastState(room);
-    broadcast(room, { t: "game_over", reason: "player_left" });
+  // Prefer to shed multiples of same rank
+  playable.sort((a,b) => RANKS.indexOf(a.r) - RANKS.indexOf(b.r));
+  const best = playable[0];
+  const sameRank = current.hand.filter(c => c.r === best.r && canPlayOn(c, room.top, room.activeSuit));
+  const toPlay = sameRank.map(c=>c.id);
+
+  // Suit choice if needed
+  let suitChoice = null;
+  if (best.r === "A" || best.r === "8") {
+    // choose suit they have most of
+    const counts = {S:0,H:0,D:0,C:0};
+    for (const c of current.hand) counts[c.s] = (counts[c.s]||0)+1;
+    suitChoice = Object.entries(counts).sort((a,b)=>b[1]-a[1])[0][0];
+  }
+
+  doPlay(room, current.id, toPlay, suitChoice, true);
+}
+
+function doPlay(room, playerId, cardIds, suitChoice, isBot=false) {
+  const p = room.players.find(x => x.id === playerId);
+  if (!p || room.ended) return;
+
+  if (room.players[room.turnIndex].id !== playerId) {
+    if (!isBot) broadcast(room, {t:"toast", msg:"Not your turn."});
+    return;
+  }
+
+  // Pending draw must be taken first (draw-stacking)
+  if (room.pendingDraw > 0) {
+    // Only allow stacking another 2
+    const hand = p.hand;
+    const pickedCards = cardIds.map(id => hand.find(c=>c.id===id)).filter(Boolean);
+    const okStack = pickedCards.length>0 && pickedCards.every(c => c.r === "2");
+    if (!okStack) {
+      p.hand.push(...draw(room.deck, room.pendingDraw));
+      room.pendingDraw = 0;
+      if (room.skipNext) room.skipNext = false;
+      nextTurn(room, 1);
+      broadcastState(room, `${p.name} picked up`);
+      return;
+    }
+  }
+
+  const v = validateMultiPlay(p.hand, cardIds, room.top, room.activeSuit);
+  if (!v.ok) { if(!isBot) safeSend(p.ws, {t:"toast", msg:v.err}); return; }
+
+  const picked = v.picked;
+  const rank = picked[0].r;
+
+  // Finish rules:
+  // - cannot finish in the SAME turn as pressing LAST (client enforces)
+  // - must have lastCalled=true BEFORE the turn that finishes to 0
+  // - cannot finish on a K (power card)
+  const wouldBeEmpty = (p.hand.length - picked.length) === 0;
+  if (wouldBeEmpty) {
+    if (rank === "K") {
+      // illegal finish: pick up 2, do not play
+      p.hand.push(...draw(room.deck, 2));
+      p.lastCalled = false;
+      safeSend(p.ws, {t:"toast", msg:"Can't go out on a KING. Penalty: pick up 2."});
+      broadcastState(room, `${p.name} tried to finish on K`);
+      nextTurn(room, 1);
+      return;
+    }
+    if (!p.lastCalled) {
+      // penalty draw 2, do not play
+      p.hand.push(...draw(room.deck, 2));
+      safeSend(p.ws, {t:"toast", msg:"You must have called LAST before going out. Penalty: pick up 2."});
+      broadcastState(room, `${p.name} forgot LAST`);
+      nextTurn(room, 1);
+      return;
+    }
+  }
+
+  // Remove cards from hand
+  const ids = new Set(cardIds);
+  p.hand = p.hand.filter(c => !ids.has(c.id));
+  room.discard.push(...picked);
+
+  // Apply effects
+  const eff = applyEffects(room, picked, suitChoice);
+  if (eff.needSuit) {
+    // Put cards back (rollback)
+    // (only for human; bot always supplies)
+    p.hand.push(...picked);
+    room.discard.splice(room.discard.length - picked.length, picked.length);
+    safeSend(p.ws, {t:"need_suit"});
+    return;
+  }
+
+  // If player emptied hand, they win
+  if (p.hand.length === 0) {
+    room.ended = true;
+    room.inGame = false;
+    broadcast(room, {t:"ended", winner:{id:p.id, name:p.name}});
+    broadcastState(room, `${p.name} wins!`);
+    return;
+  }
+
+  // Move turn
+  // skip?
+  if (room.skipNext) {
+    room.skipNext = false;
+    nextTurn(room, 2);
+  } else {
+    nextTurn(room, 1);
+  }
+
+  broadcastState(room, `${p.name} played ${picked.length} card(s)`);
+
+  // Let bot chain (in case next is bot)
+  for (let i=0;i<10;i++) { // safety
+    if (room.ended) break;
+    const cur = room.players[room.turnIndex];
+    if (cur && cur.isBot) {
+      maybeBotAct(room);
+      broadcastState(room, `🤖 ${cur.name} played`);
+    } else break;
   }
 }
 
-// -------------------- WebSocket --------------------
+function broadcastState(room, bannerMsg=null) {
+  const state = {
+    room: publicRoom(room),
+    top: room.top,
+    activeSuit: room.activeSuit,
+    direction: room.direction,
+    pendingDraw: room.pendingDraw,
+    turnId: room.players[room.turnIndex]?.id,
+    banner: bannerMsg || null,
+    discardCount: room.discard.length,
+  };
+  broadcast(room, {t:"state", state});
+  // Private hands (each client only sees their own hand)
+  for (const p of room.players) {
+    if (p.ws) safeSend(p.ws, {t:"hand", hand: p.hand});
+  }
+}
+
+/** -------------------- Rooms -------------------- */
+const rooms = new Map(); // code -> room
+
+function makeBot(i) {
+  return {
+    id: uid("b"),
+    name: `CPU ${i}`,
+    isBot: true,
+    ws: null,
+    hand: [],
+    lastCalled: false,
+  };
+}
+
+function ensureBots(room) {
+  while (room.players.length < room.seats) {
+    room.players.push(makeBot(room.players.length));
+  }
+  // If too many players, trim only bots at end
+  while (room.players.length > room.seats) {
+    const idx = room.players.findIndex(p => p.isBot);
+    if (idx === -1) break;
+    room.players.splice(idx, 1);
+  }
+}
+
+function startGame(room) {
+  room.inGame = true;
+  room.ended = false;
+
+  room.deck = makeDeck();
+  room.discard = [];
+  room.pendingDraw = 0;
+  room.direction = 1;
+  room.skipNext = false;
+
+  // reset hands
+  for (const p of room.players) {
+    p.hand = [];
+    p.lastCalled = false;
+  }
+
+  // deal 7
+  for (let i=0;i<7;i++) {
+    for (const p of room.players) {
+      p.hand.push(...draw(room.deck, 1));
+    }
+  }
+
+  // flip top (ensure not wild? it's fine)
+  room.top = draw(room.deck, 1)[0];
+  room.discard.push(room.top);
+  room.activeSuit = room.top.s;
+
+  // choose starting player = host (human if possible)
+  let idx = room.players.findIndex(p => p.id === room.hostId);
+  if (idx < 0) idx = 0;
+  room.turnIndex = idx;
+
+  broadcast(room, {t:"room", room: publicRoom(room)});
+  broadcastState(room, "Online match started!");
+
+  // if starting player is bot, act
+  for (let i=0;i<10;i++) {
+    const cur = room.players[room.turnIndex];
+    if (cur && cur.isBot) {
+      maybeBotAct(room);
+      broadcastState(room, `🤖 ${cur.name} played`);
+    } else break;
+  }
+}
+
+function listRooms() {
+  const out = [];
+  for (const r of rooms.values()) {
+    out.push({ code:r.code, seats:r.seats, count:r.players.filter(p=>!p.isBot).length, inGame:r.inGame });
+  }
+  return out.sort((a,b)=>a.code.localeCompare(b.code)).slice(0,50);
+}
+
+function cleanupRoom(room) {
+  // if no humans left, delete
+  const humans = room.players.filter(p => !p.isBot);
+  if (humans.length === 0) {
+    rooms.delete(room.code);
+  } else {
+    // keep bots to fill seats
+    ensureBots(room);
+  }
+}
+
+/** -------------------- Connections -------------------- */
 wss.on("connection", (ws) => {
-  ws.on("message", (data) => {
-    let msg;
-    try {
-      msg = JSON.parse(data.toString());
-    } catch {
+  const you = { id: uid("p"), name: "Player", ws };
+  let room = null;
+
+  safeSend(ws, {t:"hello_ok", you:{id:you.id, name:you.name}});
+  safeSend(ws, {t:"rooms", rooms: listRooms()});
+
+  ws.on("message", (buf) => {
+    let msg = null;
+    try { msg = JSON.parse(buf.toString()); } catch { return; }
+    if (!msg || typeof msg.t !== "string") return;
+
+    if (msg.t === "hello") {
+      const nm = String(msg.name || "Player").trim().slice(0, 24);
+      you.name = nm || "Player";
+      safeSend(ws, {t:"hello_ok", you:{id:you.id, name:you.name}});
       return;
     }
 
-    const room = findRoomByWs(ws);
+    if (msg.t === "create_room") {
+      const seats = (msg.seats === 4) ? 4 : 2;
+      let code = roomCode();
+      while (rooms.has(code)) code = roomCode();
 
-    // CREATE
-    if (msg.t === "create") {
-      if (room) removeClient(ws);
-
-      let code = randCode(6);
-      while (rooms.has(code)) code = randCode(6);
-
-      const playerId = uid();
-      const name = (msg.name || "Player").toString().slice(0, 24);
-
-      const newRoom = {
+      room = {
         code,
-        clients: new Map(),
-        players: [],
-        started: false,
-        state: null,
+        seats,
+        hostId: you.id,
+        players: [
+          { id: you.id, name: you.name, isBot:false, ws, hand:[], lastCalled:false }
+        ],
+        inGame: false,
+        ended: false,
         deck: [],
-        discard: []
+        discard: [],
+        top: null,
+        activeSuit: "S",
+        direction: 1,
+        turnIndex: 0,
+        pendingDraw: 0,
+        skipNext: false,
       };
+      ensureBots(room);
+      rooms.set(code, room);
 
-      newRoom.clients.set(ws, { id: playerId, name, isHost: true });
-      newRoom.players.push({ id: playerId, name, isHost: true, hand: [], lastDeclared: false });
-      rooms.set(code, newRoom);
-
-      send(ws, { t: "created", room: code, you: playerId, players: roomPlayers(newRoom) });
+      safeSend(ws, {t:"room", room: publicRoom(room)});
+      broadcast(room, {t:"rooms", rooms: listRooms()});
       return;
     }
 
-    // JOIN
-    if (msg.t === "join") {
-      if (room) removeClient(ws);
-
-      const code = (msg.room || "").toString().trim().toUpperCase();
+    if (msg.t === "join_room") {
+      const code = String(msg.code || "").trim().toUpperCase();
       const r = rooms.get(code);
-      if (!r) {
-        send(ws, { t: "error", error: "room_not_found" });
-        return;
-      }
+      if (!r) { safeSend(ws, {t:"toast", msg:"Room not found."}); return; }
 
-      if (r.players.length >= 4) {
-        send(ws, { t: "error", error: "room_full" });
-        return;
-      }
+      // If already in game, allow join as spectator? For now, block.
+      if (r.inGame) { safeSend(ws, {t:"toast", msg:"Room already started."}); return; }
 
-      const playerId = uid();
-      const name = (msg.name || "Player").toString().slice(0, 24);
+      // Add player (replace a bot slot if exists)
+      const botIdx = r.players.findIndex(p => p.isBot);
+      if (botIdx !== -1) r.players.splice(botIdx, 1);
+      r.players.push({ id: you.id, name: you.name, isBot:false, ws, hand:[], lastCalled:false });
+      ensureBots(r);
 
-      r.clients.set(ws, { id: playerId, name, isHost: false });
-      r.players.push({ id: playerId, name, isHost: false, hand: [], lastDeclared: false });
-
-      // tell joiner
-      send(ws, { t: "joined", room: code, you: playerId, players: roomPlayers(r) });
-
-      // tell everyone players list updated
-      broadcast(r, { t: "players", room: code, players: roomPlayers(r) });
+      room = r;
+      broadcast(room, {t:"room", room: publicRoom(room)});
+      broadcast(room, {t:"toast", msg:`${you.name} joined ${code}`});
+      broadcast(room, {t:"rooms", rooms: listRooms()});
       return;
     }
 
-    // START
+    if (!room) { safeSend(ws, {t:"toast", msg:"Create or join a room first."}); return; }
+
     if (msg.t === "start") {
-      if (!room) return;
-      if (room.started) return;
-
-      // host only
-      const meta = room.clients.get(ws);
-      const host = room.players.find((p) => p.isHost);
-      if (!meta || !host || meta.id !== host.id) {
-        send(ws, { t: "error", error: "host_only" });
-        return;
-      }
-
-      // require 2-4 players
-      if (room.players.length < 2) {
-        send(ws, { t: "error", error: "need_2_players" });
-        return;
-      }
-
+      if (room.hostId !== you.id) { safeSend(ws, {t:"toast", msg:"Only host can start."}); return; }
+      if (room.inGame) return;
       startGame(room);
-      broadcast(room, { t: "started" });
-      return;
-    }
-
-    // GAME ACTIONS
-    if (msg.t === "play") {
-      if (!room || !room.started) return;
-      const meta = room.clients.get(ws);
-      if (!meta) return;
-
-      const cardIds = Array.isArray(msg.cards) ? msg.cards : [];
-      const suit = msg.suit || null;
-
-      const res = applyPlay(room, meta.id, cardIds, suit);
-      if (!res.ok) {
-        send(ws, { t: "error", error: res.err });
-      }
-      broadcastState(room);
-      return;
-    }
-
-    if (msg.t === "draw") {
-      if (!room || !room.started) return;
-      const meta = room.clients.get(ws);
-      if (!meta) return;
-
-      const res = applyDraw(room, meta.id);
-      if (!res.ok) send(ws, { t: "error", error: res.err });
-      broadcastState(room);
+      broadcast(room, {t:"rooms", rooms: listRooms()});
       return;
     }
 
     if (msg.t === "last") {
-      if (!room || !room.started) return;
-      const meta = room.clients.get(ws);
-      if (!meta) return;
-
-      const res = applyDeclareLast(room, meta.id);
-      if (!res.ok) send(ws, { t: "error", error: res.err });
-      broadcastState(room);
+      const p = room.players.find(p=>p.id===you.id);
+      if (!p) return;
+      // Mark last-called; can't be used to finish same turn (client flow)
+      p.lastCalled = true;
+      safeSend(ws, {t:"toast", msg:"LAST called."});
+      broadcastState(room, `${p.name} called LAST!`);
       return;
     }
 
-    // SUIT selection is handled by sending "play" with suit when A/8 is played.
+    if (msg.t === "draw") {
+      if (!room.inGame || room.ended) return;
+      const cur = room.players[room.turnIndex];
+      if (!cur || cur.id !== you.id) { safeSend(ws, {t:"toast", msg:"Not your turn."}); return; }
+
+      const p = room.players.find(p=>p.id===you.id);
+      if (!p) return;
+
+      if (room.pendingDraw > 0) {
+        p.hand.push(...draw(room.deck, room.pendingDraw));
+        room.pendingDraw = 0;
+        broadcastState(room, `${p.name} picked up`);
+      } else {
+        p.hand.push(...draw(room.deck, 1));
+        broadcastState(room, `${p.name} drew 1`);
+      }
+
+      if (room.skipNext) room.skipNext = false;
+      nextTurn(room, 1);
+      broadcastState(room);
+
+      // bots
+      for (let i=0;i<10;i++) {
+        if (room.ended) break;
+        const cur2 = room.players[room.turnIndex];
+        if (cur2 && cur2.isBot) {
+          maybeBotAct(room);
+          broadcastState(room, `🤖 ${cur2.name} played`);
+        } else break;
+      }
+      return;
+    }
+
+    if (msg.t === "play") {
+      if (!room.inGame || room.ended) return;
+      const cardIds = Array.isArray(msg.cardIds) ? msg.cardIds.map(String) : [];
+      const suit = msg.suit ? String(msg.suit).toUpperCase() : null;
+      doPlay(room, you.id, cardIds, suit, false);
+      broadcast(room, {t:"room", room: publicRoom(room)});
+      return;
+    }
+
+    if (msg.t === "leave") {
+      ws.close();
+      return;
+    }
   });
 
   ws.on("close", () => {
-    removeClient(ws);
+    // remove from room if any
+    if (room) {
+      const idx = room.players.findIndex(p => p.id === you.id);
+      if (idx !== -1) room.players.splice(idx, 1);
+      ensureBots(room);
+      broadcast(room, {t:"room", room: publicRoom(room)});
+      broadcast(room, {t:"toast", msg:`${you.name} left`});
+      cleanupRoom(room);
+      broadcast(room, {t:"rooms", rooms: listRooms()});
+    }
   });
 });
 
