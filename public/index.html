@@ -663,21 +663,20 @@
     }
   
     .you-label{
-      position:absolute;
-      left:50%;
-      bottom:138px;
-      transform:translateX(-50%);
-      background:rgba(255,255,255,0.92);
-      border:2px solid #111;
-      border-radius:12px;
-      padding:6px 12px;
-      font-weight:900;
-      font-size:18px;
-      box-shadow:0 3px 0 rgba(0,0,0,0.35);
-      z-index:50;
-      pointer-events:none;
-      text-transform:lowercase;
-          color:black;
+      position: fixed;
+      left: 50%;
+      bottom: calc(var(--card-h) + 85px);
+      transform: translateX(-50%);
+      background: rgba(255,255,255,0.92);
+      border: 2px solid #111;
+      border-radius: 12px;
+      padding: 6px 12px;
+      font-weight: 900;
+      font-size: 18px;
+      box-shadow: 0 3px 0 rgba(0,0,0,0.35);
+      z-index: 200;
+      pointer-events: none;
+      text-transform: lowercase;
     }
 
 </style>
@@ -881,7 +880,7 @@
         SORT
       </button>
     </div>
-    <div id="player-area"><div id="you-label" class="you-label"></div><div id="player-hand" class="hand"></div></div>
+    <div id="player-area"><div id="player-hand" class="hand"></div></div>
   </div>
 
   <div id="match-result-modal">
