@@ -4,7 +4,7 @@ const path = require("path");
 const WebSocket = require("ws");
 
 // ----------------------------
-// Basic server
+// Basic server Setup
 // ----------------------------
 const app = express();
 app.use(express.static(path.join(__dirname, "public")));
@@ -42,7 +42,7 @@ function safeParse(msg) {
 }
 
 // ----------------------------
-// Game rules (SERVER AUTHORITY)
+// Game Rules (SERVER AUTHORITY)
 // ----------------------------
 const POWER_RANKS = new Set(["A", "2", "8", "J", "Q", "K"]);
 
@@ -55,6 +55,8 @@ function rankVal(r) {
 }
 
 function canStart(c, top, suit) {
+  // If top is undefined (empty discard), any card is valid
+  if (!top) return true; 
   return c.rank === "A" || c.suit === suit || c.rank === top.rank;
 }
 
@@ -105,23 +107,28 @@ function draw(state, n, events) {
   return out;
 }
 
+// Fallback logic if user doesn't send a suit
 function chooseSuitForBotLike(state, pidx) {
   const p = state.players[pidx];
   const counts = { "♠":0, "♥":0, "♦":0, "♣":0 };
   for (const c of p.hand) counts[c.suit]++;
   let best = "♠";
   for (const k of Object.keys(counts)) if (counts[k] > counts[best]) best = k;
-  state.activeSuit = best;
   return best;
 }
 
-function applyPower(state, card, pidx, isLast, events) {
+function applyPower(state, card, pidx, isLast, events, chosenSuit) {
   const r = card.rank;
+  const p = state.players[pidx];
 
-  // A only does suit-choice if it is the last card played (same as your version)
+  // ACE LOGIC: Updated to accept user input
   if (r === "A" && isLast) {
-    const suit = chooseSuitForBotLike(state, pidx);
-    events.push({ t: "feed", m: `Suit is ${suit}` });
+    if (chosenSuit && ["♠", "♥", "♦", "♣"].includes(chosenSuit)) {
+        state.activeSuit = chosenSuit;
+    } else {
+        state.activeSuit = chooseSuitForBotLike(state, pidx);
+    }
+    events.push({ t: "feed", m: `Suit changed to ${state.activeSuit}` });
     return;
   }
 
@@ -173,16 +180,23 @@ function startNewGame(playerIdsBySeat, namesBySeat) {
     });
   }
 
-  // deal 7 each (matches your vibe)
   const events = [];
+  // Deal 7 cards each
   for (let r = 0; r < 7; r++) {
     for (let i = 0; i < state.players.length; i++) {
       state.players[i].hand.push(...draw(state, 1, events));
     }
   }
 
-  // flip first top
-  const first = draw(state, 1, events)[0];
+  // Flip first top card
+  // Ensure it's not a power card for a clean start (optional, but good for game flow)
+  let first;
+  while(true) {
+      first = draw(state, 1, events)[0];
+      if(!POWER_RANKS.has(first.rank)) break;
+      state.deck.unshift(first); // Put back and try again
+  }
+  
   state.discard.push(first);
   state.activeSuit = first.suit;
 
@@ -204,6 +218,8 @@ function applyAction(state, seat, action) {
   const events = [];
   if (state.status !== "playing") return { ok: false, err: "Game not active", events };
 
+  // Allow declaring LAST out of turn (optional, but usually strict turn based in this code)
+  // For now, we restrict all actions to the active player for simplicity
   if (!isPlayersTurn(state, seat)) return { ok: false, err: "Not your turn", events };
 
   const p = state.players[seat];
@@ -228,9 +244,9 @@ function applyAction(state, seat, action) {
       state.pendingDrawJ = 0;
       events.push({ t: "feed", m: `${p.name} draws ${toDraw} (Jack stack)` });
     } else if (state.pendingSkip > 0) {
-      // if skipped, drawing clears skip and ends turn
       state.pendingSkip = 0;
-      events.push({ t: "feed", m: `${p.name} is skipped! (8)` });
+      events.push({ t: "feed", m: `${p.name} is skipped!` });
+      p.lastDeclared = false; // Reset LAST on skip
       advanceTurn(state);
       return { ok: true, events };
     } else {
@@ -238,7 +254,7 @@ function applyAction(state, seat, action) {
     }
 
     p.hand.push(...draw(state, toDraw, events));
-    // end turn
+    p.lastDeclared = false; // Reset LAST on draw
     advanceTurn(state);
     return { ok: true, events };
   }
@@ -248,7 +264,7 @@ function applyAction(state, seat, action) {
     const indices = Array.isArray(action.indices) ? action.indices.slice() : [];
     if (indices.length === 0) return { ok: false, err: "No cards selected", events };
 
-    // convert to unique sorted descending so removals are safe
+    // Sort descending to remove safely
     const uniq = Array.from(new Set(indices)).filter(i => Number.isInteger(i));
     uniq.sort((a,b) => b - a);
 
@@ -258,46 +274,45 @@ function applyAction(state, seat, action) {
 
     const cards = uniq.map(i => p.hand[i]);
 
-    // pending constraints
+    // Validation
     if (state.pendingDraw2 > 0 && cards[0].rank !== "2") return { ok: false, err: "Must play a 2!", events };
     if (state.pendingDrawJ > 0 && cards[0].rank !== "J") return { ok: false, err: "Must play a Jack (or DRAW)!", events };
     if (state.pendingSkip > 0 && cards[0].rank !== "8") return { ok: false, err: "Can only stack an 8!", events };
 
-    // first card validity
     const top = topCard(state);
     if (!canStart(cards[0], top, state.activeSuit)) return { ok: false, err: "Invalid Card", events };
 
-    // combo validity
     for (let i = 0; i < cards.length - 1; i++) {
       if (!linkOk(cards[i], cards[i+1])) return { ok: false, err: "Invalid Combo", events };
     }
 
-    // remove from hand (descending indices)
+    // Remove from hand
     for (const i of uniq) p.hand.splice(i, 1);
 
     const finishedNow = (p.hand.length === 0);
-
-    // determine if set (all same rank)
     const isSet = cards.length > 1 && cards.every(c => c.rank === cards[0].rank);
 
-    // play into discard and apply power (same behaviour: if set OR last card)
+    // Play to discard & Apply Power
     for (let i = 0; i < cards.length; i++) {
       const c = cards[i];
       state.discard.push(c);
       const isLast = (i === cards.length - 1);
 
       if (POWER_RANKS.has(c.rank) && (isSet || isLast)) {
-        applyPower(state, c, seat, isLast, events);
+        // We pass the user's chosen suit (action.suitParam) here
+        applyPower(state, c, seat, isLast, events, action.suitParam);
       }
     }
 
-    // update active suit unless last card is Ace (same as your file)
     const lastCard = cards[cards.length - 1];
+    // If it's NOT an Ace, the suit becomes the card's suit
+    // If it IS an Ace, applyPower handled the suit change
     if (lastCard.rank !== "A") state.activeSuit = lastCard.suit;
 
-    events.push({ t: "feed", m: `${p.name} played ${cards.length} card(s)` });
+    events.push({ t: "feed", m: `${p.name} played ${cards.length}` });
 
-    // 1) forgot LAST penalty (your rule)
+    // 1) FORGOT LAST PENALTY
+    // If you finish, but p.lastDeclared is false -> Draw 2
     if (finishedNow && !p.lastDeclared) {
       events.push({ t: "feed", m: `⚠️ ${p.name} Forgot LAST! Draw 2` });
       p.hand.push(...draw(state, 2, events));
@@ -306,7 +321,7 @@ function applyAction(state, seat, action) {
       return { ok: true, events };
     }
 
-    // 2) cannot end on power card (your rule)
+    // 2) POWER FINISH PENALTY
     if (finishedNow && POWER_RANKS.has(lastCard.rank)) {
       events.push({ t: "feed", m: `Can't end on Power! Pick up 1` });
       p.hand.push(...draw(state, 1, events));
@@ -315,7 +330,7 @@ function applyAction(state, seat, action) {
       return { ok: true, events };
     }
 
-    // win?
+    // WIN CONDITION
     if (p.hand.length === 0) {
       state.status = "ended";
       state.winnerSeat = seat;
@@ -323,19 +338,14 @@ function applyAction(state, seat, action) {
       return { ok: true, events };
     }
 
-    // reset lastDeclared if they didn’t finish (same vibe as your file: you only need it for finishing)
-    // keep whatever you want; this keeps it “per turn”
-    // (you can shout last early, but it only matters when you go to 0)
-    // We'll keep it as-is (doesn't auto-clear here).
+    p.lastDeclared = false; // Reset "Last" status after a successful play that didn't win
 
-    // extra turn for King
     if (state.extraTurn) {
       state.extraTurn = false;
       events.push({ t: "feed", m: `KING: Play Again!` });
       return { ok: true, events };
     }
 
-    // normal turn advance
     advanceTurn(state);
     return { ok: true, events };
   }
@@ -344,20 +354,11 @@ function applyAction(state, seat, action) {
 }
 
 // ----------------------------
-// Rooms
+// Room Management
 // ----------------------------
 const rooms = new Map();
-// roomCode -> {
-//   code,
-//   clients: Map<playerId, ws>,
-//   seats: [playerId|null, playerId|null],
-//   names: Map<playerId, name>,
-//   state: null
-// }
 
-function getRoom(code) {
-  return rooms.get(code);
-}
+function getRoom(code) { return rooms.get(code); }
 
 function makeRoom() {
   let code;
@@ -385,15 +386,17 @@ function roomInfo(room) {
 }
 
 function publicStateFor(room, viewerId) {
-  // hide opponents’ cards; show counts
   const s = room.state;
   if (!s) return null;
 
+  // Clone state to modify for public view
   const out = JSON.parse(JSON.stringify(s));
+  
+  // Hide opponent hands
   for (const pl of out.players) {
     if (pl.id !== viewerId) {
       pl.handCount = pl.hand.length;
-      pl.hand = [];
+      pl.hand = []; // Hide actual cards
     }
   }
   out.deckCount = out.deck.length;
@@ -412,10 +415,10 @@ function broadcastState(room) {
 }
 
 // ----------------------------
-// WebSocket handling
+// WebSocket Handler
 // ----------------------------
 wss.on("connection", (ws) => {
-  ws._pid = rid(10); // session player id
+  ws._pid = rid(10);
   ws._room = null;
 
   send(ws, "HELLO", { playerId: ws._pid });
@@ -443,7 +446,6 @@ wss.on("connection", (ws) => {
       const room = getRoom(code);
       if (!room) return send(ws, "ERROR", { message: "Room not found" });
 
-      // if already has 2, reject
       if (!room.seats.includes(null) && !room.seats.includes(ws._pid)) {
         return send(ws, "ERROR", { message: "Room full" });
       }
@@ -461,13 +463,11 @@ wss.on("connection", (ws) => {
       return;
     }
 
-    // --- START GAME ---
+    // --- START ---
     if (msg.type === "START_GAME") {
       const room = ws._room ? getRoom(ws._room) : null;
       if (!room) return;
-
-      // need both seats
-      if (room.seats.includes(null)) return send(ws, "ERROR", { message: "Need 2 players" });
+      if (room.seats.includes(null)) return send(ws, "ERROR", { message: "Waiting for P2..." });
 
       if (!room.state) {
         const names = room.seats.map(pid => room.names.get(pid) || "Player");
@@ -504,18 +504,16 @@ wss.on("connection", (ws) => {
     if (!room) return;
 
     room.clients.delete(ws._pid);
-    room.names.delete(ws._pid);
-
+    
+    // Clear seat
     const seat = seatOf(room, ws._pid);
     if (seat >= 0) room.seats[seat] = null;
 
-    // if empty, delete room
     if (room.clients.size === 0) {
       rooms.delete(room.code);
       return;
     }
 
-    // if game running and someone leaves, end game
     if (room.state && room.state.status === "playing") {
       room.state.status = "ended";
       broadcast(room, "FEED", { events: [{ t:"feed", m:"Opponent left. Game ended." }] });
