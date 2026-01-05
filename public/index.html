@@ -784,52 +784,47 @@
     </div>
   </div>
 
+  
   <div id="p2p-screen" class="screen">
     <div class="header-row" style="display:flex; align-items:center; width:90%; max-width:520px; justify-content:space-between; margin-bottom:10px;">
-      <button
-        onclick="p2pLeave()"
-        style="background: none; border: none; color: #333; font-size: 2rem; font-weight: bold"
-      >
-        ↩
+      <button onclick="showScreen('menu-screen')" style="background:none; border:none; color:#333; font-size:2rem; font-weight:bold">↩</button>
+      <h2 style="margin:0; color:#333">ONLINE LOBBY</h2>
+      <button class="tinybtn" onclick="netLeave()">Leave</button>
+    </div>
+
+    <div class="p2p-box">
+      <div style="font-weight:900; margin-bottom:8px;">Your Name</div>
+      <input id="net-name" type="text" placeholder="Name" />
+      <div class="mini" style="margin-top:6px;">(Uses your league name if set)</div>
+    </div>
+
+    <div class="p2p-box">
+      <div style="font-weight:900; margin-bottom:8px;">Create a Room</div>
+      <button class="menu-btn btn-league" style="width:100%" onclick="netCreateRoom()">CREATE ROOM</button>
+      <div class="mini" style="margin-top:8px;">You become host. Share the room code.</div>
+    </div>
+
+    <div class="p2p-box">
+      <div style="font-weight:900; margin-bottom:8px;">Join a Room</div>
+      <input id="net-room" type="text" placeholder="Room code (e.g. A1B2C3)" />
+      <button class="menu-btn btn-party" style="width:100%" onclick="netJoinRoom()">JOIN ROOM</button>
+    </div>
+
+    <div class="p2p-box">
+      <div style="font-weight:900; margin-bottom:8px;">Room</div>
+      <div class="p2p-code" id="net-room-code">—</div>
+      <div class="mini" id="net-role">Not connected</div>
+
+      <div class="mini" style="margin-top:10px; font-weight:900;">Players (2–4):</div>
+      <div id="net-players" class="mini" style="white-space:pre-wrap;">—</div>
+
+      <button class="menu-btn btn-start" id="net-start-btn" style="width:100%; margin-top:10px" onclick="netStartGame()" disabled>
+        HOST: START GAME
       </button>
-      <h2 style="margin: 0; color: #333">ONLINE TABLE</h2>
-      <button class="tinybtn" onclick="p2pDump()">Dump JSON</button>
-    </div>
-
-    <div class="pill" id="p2p-mode-pill">Signal: Cloud</div>
-
-    <div class="p2p-box">
-      <div style="font-weight:900; margin-bottom:8px;">Your Code (share it):</div>
-      <div class="p2p-code" id="p2p-my-code">...</div>
-      <div class="mini" style="margin-top:8px;">
-        Host shares their code. Join pastes it. Host deals.
-      </div>
-    </div>
-
-    <div class="p2p-box">
-      <div style="font-weight:900; margin-bottom:6px;">Signal settings (LAN optional)</div>
-      <div class="mini">If you run a local PeerJS server (Termux/PC): set host + port and tap “Use LAN Signal”.</div>
-      <input id="p2p-signal-host" type="text" placeholder="LAN signal host (e.g. 192.168.1.20)" />
-      <input id="p2p-signal-port" type="number" placeholder="LAN signal port (default 9000)" />
-      <div class="p2p-row">
-        <button class="tinybtn" onclick="p2pUseCloud()">Use Cloud Signal</button>
-        <button class="tinybtn" onclick="p2pUseLan()">Use LAN Signal</button>
-      </div>
-    </div>
-
-    <div class="p2p-box">
-      <div style="font-weight:900; margin-bottom:6px;">Join a host</div>
-      <input id="p2p-join-code" type="text" placeholder="Paste Host Code" />
-      <div class="p2p-row">
-        <button class="menu-btn btn-league" style="margin:0; width: 160px" onclick="p2pHost()">HOST ROOM</button>
-        <button class="menu-btn btn-party" style="margin:0; width: 160px" onclick="p2pJoin()">JOIN ROOM</button>
-        <button class="menu-btn btn-start" id="p2p-deal-btn" style="margin:0; width: 100%" onclick="p2pDeal()">
-          DEAL!
-        </button>
-      </div>
-      <div id="p2p-status" class="mini" style="margin-top:10px; font-weight:900;">Not connected.</div>
     </div>
   </div>
+
+
 
   <div id="pass-device-screen" class="screen">
     <div class="pass-title">
@@ -927,9 +922,7 @@
   </div>
 
   <!-- PeerJS (P2P) -->
-  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-
-  <script>
+<script>
     // --- AUDIO ENGINE ---
     const AudioEngine = {
       ctx: null,
@@ -1096,9 +1089,16 @@
       showScreen("lobby-screen");
     }
     function goToP2P(){
-      p2pResetUI();
+      // Online lobby (server-hosted). No P2P.
+      netEnsureSocket();
+      // prefill name from league if available
+      try {
+        const el = document.getElementById("net-name");
+        if (el && leagueData && leagueData.player && leagueData.player.name) el.value = leagueData.player.name;
+      } catch(e){}
       showScreen("p2p-screen");
-      p2pEnsurePeer();
+      netRenderLobby();
+      return;
     }
 
     function renderStandings() {
@@ -1318,6 +1318,14 @@
     }
 
     function humanPickup() {
+
+      if (gameMode === "online") {
+        if (isProcessing) return;
+        if (turnIndex !== myOnlineIndex) return;
+        netSend({ t: "draw" });
+        return;
+      }
+
       if (isProcessing) return;
       if (gameMode === "p2p") {
         if (turnIndex !== myP2PIndex) return;
@@ -1367,6 +1375,13 @@
     }
 
     function humanDeclareLast() {
+
+      if (gameMode === "online") {
+        if (turnIndex !== myOnlineIndex) return;
+        netSend({ t: "last" });
+        return;
+      }
+
       if (gameMode === "p2p") {
         if (turnIndex !== myP2PIndex) return;
         if (P2P.isHost) {
@@ -1388,6 +1403,25 @@
     }
 
     function humanPlay() {
+
+      if (gameMode === "online") {
+        if (isProcessing || !selectionOrder.length) return;
+        if (turnIndex !== myOnlineIndex) return;
+
+        // Convert selected indices -> card IDs (server validates)
+        const p = gamePlayers[turnIndex];
+        const ids = selectionOrder.map(i => p.hand[i]?.id).filter(Boolean);
+        if (!ids.length) return;
+
+        netSend({ t: "play", cards: ids });
+
+        // Clear selection immediately; server will echo authoritative state
+        selectionOrder = [];
+        renderHandUI();
+        updateControls();
+        return;
+      }
+
       if (isProcessing || !selectionOrder.length) return;
       if (gameMode === "p2p" && turnIndex !== myP2PIndex) return;
 
@@ -2218,6 +2252,204 @@
     }
 
     loadData();
-  </script>
+  
+    // ==========================
+    // ONLINE (SERVER-HOSTED) NET
+    // ==========================
+    let myOnlineId = null;
+    let myOnlineIndex = 0;
+
+    const NET = {
+      ws: null,
+      room: null,
+      isHost: false,
+      players: []
+    };
+
+    function netWsUrl(){
+      const proto = (location.protocol === "https:") ? "wss:" : "ws:";
+      return proto + "//" + location.host;
+    }
+
+    function netEnsureSocket(){
+      if (NET.ws && (NET.ws.readyState === 0 || NET.ws.readyState === 1)) return;
+      NET.ws = new WebSocket(netWsUrl());
+
+      NET.ws.onopen = () => {
+        // nothing
+      };
+
+      NET.ws.onclose = () => {
+        NET.room = null;
+        NET.isHost = false;
+        NET.players = [];
+        myOnlineId = null;
+        myOnlineIndex = 0;
+        try { netRenderLobby(); } catch(e){}
+      };
+
+      NET.ws.onerror = () => {
+        showToast("Online connection error");
+      };
+
+      NET.ws.onmessage = (ev) => {
+        let msg;
+        try { msg = JSON.parse(ev.data); } catch(e){ return; }
+
+        if (msg.t === "error") {
+          showToast(msg.message || "Error");
+          AudioEngine.playError();
+          return;
+        }
+
+        if (msg.t === "created") {
+          NET.room = msg.room;
+          NET.isHost = true;
+          myOnlineId = msg.you;
+          NET.players = msg.players || [];
+          netRenderLobby();
+          showToast("Room created: " + NET.room);
+          return;
+        }
+
+        if (msg.t === "joined") {
+          NET.room = msg.room;
+          NET.isHost = false;
+          myOnlineId = msg.you;
+          NET.players = msg.players || [];
+          netRenderLobby();
+          showToast("Joined room: " + NET.room);
+          return;
+        }
+
+        if (msg.t === "players") {
+          NET.players = msg.players || [];
+          // refresh host info
+          NET.isHost = !!NET.players.find(p => p.id === myOnlineId && p.isHost);
+          netRenderLobby();
+          return;
+        }
+
+        if (msg.t === "state") {
+          applyOnlineState(msg.state);
+          return;
+        }
+
+        if (msg.t === "ended") {
+          showToast("Winner: " + msg.winner);
+          return;
+        }
+      };
+    }
+
+    function netSend(payload){
+      netEnsureSocket();
+      if (!NET.ws || NET.ws.readyState !== 1) {
+        showToast("Connecting...");
+        return;
+      }
+      NET.ws.send(JSON.stringify(payload));
+    }
+
+    function netName(){
+      let fallback = "Player";
+      try {
+        if (leagueData && leagueData.player && leagueData.player.name) fallback = leagueData.player.name;
+      } catch(e){}
+      const el = document.getElementById("net-name");
+      const v = el ? el.value.trim() : "";
+      return (v || fallback).slice(0,24);
+    }
+
+    function netCreateRoom(){
+      netSend({ t: "create", name: netName() });
+    }
+
+    function netJoinRoom(){
+      const code = (document.getElementById("net-room")?.value || "").trim().toUpperCase();
+      if (!code) return showToast("Enter room code");
+      netSend({ t: "join", room: code, name: netName() });
+    }
+
+    function netStartGame(){
+      if (!NET.isHost) return showToast("Only host can start");
+      if ((NET.players || []).length < 2) return showToast("Need 2–4 players");
+      netSend({ t: "start" });
+    }
+
+    function netLeave(){
+      if (NET.room) netSend({ t: "leave" });
+      NET.room = null;
+      NET.isHost = false;
+      NET.players = [];
+      myOnlineId = null;
+      myOnlineIndex = 0;
+      netRenderLobby();
+    }
+
+    function netRenderLobby(){
+      const codeEl = document.getElementById("net-room-code");
+      const roleEl = document.getElementById("net-role");
+      const listEl = document.getElementById("net-players");
+      const startBtn = document.getElementById("net-start-btn");
+
+      if (!codeEl || !roleEl || !listEl || !startBtn) return;
+
+      codeEl.innerText = NET.room || "—";
+      roleEl.innerText = NET.room ? (NET.isHost ? "You are HOST" : "You are PLAYER") : "Not connected";
+
+      const players = NET.players || [];
+      listEl.innerText = players.map(p => (p.isHost ? "👑 " : "• ") + p.name).join("\n") || "—";
+
+      startBtn.disabled = !(NET.room && NET.isHost && players.length >= 2);
+    }
+
+    function applyOnlineState(st){
+      // Convert server state to the game's internal variables.
+      // The server is authoritative.
+      try {
+        gamePlayers = (st.players || []).map(p => ({
+          name: p.name,
+          isBot: false,
+          hand: (p.hand || []).map(c => ({ id: c.id, rank: c.rank, suit: c.suit })),
+          lastDeclared: !!p.lastDeclared
+        }));
+
+        turnIndex = st.turnIndex || 0;
+        direction = st.direction || 1;
+        activeSuit = st.activeSuit || null;
+        pendingDraw2 = st.pendingDraw2 || 0;
+        pendingDrawJ = st.pendingDrawJ || 0;
+        pendingSkip = st.pendingSkip || 0;
+        extraTurn = false;
+
+        // update discard/top card
+        discard = st.topCard ? [st.topCard] : discard;
+
+        // compute my index
+        myOnlineIndex = 0;
+        for (let i=0;i<gamePlayers.length;i++){
+          const p = gamePlayers[i];
+          const pl = (NET.players || []).find(x => x.name === p.name);
+          if (pl && pl.id === myOnlineId) { myOnlineIndex = i; break; }
+        }
+
+        // switch mode + show game screen
+        gameMode = "online";
+        isLeagueMode = false;
+        isPassAndPlay = false;
+
+        if (typeof showScreen === "function") showScreen("game-screen");
+        if (typeof updateControls === "function") updateControls();
+        if (typeof renderHandUI === "function") renderHandUI();
+        if (typeof renderCPUUI === "function") renderCPUUI();
+        if (document.getElementById("status-feed") && st.feed) document.getElementById("status-feed").innerText = st.feed;
+
+      } catch(e){
+        console.error(e);
+      }
+    }
+
+</script>
 </body>
 </html>
