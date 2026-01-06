@@ -2,714 +2,2240 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, proxy-revalidate" />
-  <meta http-equiv="Pragma" content="no-cache" />
-  <meta http-equiv="Expires" content="0" />
-  <title>Old Skool Blackjack</title>
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+  />
+  <title>Old Skool Blackjack — Switch Rules</title>
   <style>
-    :root{
-      --felt:#2e6b3a;
-      --felt2:#255a31;
-      --ink:#0b0b0b;
-      --chalk:#f4f4f4;
-      --wood1:#d7b58a;
-      --wood2:#caa879;
-      --btnPink:#ff7dbb;
-      --btnBlue:#56c6ff;
-      --btnYellow:#ffd54a;
-      --btnWhite:#f5f5f5;
-      --shadow: 0 10px 30px rgba(0,0,0,.25);
-      --cardW: 78px;
-      --cardH: 108px;
-    }
-    *{box-sizing:border-box}
-    body{
-      margin:0;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      background: radial-gradient(1200px 600px at 50% 20%, var(--felt), var(--felt2));
-      color: var(--chalk);
-      height:100vh;
-      overflow:hidden;
-      touch-action: manipulation;
-    }
-    .topbar{
-      position:fixed; left:0; right:0; top:0;
-      padding:10px 12px;
-      text-align:center;
-      font-weight:900;
-      font-size:22px;
-      text-shadow: 0 2px 0 rgba(0,0,0,.35);
-      z-index:30;
-      pointer-events:none;
-    }
-    .screen{
-      position:absolute; inset:0;
-      display:none;
-      padding:80px 16px 16px;
-      z-index:20;
-    }
-    .screen.active{display:block}
-    .card{
-      width:var(--cardW); height:var(--cardH);
-      border-radius:12px;
-      background:#fff;
-      color:#111;
-      display:flex;
-      align-items:flex-start;
-      justify-content:flex-start;
-      padding:8px 10px;
-      font-weight:900;
-      box-shadow: 0 10px 25px rgba(0,0,0,.25);
-      position:relative;
-      user-select:none;
-    }
-    .card .suit{
-      position:absolute; right:10px; bottom:8px;
-      font-size:26px;
-      opacity:.85;
-    }
-    .card.red{color:#c01515}
-    .card.back{
-      background:
-        radial-gradient(circle at 30% 30%, rgba(255,255,255,.25), rgba(255,255,255,0) 35%),
-        repeating-linear-gradient(45deg, rgba(255,255,255,.08), rgba(255,255,255,.08) 6px, rgba(0,0,0,.08) 6px, rgba(0,0,0,.08) 12px),
-        #1a1a1a;
-      border:3px solid rgba(255,255,255,.15);
-      color:transparent;
-    }
-    .panel{
-      max-width:520px;
-      margin:0 auto;
-      background: rgba(0,0,0,.25);
-      border: 2px solid rgba(255,255,255,.12);
-      border-radius:18px;
-      padding:18px;
-      box-shadow: var(--shadow);
-    }
-    h1{margin:0 0 10px; font-size:44px; letter-spacing:.5px;}
-    .sub{opacity:.9; margin:0 0 18px}
-    input, button, select{
-      font: inherit;
-    }
-    input{
-      width:100%;
-      padding:14px 16px;
-      border-radius:14px;
-      border:0;
-      outline:none;
-      font-size:18px;
-      margin:10px 0;
-    }
-    .row{display:flex; gap:10px; align-items:center}
-    .row > *{flex:1}
-    .btn{
-      width:100%;
-      padding:14px 14px;
-      border-radius:14px;
-      border:0;
-      font-weight:900;
-      cursor:pointer;
-      box-shadow: 0 8px 0 rgba(0,0,0,.25);
-      transform: translateY(0);
-    }
-    .btn:active{transform: translateY(3px); box-shadow: 0 5px 0 rgba(0,0,0,.25);}
-    .btn.primary{background:#fff; color:#111}
-    .btn.pink{background:var(--btnPink); color:#111}
-    .btn.blue{background:var(--btnBlue); color:#111}
-    .btn.yellow{background:var(--btnYellow); color:#111}
-    .small{font-size:13px; opacity:.9}
-    .toast{
-      position:fixed;
-      left:50%; transform: translateX(-50%);
-      bottom:18px;
-      background: rgba(0,0,0,.65);
-      border:1px solid rgba(255,255,255,.15);
-      padding:10px 14px;
-      border-radius:999px;
-      z-index:50;
-      max-width:90vw;
-      text-align:center;
-      display:none;
-    }
-    .table{
-      position:absolute; inset:0;
-      padding:64px 16px 120px;
-      z-index:5;
-    }
-    .centerStack{
-      position:absolute;
-      left:50%; top:52%;
-      transform: translate(-50%,-50%);
-      display:flex;
-      gap:16px;
-      align-items:center;
-      justify-content:center;
-    }
-    .opponent{
-      position:absolute;
-      left:50%; top:92px;
-      transform: translateX(-50%);
-      text-align:center;
-    }
-    .badge{
-      display:inline-block;
-      padding:6px 10px;
-      border-radius:999px;
-      background: rgba(255,255,255,.12);
-      border:1px solid rgba(255,255,255,.18);
-      font-weight:900;
-      margin-bottom:10px;
-    }
-    .rightBtns{
-      position:fixed; right:10px; top:50%;
-      transform: translateY(-50%);
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-      z-index:25;
-    }
-    .action{
-      width:86px;
-      padding:14px 10px;
-      border-radius:14px;
-      border:0;
-      font-weight:900;
-      cursor:pointer;
-      box-shadow: 0 8px 0 rgba(0,0,0,.25);
-    }
-    .action.pink{background:var(--btnPink)}
-    .action.blue{background:var(--btnBlue)}
-    .action.yellow{background:var(--btnYellow)}
-    .action.white{background:var(--btnWhite)}
-    .action:disabled{opacity:.45; cursor:not-allowed}
-    .wood{
-      position:fixed; left:0; right:0; bottom:0;
-      height:120px;
-      background: repeating-linear-gradient(45deg, var(--wood1), var(--wood1) 12px, var(--wood2) 12px, var(--wood2) 24px);
-      z-index:10;
-      border-top: 3px solid rgba(0,0,0,.2);
-    }
-    .hand{
-      position:fixed;
-      left:0; right:0;
-      bottom:10px;
-      height:120px;
-      z-index:15;
-      display:flex;
-      align-items:flex-end;
-      justify-content:center;
-      pointer-events:auto;
-    }
-    .handInner{
-      position:relative;
-      width:min(640px, 96vw);
-      height:120px;
-    }
-    .handCard{
-      position:absolute;
-      bottom:4px;
-      transform-origin: 50% 120%;
-      cursor:pointer;
-      transition: transform .12s ease, bottom .12s ease, filter .12s ease;
-    }
-    .handCard.selected{
-      bottom:18px;
-      filter: drop-shadow(0 12px 10px rgba(0,0,0,.25));
+    :root {
+      --chalk-green: #3a5f42;
+      --chalk-white: #eeeeee;
+      --paper-white: #fdfbf7;
+      --line-blue: #a2d2ff;
+      --sticker-yellow: #ffeb3b;
+      --sticker-pink: #ff80ab;
+      --sticker-blue: #80d8ff;
+      --card-w: 70px;
+      --card-h: 100px;
     }
 
-    .suitPicker{
-      position:fixed;
-      inset:0;
-      background: rgba(0,0,0,.55);
-      display:none;
-      align-items:center;
-      justify-content:center;
-      z-index:60;
+    body {
+      font-family: "Comic Sans MS", "Chalkboard SE", "Marker Felt", sans-serif;
+      background-color: var(--chalk-green);
+      color: var(--chalk-white);
+      margin: 0;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      touch-action: manipulation;
+      background-image: radial-gradient(#4a6f52 2px, transparent 2px);
+      background-size: 30px 30px;
     }
-    .suitBox{
-      background:#fff;
-      border-radius:18px;
-      padding:18px;
-      width:min(420px, 92vw);
-      color:#111;
-      box-shadow: var(--shadow);
-      text-align:center;
-      font-weight:900;
+
+    @media (max-width: 600px) {
+      :root {
+        --card-w: 60px;
+        --card-h: 84px;
+      }
+      .hud-btn {
+        padding: 10px 10px !important;
+        font-size: 0.8rem !important;
+      }
+      #game-info-bar {
+        font-size: 0.8rem !important;
+        padding: 4px !important;
+      }
     }
-    .suitGrid{
-      display:grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap:12px;
-      margin-top:12px;
+
+    /* --- ANIMATIONS --- */
+    @keyframes shake {
+      0% { transform: translateX(0) translateY(-25px); }
+      25% { transform: translateX(-5px) rotate(-5deg) translateY(-25px); }
+      50% { transform: translateX(5px) rotate(5deg) translateY(-25px); }
+      75% { transform: translateX(-5px) rotate(-5deg) translateY(-25px); }
+      100% { transform: translateX(0) translateY(-25px); }
     }
-    .suitBtn{
-      padding:14px 10px;
+    .shake { animation: shake 0.4s ease-in-out; border-color: #ff5252 !important; }
+
+    @keyframes popIn {
+      0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+      80% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
+      100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    }
+
+    @keyframes rainbow-glow {
+      0% { box-shadow: 0 0 10px #ff0000; border-color: #ff0000; }
+      20% { box-shadow: 0 0 10px #ff9a00; border-color: #ff9a00; }
+      40% { box-shadow: 0 0 10px #d0de21; border-color: #d0de21; }
+      60% { box-shadow: 0 0 10px #4fd125; border-color: #4fd125; }
+      80% { box-shadow: 0 0 10px #25d1cb; border-color: #25d1cb; }
+      100% { box-shadow: 0 0 10px #ff00c8; border-color: #ff00c8; }
+    }
+    .winning-btn {
+      animation: rainbow-glow 0.5s infinite;
+      transform: scale(1.05) !important;
+      background: white !important;
+      color: black !important;
+    }
+
+    /* --- SCREENS --- */
+    .screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: var(--chalk-green);
+      z-index: 10;
+    }
+    .screen.active { display: flex; }
+
+    /* --- NOTEBOOK PAPER STYLE --- */
+    #login-screen,
+    #menu-screen,
+    #lobby-screen,
+    #dashboard-screen,
+    #p2p-screen {
+      background-color: var(--paper-white);
+      background-image: linear-gradient(var(--line-blue) 1px, transparent 1px);
+      background-size: 100% 25px;
+      color: #333;
+    }
+
+    /* --- BRANDING / LOGO --- */
+    .logo-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 25px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .logo-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: white;
+      padding: 10px 16px;
+      border: 3px solid #333;
+      border-radius: 12px;
+      box-shadow: 5px 5px 0 rgba(0, 0, 0, 0.2);
+      transform: rotate(-2deg);
+    }
+    .logo-mark {
+      width: 42px;
+      height: 42px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid #333;
+      border-radius: 10px;
+      background: var(--sticker-yellow);
+      box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.2);
+      font-size: 26px;
+      line-height: 1;
+      color: black;
+    }
+    .logo-text {
+      font-size: 2.2rem;
+      font-weight: 900;
+      color: #111;
+      text-transform: uppercase;
+      text-align: left;
+      margin: 0;
+      text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.15);
+      letter-spacing: 0.5px;
+      line-height: 0.9;
+    }
+    .logo-sub {
+      margin-top: -5px;
+      font-weight: 900;
+      font-size: 0.95rem;
+      background: var(--sticker-pink);
+      color: #333;
+      padding: 6px 12px;
+      border: 2px solid #333;
+      border-radius: 999px;
+      box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.15);
+      transform: rotate(1deg);
+    }
+
+    input[type="text"], input[type="number"], input[type="url"] {
+      padding: 10px;
+      font-family: inherit;
+      font-size: 1.3rem;
+      background: transparent;
+      color: #333;
+      border: none;
+      border-bottom: 3px solid #333;
+      width: 280px;
+      text-align: center;
+      margin-bottom: 18px;
+      outline: none;
+    }
+
+    /* BUTTONS */
+    .menu-btn {
+      width: 85%;
+      max-width: 340px;
+      padding: 15px;
+      border: 3px solid #333;
+      border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+      font-family: inherit;
+      font-size: 1.4rem;
+      font-weight: bold;
+      text-transform: uppercase;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      box-shadow: 3px 3px 0 #333;
+      transition: transform 0.1s;
+      margin-bottom: 15px;
+      background: white;
+      color: #333;
+    }
+    .btn-league { background: var(--sticker-yellow); transform: rotate(1deg); }
+    .btn-party { background: var(--sticker-blue); transform: rotate(-1deg); }
+    .btn-start { background: var(--sticker-pink); }
+    .menu-btn:active { transform: scale(0.95); box-shadow: 1px 1px 0 #333; }
+    .menu-btn small { font-size: 0.8rem; font-weight: normal; opacity: 0.8; text-transform: none; }
+
+    /* DASHBOARD */
+    .standings-box {
+      background: white;
+      width: 90%;
+      border: 3px solid #333;
+      border-radius: 10px;
+      padding: 10px;
+      margin-bottom: 20px;
+      box-shadow: 5px 5px 0 rgba(0, 0, 0, 0.1);
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 1rem; }
+    th { text-align: left; color: #d32f2f; border-bottom: 2px dashed #333; padding: 8px; }
+    td { padding: 10px 8px; border-bottom: 1px solid #ddd; font-weight: bold; }
+
+    /* LOBBY */
+    .lobby-list {
+      width: 90%;
+      background: white;
+      border: 3px solid #333;
+      border-radius: 10px;
+      padding: 10px;
+      margin-bottom: 20px;
+      min-height: 200px;
+    }
+    .lobby-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 12px;
+      border-bottom: 1px dashed #ccc;
+      font-weight: bold;
+      font-size: 1.2rem;
+    }
+    .btn-add {
+      flex: 1;
+      padding: 12px;
+      background: white;
+      border: 2px solid #333;
+      border-radius: 10px;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 3px 3px 0 #ccc;
+    }
+
+    /* P2P */
+    .p2p-box{
+      width:90%;
+      max-width:520px;
+      background:white;
+      border:3px solid #333;
       border-radius:14px;
-      border:0;
-      cursor:pointer;
-      font-weight:900;
-      background:#f3f3f3;
+      padding:12px;
+      box-shadow:5px 5px 0 rgba(0,0,0,0.1);
+      margin-bottom:14px;
     }
-    .suitBtn:active{transform: translateY(2px)}
-    .muted{opacity:.75}
-    @media (max-width: 520px){
-      :root{ --cardW: 68px; --cardH: 96px; }
-      h1{font-size:38px}
-      .action{width:78px}
+    .p2p-row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:center;
+      width:90%;
+      max-width:520px;
+    }
+    .pill{
+      display:inline-block;
+      padding:8px 12px;
+      border:2px solid #333;
+      border-radius:999px;
+      font-weight:900;
+      background: var(--sticker-yellow);
+      box-shadow:3px 3px 0 rgba(0,0,0,0.12);
+      margin-bottom:12px;
+    }
+    .p2p-code{
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+      font-size: 0.95rem;
+      background:#fff9c4;
+      border:2px dashed #333;
+      border-radius:10px;
+      padding:10px;
+      word-break:break-all;
+    }
+    .mini{
+      font-size:0.92rem;
+      font-weight:700;
+      opacity:0.85;
+    }
+    .tinybtn{
+      padding:10px 12px;
+      border:2px solid #333;
+      border-radius:10px;
+      font-weight:900;
+      cursor:pointer;
+      background:white;
+      box-shadow:3px 3px 0 rgba(0,0,0,0.12);
+    }
+    .tinybtn:active{ transform: scale(0.97); box-shadow:1px 1px 0 rgba(0,0,0,0.2); }
+
+    /* --- GAME TABLE UI --- */
+    #status-feed {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 35px;
+      background: rgba(0, 0, 0, 0.3);
+      color: white;
+      font-family: "Chalkduster", fantasy, sans-serif;
+      font-size: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 20;
+    }
+
+    #game-info-bar {
+      position: absolute;
+      top: 40px;
+      left: 10px;
+      right: 10px;
+      background: none;
+      padding: 0;
+      font-size: 1rem;
+      text-align: center;
+      z-index: 5;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      height: 35px;
+    }
+
+    .help-btn {
+      background: var(--sticker-yellow);
+      color: black;
+      border: 2px solid black;
+      border-radius: 50%;
+      width: 35px;
+      height: 35px;
+      font-weight: 900;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 1.2rem;
+      box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.5);
+    }
+
+    #cpu-area {
+      position: absolute;
+      top: 80px;
+      width: 100%;
+      display: flex;
+      justify-content: space-around;
+      align-items: flex-start;
+      height: 120px;
+      padding: 0 10px;
+      box-sizing: border-box;
+    }
+    .opponent-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transform: scale(0.85);
+      transition: opacity 0.3s;
+    }
+    .opponent-wrapper.active-turn { opacity: 1; transform: scale(1.1); }
+    .opponent-wrapper.inactive { opacity: 0.5; }
+    .opponent-name {
+      background: white;
+      color: black;
+      border: 2px solid black;
+      border-radius: 15px 15px 15px 0;
+      padding: 4px 10px;
+      font-size: 14px;
+      margin-bottom: 5px;
+      font-weight: bold;
+      box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.3);
+    }
+
+    #center-area {
+      position: absolute;
+      top: 52%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      display: flex;
+      gap: 20px;
+      z-index: 2;
+    }
+
+    #game-hud {
+      position: absolute;
+      top: 62%;
+      right: 10px;
+      transform: translateY(-50%);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      z-index: 100;
+    }
+    .hud-btn {
+      padding: 15px 10px;
+      color: black;
+      border: 3px solid black;
+      border-radius: 10px;
+      font-weight: 900;
+      cursor: pointer;
+      box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.3);
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      font-family: inherit;
+    }
+    #btn-play { background: var(--sticker-pink); transform: rotate(-2deg); }
+    #btn-pickup { background: var(--sticker-blue); transform: rotate(2deg); }
+    #btn-last { background: var(--sticker-yellow); transform: rotate(-1deg); }
+    .hud-btn:disabled {
+      background: #ccc;
+      color: #777;
+      border-color: #777;
+      transform: none;
+      box-shadow: none;
+    }
+    #btn-last.called {
+      background: #4caf50;
+      color: white;
+      box-shadow: none;
+      transform: scale(0.95);
+    }
+
+    #player-area {
+      position: absolute;
+      bottom: 0;
+      width: 100%;
+      height: calc(var(--card-h) + 60px);
+      z-index: 50;
+      overflow-x: auto;
+      overflow-y: visible;
+      white-space: nowrap;
+      padding: 0 20px;
+      -webkit-overflow-scrolling: touch;
+      background-color: #d2a679; /* Wood */
+      background-image: repeating-linear-gradient(
+        45deg,
+        transparent,
+        transparent 10px,
+        rgba(0, 0, 0, 0.05) 10px,
+        rgba(0, 0, 0, 0.05) 20px
+      );
+      border-top: 5px solid #8d6e63;
+      box-shadow: 0 -5px 15px rgba(0, 0, 0, 0.5);
+    }
+    .hand { display: inline-flex; justify-content: center; min-width: 100%; padding-top: 25px; align-items: flex-end; }
+
+    /* --- CARDS (With Fan Support) --- */
+    .card {
+      width: var(--card-w);
+      height: var(--card-h);
+      background: white;
+      border-radius: 8px;
+      border: 2px solid #333;
+      box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
+      position: relative;
+      display: inline-flex;
+      flex-direction: column;
+      color: black;
+      flex-shrink: 0;
+      margin-left: -35px;
+      cursor: pointer;
+
+      /* FAN SUPPORT */
+      --fan-rot: 0deg;
+      --fan-y: 0px;
+      transform: rotate(var(--fan-rot)) translateY(var(--fan-y));
+      transform-origin: bottom center;
+      transition: transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1), margin 0.1s, box-shadow 0.2s;
+    }
+    .card:first-child { margin-left: 0; }
+    .card.red { color: #d32f2f; }
+
+    /* SKINS */
+    .card.back {
+      background-color: #000;
+      background-image: radial-gradient(white 15%, transparent 16%),
+        radial-gradient(white 15%, transparent 16%);
+      background-size: 10px 10px;
+      background-position: 0 0, 5px 5px;
+      border: 3px solid white;
+    }
+    body[data-cardback="blueberry"] .card.back {
+      background-color: #0d1b2a;
+      background-image: radial-gradient(rgba(255, 255, 255, 0.75) 16%, transparent 17%),
+        radial-gradient(rgba(255, 255, 255, 0.35) 16%, transparent 17%);
+      background-size: 12px 12px, 18px 18px;
+      border-color: #a2d2ff;
+    }
+    body[data-cardback="graph"] .card.back {
+      background-color: #ffffff;
+      background-image: linear-gradient(rgba(0, 0, 0, 0.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 0, 0, 0.08) 1px, transparent 1px);
+      background-size: 12px 12px;
+      border-color: #333;
+    }
+    body[data-cardback="graffiti"] .card.back {
+      background-color: #111;
+      background-image: radial-gradient(circle at 20% 30%, rgba(255, 128, 171, 0.65), transparent 35%),
+        radial-gradient(circle at 70% 40%, rgba(128, 216, 255, 0.55), transparent 35%);
+      background-size: 100% 100%;
+      border-color: #ff80ab;
+    }
+    .card.back * { display: none; }
+
+    .card.selected {
+      border: 4px solid var(--sticker-pink);
+      transform: rotate(var(--fan-rot)) translateY(calc(var(--fan-y) - 40px)) scale(1.1);
+      z-index: 100 !important;
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
+    }
+    .selection-badge {
+      position: absolute;
+      top: -10px;
+      right: -10px;
+      background: var(--sticker-pink);
+      color: black;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      text-align: center;
+      line-height: 24px;
+      font-weight: bold;
+      z-index: 101;
+      border: 2px solid black;
+    }
+
+    .card-corner {
+      position: absolute;
+      top: 2px;
+      left: 4px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      line-height: 0.9;
+    }
+    .card-corner .rank { font-size: 22px; font-weight: 900; }
+    .card-corner .suit { font-size: 20px; margin-top: -2px; }
+    .center-suit {
+      position: absolute;
+      top: 55%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 36px;
+      opacity: 0.2;
+      pointer-events: none;
+    }
+    .card-bottom {
+      position: absolute;
+      bottom: 2px;
+      right: 4px;
+      transform: rotate(180deg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      line-height: 0.9;
+    }
+    .card-bottom .rank { font-size: 22px; font-weight: 900; }
+    .card-bottom .suit { font-size: 20px; margin-top: -2px; }
+
+    /* Pass Screen */
+    #pass-device-screen {
+      background: #333;
+      text-align: center;
+      border: 10px solid #fff;
+      box-sizing: border-box;
+    }
+    .pass-title { font-size: 2.5rem; color: white; margin-bottom: 20px; font-weight: 900; }
+    .pass-btn {
+      padding: 20px 60px;
+      font-size: 1.5rem;
+      background: var(--sticker-yellow);
+      color: black;
+      border: 4px solid black;
+      font-family: inherit;
+      font-weight: bold;
+      cursor: pointer;
+      border-radius: 50px;
+    }
+
+    /* Modals */
+    #match-result-modal, #suit-modal, #help-modal {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.9);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 200;
+      flex-direction: column;
+      color: white;
+      font-family: inherit;
+    }
+    .suit-btn {
+      font-size: 50px;
+      width: 80px;
+      height: 80px;
+      margin: 10px;
+      cursor: pointer;
+      background: white;
+      border-radius: 20px;
+      border: 3px solid black;
+      box-shadow: 5px 5px 0 rgba(0, 0, 0, 0.5);
+    }
+
+    .help-content {
+      background: white;
+      color: #333;
+      border: 4px solid black;
+      padding: 20px;
+      width: 90%;
+      max-width: 400px;
+      max-height: 80vh;
+      overflow-y: auto;
+      border-radius: 20px;
+    }
+    .help-row {
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 2px dashed #aaa;
+      padding: 10px 0;
+    }
+    .help-key { font-weight: 900; color: #d32f2f; width: 70px; font-size: 1.2rem; }
+    .help-val { font-weight: 700; }
+
+    /* CHALK TOAST NOTIFICATION */
+    #toast-notification {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.9);
+      background: var(--chalk-green);
+      color: var(--chalk-white);
+      padding: 20px 40px;
+      border: 4px dashed var(--chalk-white);
+      border-radius: 15px;
+      font-family: "Chalkduster", fantasy, sans-serif;
+      font-size: 1.5rem;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s, transform 0.2s;
+      z-index: 300;
+      text-align: center;
+    }
+    #toast-notification.show {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+      animation: popIn 0.3s forwards;
     }
   </style>
 </head>
-<body>
-  <div class="topbar" id="banner">Old Skool Blackjack</div>
+<body data-cardback="classic">
+  <div id="toast-notification"></div>
 
-  <!-- LOGIN / LOBBY -->
-  <div class="screen active" id="screenLobby">
-    <div class="panel">
-      <h1>Old Skool Blackjack</h1>
-      <p class="sub">Online lobby & hosted rooms (2 or 4 players)</p>
-
-      <label class="small">Your name</label>
-      <input id="nameInput" placeholder="Beef" maxlength="24"/>
-
-      <div class="row">
-        <select id="seatSelect" style="padding:14px 12px;border-radius:14px;border:0;font-weight:900">
-          <option value="2">2 players</option>
-          <option value="4">4 players</option>
-        </select>
-        <button class="btn primary" id="btnCreate">Create Room</button>
+  <div id="login-screen" class="screen active">
+    <div class="logo-wrap" id="logo-wrap">
+      <div class="logo-badge">
+        <div class="logo-mark">♠</div>
+        <div>
+          <div class="logo-text">Old Skool<br />Blackjack</div>
+        </div>
       </div>
+      <div class="logo-sub">Switch Rules</div>
+    </div>
+    <input type="text" id="username-input" placeholder="Your Name" maxlength="10" />
+    <button class="menu-btn btn-start" onclick="signUp()">Enter</button>
+  </div>
 
-      <div style="height:10px"></div>
+  <div id="menu-screen" class="screen">
+    <div
+      class="logo-text"
+      style="
+        font-size: 1.5rem;
+        margin-bottom: 10px;
+        border: none;
+        background: none;
+        box-shadow: none;
+        transform: none;
+      "
+    >
+      Player: <span id="menu-username"></span>
+    </div>
+    <div
+      style="
+        font-size: 0.95rem;
+        font-weight: 900;
+        margin-bottom: 16px;
+        padding: 8px 12px;
+        background: var(--sticker-yellow);
+        border: 2px solid #333;
+        border-radius: 999px;
+        box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.12);
+        color: #333;
+        display: inline-block;
+      "
+    >
+      Streak: <span id="menu-streak">0</span> • Card Back:
+      <span id="menu-back">classic</span>
+    </div>
 
-      <label class="small">Room code</label>
-      <input id="codeInput" placeholder="ABCDE" maxlength="8"/>
+    <button class="menu-btn btn-league" onclick="goToLeague()"
+      >🏆 Ranked Table<small>Solo • Vs Bots</small></button
+    >
+    <button class="menu-btn btn-party" onclick="goToPartyLobby()"
+      >🎲 Local Table<small>Pass & Play • Same Device</small></button
+    >
+    <button class="menu-btn btn-league" onclick="goToP2P()"
+      >📡 Online Table<small>P2P • Host / Join</small></button
+    >
+    <button class="menu-btn" onclick="cycleCardBack()" style="background: white"
+      >🎴 Card Backs<small>Unlock more by win streaks</small></button
+    >
+  </div>
 
-      <button class="btn primary" id="btnJoin">Join Room</button>
+  <div id="dashboard-screen" class="screen">
+    <div class="header-row" style="display:flex; align-items:center; width:90%; max-width:520px; justify-content:space-between; margin-bottom:10px;">
+      <button
+        onclick="showScreen('menu-screen')"
+        style="background: none; border: none; color: #333; font-size: 2rem; font-weight: bold"
+      >
+        ↩
+      </button>
+      <h2 style="margin: 0; color: #333">RANKED TABLE</h2>
+      <div style="width: 24px"></div>
+    </div>
+    <div class="standings-box">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Name</th>
+            <th>W-L</th>
+            <th>Pts</th>
+          </tr>
+        </thead>
+        <tbody id="standings-body"></tbody>
+      </table>
+    </div>
+    <button class="menu-btn btn-league" style="width: 90%" onclick="startLeagueMatch()">
+      Start Match
+    </button>
+  </div>
 
-      <div style="height:12px"></div>
-      <div class="small muted" id="wsStatus">Connecting…</div>
-      <div class="small muted" id="roomInfo"></div>
-
-      <div style="height:12px"></div>
-      <button class="btn pink" id="btnStart" style="display:none">Start Match</button>
-      <button class="btn blue" id="btnLeave" style="display:none">Leave Room</button>
+  <div id="lobby-screen" class="screen">
+    <div class="header-row" style="display:flex; align-items:center; width:90%; max-width:520px; justify-content:space-between; margin-bottom:10px;">
+      <button
+        onclick="showScreen('menu-screen')"
+        style="background: none; border: none; color: #333; font-size: 2rem; font-weight: bold"
+      >
+        ↩
+      </button>
+      <h2 style="margin: 0; color: #333">LOCAL TABLE</h2>
+      <div style="width: 24px"></div>
+    </div>
+    <div class="lobby-list" id="lobby-list"></div>
+    <div
+      class="lobby-controls"
+      style="display: flex; gap: 10px; width: 90%; flex-wrap: wrap; justify-content: center"
+    >
+      <button class="btn-add" onclick="addLobbyBot()">+ Bot</button>
+      <button class="btn-add" onclick="addLobbyHuman()">+ Friend</button>
+      <button
+        class="menu-btn btn-start"
+        id="btn-start-party"
+        style="width: 100%; margin-top: 10px"
+        onclick="startPartyGame()"
+      >
+        DEAL!
+      </button>
     </div>
   </div>
 
-  <!-- GAME TABLE -->
-  <div class="table" id="table" style="display:none">
-    <div class="opponent">
-      <div class="badge" id="oppBadge">Opponent (0)</div>
-      <div style="display:flex;justify-content:center;gap:10px" id="oppCards"></div>
+  <div id="p2p-screen" class="screen">
+    <div class="header-row" style="display:flex; align-items:center; width:90%; max-width:520px; justify-content:space-between; margin-bottom:10px;">
+      <button
+        onclick="p2pLeave()"
+        style="background: none; border: none; color: #333; font-size: 2rem; font-weight: bold"
+      >
+        ↩
+      </button>
+      <h2 style="margin: 0; color: #333">ONLINE TABLE</h2>
+      <button class="tinybtn" onclick="p2pDump()">Dump JSON</button>
     </div>
 
-    <div class="centerStack">
-      <div class="card back" id="deckCard"></div>
-      <div class="card" id="topCard">
-        <div id="topRank">?</div>
-        <div class="suit" id="topSuit">♠</div>
+    <div class="pill" id="p2p-mode-pill">Signal: Cloud</div>
+
+    <div class="p2p-box">
+      <div style="font-weight:900; margin-bottom:8px;">Your Code (share it):</div>
+      <div class="p2p-code" id="p2p-my-code">...</div>
+      <div class="mini" style="margin-top:8px;">
+        Host shares their code. Join pastes it. Host deals.
       </div>
     </div>
-  </div>
 
-  <div class="rightBtns" id="actions" style="display:none">
-    <button class="action pink" id="btnPlay">PLAY</button>
-    <button class="action blue" id="btnDraw">DRAW</button>
-    <button class="action yellow" id="btnLast">LAST!</button>
-    <button class="action white" id="btnSuit" disabled>SUIT</button>
-  </div>
-
-  <div class="wood" id="wood" style="display:none"></div>
-  <div class="hand" id="hand" style="display:none">
-    <div class="handInner" id="handInner"></div>
-  </div>
-
-  <div class="suitPicker" id="suitPicker">
-    <div class="suitBox">
-      Choose a suit
-      <div class="suitGrid">
-        <button class="suitBtn" data-s="S">♠ Spades</button>
-        <button class="suitBtn" data-s="H">♥ Hearts</button>
-        <button class="suitBtn" data-s="D">♦ Diamonds</button>
-        <button class="suitBtn" data-s="C">♣ Clubs</button>
+    <div class="p2p-box">
+      <div style="font-weight:900; margin-bottom:6px;">Signal settings (LAN optional)</div>
+      <div class="mini">If you run a local PeerJS server (Termux/PC): set host + port and tap “Use LAN Signal”.</div>
+      <input id="p2p-signal-host" type="text" placeholder="LAN signal host (e.g. 192.168.1.20)" />
+      <input id="p2p-signal-port" type="number" placeholder="LAN signal port (default 9000)" />
+      <div class="p2p-row">
+        <button class="tinybtn" onclick="p2pUseCloud()">Use Cloud Signal</button>
+        <button class="tinybtn" onclick="p2pUseLan()">Use LAN Signal</button>
       </div>
-      <div class="small muted" style="margin-top:10px">Needed for Ace / 8.</div>
+    </div>
+
+    <div class="p2p-box">
+      <div style="font-weight:900; margin-bottom:6px;">Join a host</div>
+      <input id="p2p-join-code" type="text" placeholder="Paste Host Code" />
+      <div class="p2p-row">
+        <button class="menu-btn btn-league" style="margin:0; width: 160px" onclick="p2pHost()">HOST ROOM</button>
+        <button class="menu-btn btn-party" style="margin:0; width: 160px" onclick="p2pJoin()">JOIN ROOM</button>
+        <button class="menu-btn btn-start" id="p2p-deal-btn" style="margin:0; width: 100%" onclick="p2pDeal()">
+          DEAL!
+        </button>
+      </div>
+      <div id="p2p-status" class="mini" style="margin-top:10px; font-weight:900;">Not connected.</div>
     </div>
   </div>
 
-  <div class="toast" id="toast"></div>
+  <div id="pass-device-screen" class="screen">
+    <div class="pass-title">
+      Pass to <span id="next-player-name" style="color: var(--sticker-yellow)">...</span>
+    </div>
+    <div style="color: white; margin-bottom: 30px; font-size: 1.2rem">(No Peeking!)</div>
+    <button class="pass-btn" onclick="startTurn()">I'm Ready!</button>
+  </div>
 
-<script>
-(() => {
-  const $ = (id) => document.getElementById(id);
+  <div id="game-screen" class="screen">
+    <div id="status-feed">Cards are in play!</div>
+    <div id="game-info-bar">
+      <div id="turn-status"></div>
+      <div
+        id="attack-status"
+        style="
+          color: var(--sticker-yellow);
+          font-weight: bold;
+          font-size: 0.9rem;
+          text-shadow: 1px 1px 0 #000;
+        "
+      ></div>
+      <button class="help-btn" onclick="openHelp()">?</button>
+    </div>
+    <div id="cpu-area"></div>
+    <div id="center-area">
+      <div id="draw-pile" class="card back" onclick="humanPickup()"></div>
+      <div id="discard-pile"></div>
+    </div>
+    <div id="game-hud">
+      <button class="hud-btn" id="btn-play" onclick="humanPlay()">PLAY</button>
+      <button class="hud-btn" id="btn-pickup" onclick="humanPickup()">DRAW</button>
+      <button class="hud-btn" id="btn-last" onclick="humanDeclareLast()">LAST!</button>
+      <button class="hud-btn" id="btn-sort" onclick="toggleSort()" style="background: #fff; border-color: #333">
+        SORT
+      </button>
+    </div>
+    <div id="player-area"><div id="player-hand" class="hand"></div></div>
+  </div>
 
-  // UI refs
-  const screenLobby = $("screenLobby");
-  const table = $("table");
-  const actions = $("actions");
-  const wood = $("wood");
-  const hand = $("hand");
-  const handInner = $("handInner");
-  const oppBadge = $("oppBadge");
-  const oppCards = $("oppCards");
-  const topRank = $("topRank");
-  const topSuit = $("topSuit");
-  const banner = $("banner");
-  const toast = $("toast");
-  const suitPicker = $("suitPicker");
-  const wsStatus = $("wsStatus");
-  const roomInfo = $("roomInfo");
+  <div id="match-result-modal">
+    <h1
+      id="result-title"
+      style="
+        font-size: 4rem;
+        margin: 0;
+        color: var(--sticker-yellow);
+        text-shadow: 4px 4px 0 #000;
+      "
+    ></h1>
+    <p id="result-desc" style="font-size: 1.5rem; color: #fff"></p>
+    <button class="menu-btn btn-start" onclick="exitGame()">Back to Menu</button>
+  </div>
 
-  const btnCreate = $("btnCreate");
-  const btnJoin = $("btnJoin");
-  const btnStart = $("btnStart");
-  const btnLeave = $("btnLeave");
-  const btnPlay = $("btnPlay");
-  const btnDraw = $("btnDraw");
-  const btnLast = $("btnLast");
-  const btnSuit = $("btnSuit");
-  const nameInput = $("nameInput");
-  const codeInput = $("codeInput");
-  const seatSelect = $("seatSelect");
+  <div id="suit-modal">
+    <h2 style="color: white">Pick a Suit!</h2>
+    <div style="display: flex; flex-wrap: wrap; justify-content: center">
+      <button class="suit-btn" onclick="resolveAce('H')" style="color: #b71c1c">♥</button>
+      <button class="suit-btn" onclick="resolveAce('D')" style="color: #b71c1c">♦</button>
+      <button class="suit-btn" onclick="resolveAce('C')" style="color: black">♣</button>
+      <button class="suit-btn" onclick="resolveAce('S')" style="color: black">♠</button>
+    </div>
+  </div>
 
-  // State
-  let ws = null;
-  let you = { id:null, name:"Player" };
-  let room = null;          // public room
-  let state = null;         // game state
-  let selectedIds = [];
-  let pendingSuitForPlay = null; // when server says need_suit
+  <div id="help-modal" onclick="closeHelp()">
+    <div class="help-content" onclick="event.stopPropagation()">
+      <h2
+        style="
+          margin-top: 0;
+          color: #333;
+          text-align: center;
+          border-bottom: 2px dashed #333;
+          padding-bottom: 10px;
+        "
+      >
+        CHEAT SHEET
+      </h2>
+      <div class="help-row"><div class="help-key">2</div><div class="help-val">Draw 2 (Stacks!)</div></div>
+      <div class="help-row"><div class="help-key">8</div><div class="help-val">Skip Next Person</div></div>
+      <div class="help-row">
+        <div class="help-key">J</div>
+        <div class="help-val">Black: Draw 5<br />Red: Blocks Draw 5</div>
+      </div>
+      <div class="help-row"><div class="help-key">Q</div><div class="help-val">Reverse Turn</div></div>
+      <div class="help-row"><div class="help-key">K</div><div class="help-val">Go Again! (Power)</div></div>
+      <div class="help-row"><div class="help-key">A</div><div class="help-val">Wild Card (Any Suit)</div></div>
+      <div class="help-row">
+        <div class="help-key">Finish</div>
+        <div class="help-val"><b>No power-card finish</b> (A/2/8/J/Q/K). If you try, you draw 2.</div>
+      </div>
+      <button class="menu-btn btn-league" style="width: 100%; margin-top: 20px" onclick="closeHelp()">
+        OKAY!
+      </button>
+    </div>
+  </div>
 
-  // Persist name
-  try {
-    const saved = localStorage.getItem("osbj_name");
-    if (saved) nameInput.value = saved;
-  } catch {}
-  function saveName(n){
-    try { localStorage.setItem("osbj_name", n); } catch {}
-  }
+  <!-- PeerJS (P2P) -->
+  <script>
+    // --- AUDIO ENGINE ---
+    const AudioEngine = {
+      ctx: null,
+      init: function () {
+        if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      },
+      playTone: function (freq, type, duration, vol) {
+        this.init();
+        if (this.ctx.state === "suspended") this.ctx.resume();
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+        gain.gain.setValueAtTime(vol || 0.1, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + duration);
+      },
+      playCardSnap: function () { this.playTone(600, "triangle", 0.1, 0.15); },
+      playError: function () { this.playTone(150, "sawtooth", 0.3, 0.2); },
+      playCall: function () { this.playTone(800, "square", 0.1, 0.1); },
+      playWin: function () {
+        [400, 500, 600, 800].forEach((f, i) =>
+          setTimeout(() => this.playTone(f, "square", 0.3, 0.1), i * 100)
+        );
+      },
+    };
 
-  function showToast(msg){
-    toast.textContent = msg;
-    toast.style.display = "block";
-    clearTimeout(showToast._t);
-    showToast._t = setTimeout(()=>toast.style.display="none", 1800);
-  }
+    // --- DATA ---
+    const BOTS = [
+      { name: "Bully Bob", wins: 0, losses: 0, pts: 0 },
+      { name: "Teacher", wins: 0, losses: 0, pts: 0 },
+      { name: "Nerd Ned", wins: 0, losses: 0, pts: 0 },
+      { name: "Cool Cat", wins: 0, losses: 0, pts: 0 },
+      { name: "Sporty Sam", wins: 0, losses: 0, pts: 0 },
+    ];
 
-  function setBanner(msg){
-    if (msg) banner.textContent = msg;
-  }
+    const CARD_BACKS = [
+      { id: "classic", label: "classic", unlockAt: 0 },
+      { id: "blueberry", label: "blueberry", unlockAt: 3 },
+      { id: "graph", label: "graph", unlockAt: 5 },
+      { id: "graffiti", label: "graffiti", unlockAt: 10 },
+    ];
 
-  function suitSym(s){
-    return s==="S"?"♠":s==="H"?"♥":s==="D"?"♦":"♣";
-  }
-  function isRedSuit(s){ return s==="H"||s==="D"; }
+    let leagueData = {
+      player: {
+        name: "",
+        wins: 0,
+        losses: 0,
+        pts: 0,
+        winStreak: 0,
+        bestStreak: 0,
+        unlockedBacks: ["classic"],
+        selectedBack: "classic",
+      },
+      bots: JSON.parse(JSON.stringify(BOTS)),
+      isLoggedIn: false,
+    };
 
-  function cardHTML(card, isBack=false){
-    const div = document.createElement("div");
-    div.className = "card" + (isBack ? " back" : (isRedSuit(card.s) ? " red":""));
-    if (!isBack){
-      div.innerHTML = `<div>${card.r}</div><div class="suit">${suitSym(card.s)}</div>`;
-    }
-    return div;
-  }
+    let lobbyPlayers = [];
+    let isLeagueMode = false;
+    let sortByRank = false;
 
-  function resetSelection(){
-    selectedIds = [];
-    pendingSuitForPlay = null;
-    btnSuit.disabled = true;
-    renderHand();
-  }
+    // --- P2P STATE ---
+    const P2P = {
+      peer: null,
+      conn: null,
+      isHost: false,
+      signalMode: "cloud", // cloud | lan
+      lanHost: "",
+      lanPort: 9000,
+      myId: "",
+      connectedName: null,
+      roomState: null, // last JSON snapshot
+      lastSeq: 0,
+    };
 
-  function renderOpponent(){
-    if (!room) return;
-    const others = room.players.filter(p => p.id !== you.id);
-    if (others.length === 0){
-      oppBadge.textContent = "Waiting…";
-      oppCards.innerHTML = "";
-      return;
-    }
-    // For 2 players, show first opponent. For 4, show combined count.
-    if (room.seats === 2){
-      const o = others[0];
-      oppBadge.textContent = `${o.name} (${o.handCount})`;
-      oppCards.innerHTML = "";
-      const n = Math.min(o.handCount, 6);
-      for (let i=0;i<n;i++){
-        oppCards.appendChild(cardHTML({r:"?",s:"S"}, true));
+    // --- SETUP ---
+    function loadData() {
+      const saved = localStorage.getItem("oldskool_blackjack_a_p2p_v1");
+      if (saved) {
+        try { leagueData = JSON.parse(saved); } catch (e) {}
       }
-    } else {
-      const total = others.reduce((a,p)=>a+p.handCount,0);
-      oppBadge.textContent = `Opponents (${total})`;
-      oppCards.innerHTML = "";
-      const n = Math.min(total, 8);
-      for (let i=0;i<n;i++){
-        oppCards.appendChild(cardHTML({r:"?",s:"S"}, true));
+      if (!leagueData.player.unlockedBacks) leagueData.player.unlockedBacks = ["classic"];
+      if (!leagueData.player.selectedBack) leagueData.player.selectedBack = "classic";
+      if (leagueData.isLoggedIn && leagueData.player.name) {
+        document.getElementById("menu-username").innerText = leagueData.player.name;
+        showScreen("menu-screen");
       }
+      applyCardBack();
+      updateMenuBadges();
     }
-  }
-
-  function renderTop(){
-    if (!state || !state.top) return;
-    topRank.textContent = state.top.r;
-    topSuit.textContent = suitSym(state.activeSuit || state.top.s);
-    topSuit.style.color = (state.activeSuit==="H"||state.activeSuit==="D") ? "#c01515" : "#111";
-  }
-
-  function fanPositions(n){
-    if (n<=1) return [{x:0, rot:0}];
-    const spread = Math.min(42, 10 + n*3);
-    const mid = (n-1)/2;
-    const out = [];
-    for (let i=0;i<n;i++){
-      const t = (i-mid)/mid; // -1..1
-      const rot = t*spread;
-      const x = t* (Math.min(240, 22*n));
-      out.push({x, rot});
+    function saveData() {
+      localStorage.setItem("oldskool_blackjack_a_p2p_v1", JSON.stringify(leagueData));
+      updateMenuBadges();
     }
-    return out;
-  }
 
-  function renderHand(){
-    if (!state || !room) return;
-    const me = room.players.find(p=>p.id===you.id);
-    // state does not include your hand; server does by sending full hand in a private message? We'll store it in state._youHand
-    const handCards = (state._youHand || []);
-    handInner.innerHTML = "";
-    const n = handCards.length;
-    const pos = fanPositions(n);
+    function updateMenuBadges() {
+      document.getElementById("menu-streak").innerText = leagueData.player.winStreak || 0;
+      document.getElementById("menu-back").innerText = leagueData.player.selectedBack || "classic";
+    }
 
-    for (let i=0;i<n;i++){
-      const c = handCards[i];
-      const el = cardHTML(c, false);
-      el.classList.add("handCard");
-      const sel = selectedIds.includes(c.id);
-      if (sel) el.classList.add("selected");
-      el.style.left = `calc(50% - ${varCardW()/2}px + ${pos[i].x}px)`;
-      el.style.transform = `rotate(${pos[i].rot}deg)`;
-      el.addEventListener("click", () => {
-        if (!isMyTurn()) return;
-        // toggle
-        if (selectedIds.includes(c.id)) selectedIds = selectedIds.filter(x=>x!==c.id);
-        else selectedIds.push(c.id);
-        // if selecting multiple, keep same rank
-        if (selectedIds.length > 1){
-          const first = handCards.find(cc=>cc.id===selectedIds[0]);
-          selectedIds = selectedIds.filter(id=>{
-            const cc = handCards.find(x=>x.id===id);
-            return cc && cc.r === first.r;
-          });
+    function applyCardBack() {
+      document.body.setAttribute("data-cardback", leagueData.player.selectedBack || "classic");
+    }
+
+    function cycleCardBack() {
+      const unlocked = leagueData.player.unlockedBacks || ["classic"];
+      const current = leagueData.player.selectedBack || "classic";
+      const idx = unlocked.indexOf(current);
+      const next = unlocked[(idx + 1 + unlocked.length) % unlocked.length];
+      leagueData.player.selectedBack = next;
+      saveData();
+      applyCardBack();
+      showToast(`Card back: ${next}`);
+    }
+
+    function unlockBackIfNeeded() {
+      const streak = leagueData.player.winStreak || 0;
+      const unlocked = new Set(leagueData.player.unlockedBacks);
+      let newlyUnlocked = [];
+      CARD_BACKS.forEach((b) => {
+        if (streak >= b.unlockAt && !unlocked.has(b.id)) {
+          unlocked.add(b.id);
+          newlyUnlocked.push(b.id);
         }
-        // enable suit button only if selection is Ace/8
-        const chosen = handCards.find(cc=>cc.id===selectedIds[0]);
-        if (chosen && (chosen.r==="A"||chosen.r==="8")) btnSuit.disabled = false;
-        else btnSuit.disabled = true;
-        renderHand();
       });
-      handInner.appendChild(el);
+      leagueData.player.unlockedBacks = Array.from(unlocked);
+      if (newlyUnlocked.length) showToast(`Unlocked: ${newlyUnlocked.join(", ")}!`);
     }
 
-    // Update action enable
-    btnPlay.disabled = !isMyTurn() || selectedIds.length===0;
-    btnDraw.disabled = !isMyTurn();
-    btnLast.disabled = !isMyTurn();
-  }
-
-  function varCardW(){
-    // read css var --cardW
-    const v = getComputedStyle(document.documentElement).getPropertyValue("--cardW").trim();
-    const num = parseFloat(v);
-    return Number.isFinite(num) ? num : 78;
-  }
-
-  function isMyTurn(){
-    return state && state.turnId && state.turnId === you.id;
-  }
-
-  function updateUI(){
-    // Lobby vs table
-    if (room && room.inGame){
-      screenLobby.classList.remove("active");
-      table.style.display = "block";
-      actions.style.display = "flex";
-      wood.style.display = "block";
-      hand.style.display = "flex";
-      btnStart.style.display = "none";
-      btnLeave.style.display = "block";
-    } else {
-      screenLobby.classList.add("active");
-      table.style.display = "none";
-      actions.style.display = "none";
-      wood.style.display = "none";
-      hand.style.display = "none";
-      btnStart.style.display = room ? "block" : "none";
-      btnLeave.style.display = room ? "block" : "none";
+    function signUp() {
+      const name = document.getElementById("username-input").value.trim();
+      if (!name) return showToast("Write your name!");
+      leagueData.player.name = name;
+      leagueData.isLoggedIn = true;
+      saveData();
+      document.getElementById("menu-username").innerText = name;
+      showScreen("menu-screen");
     }
 
-    // Lobby info
-    if (room){
-      roomInfo.textContent = `Room ${room.code} • ${room.seats} seats • Players: ` + room.players.filter(p=>!p.isBot).map(p=>p.name).join(", ");
-      btnStart.style.display = (room.hostId === you.id && !room.inGame) ? "block" : "none";
-    } else {
-      roomInfo.textContent = "";
+    function showScreen(id) {
+      document.querySelectorAll(".screen").forEach((s) => s.classList.remove("active"));
+      document.getElementById(id).classList.add("active");
+      AudioEngine.init();
     }
 
-    // In game
-    if (room && room.inGame && state){
-      renderOpponent();
-      renderTop();
-      renderHand();
-      if (state.banner) setBanner(state.banner);
-      else setBanner("Old Skool Blackjack");
+    function showToast(msg) {
+      const t = document.getElementById("toast-notification");
+      t.innerText = msg;
+      t.classList.add("show");
+      setTimeout(() => t.classList.remove("show"), 2000);
     }
-  }
 
-  // WebSocket
-  function wsURL(){
-    const proto = (location.protocol === "https:") ? "wss:" : "ws:";
-    return proto + "//" + location.host;
-  }
-  function connect(){
-    ws = new WebSocket(wsURL());
-    wsStatus.textContent = "Connecting…";
+    function goToLeague() {
+      showScreen("dashboard-screen");
+      renderStandings();
+    }
+    function goToPartyLobby() {
+      lobbyPlayers = [{ name: leagueData.player.name, isBot: false }];
+      renderLobby();
+      showScreen("lobby-screen");
+    }
+    function goToP2P(){
+      p2pResetUI();
+      showScreen("p2p-screen");
+      p2pEnsurePeer();
+    }
 
-    ws.addEventListener("open", () => {
-      wsStatus.textContent = "Connected";
-      const nm = (nameInput.value || "Player").trim().slice(0,24);
-      saveName(nm);
-      ws.send(JSON.stringify({t:"hello", name:nm}));
+    function renderStandings() {
+      const tbody = document.getElementById("standings-body");
+      tbody.innerHTML = "";
+      let all = [leagueData.player, ...leagueData.bots];
+      all.sort((a, b) => b.pts - a.pts || b.wins - a.wins);
+      all.forEach((p, index) => {
+        let row = document.createElement("tr");
+        if (p.name === leagueData.player.name) row.style.backgroundColor = "#fff9c4";
+        row.innerHTML = `<td>#${index + 1}</td><td style="text-align:left; padding-left:10px">${p.name}</td><td>${p.wins}-${p.losses}</td><td style="font-weight:bold; color:#d32f2f">${p.pts}</td>`;
+        tbody.appendChild(row);
+      });
+    }
+
+    // --- LOBBY ---
+    function addLobbyBot() {
+      if (lobbyPlayers.length >= 4) return showToast("Table Full!");
+      let bot = leagueData.bots[Math.floor(Math.random() * leagueData.bots.length)];
+      lobbyPlayers.push({ name: bot.name, isBot: true });
+      renderLobby();
+    }
+    function addLobbyHuman() {
+      if (lobbyPlayers.length >= 4) return showToast("Table Full!");
+      let name = prompt("Friend's Name:", `Player ${lobbyPlayers.length + 1}`);
+      if (name) {
+        lobbyPlayers.push({ name: name, isBot: false });
+        renderLobby();
+      }
+    }
+    function removeLobby(i) {
+      if (i === 0) return;
+      lobbyPlayers.splice(i, 1);
+      renderLobby();
+    }
+    function renderLobby() {
+      const list = document.getElementById("lobby-list");
+      list.innerHTML = "";
+      lobbyPlayers.forEach((p, i) => {
+        let item = document.createElement("div");
+        item.className = "lobby-item";
+        item.innerHTML = `<span>${i + 1}. ${p.name} <small style="color:#888">${p.isBot ? "(BOT)" : "(HUMAN)"}</small></span>`;
+        if (i > 0)
+          item.innerHTML += `<button onclick="removeLobby(${i})" style="background:#ff5252; color:white; border:none; border-radius:4px; padding:5px 10px; font-weight:bold;">X</button>`;
+        list.appendChild(item);
+      });
+      document.getElementById("btn-start-party").disabled = lobbyPlayers.length < 2;
+    }
+
+    function startLeagueMatch() {
+      isLeagueMode = true;
+      let opp = leagueData.bots[Math.floor(Math.random() * leagueData.bots.length)];
+      initGame([
+        { name: leagueData.player.name, isBot: false },
+        { name: opp.name, isBot: true },
+      ]);
+    }
+    function startPartyGame() {
+      isLeagueMode = false;
+      initGame(lobbyPlayers);
+    }
+
+    // --- GAME ENGINE ---
+    const SUITS = ["♠", "♥", "♦", "♣"];
+    const RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+    const POWER_RANKS = new Set(["A", "2", "8", "J", "Q", "K"]); // includes King: can't finish
+    const SUIT_MAP = { H: "♥", D: "♦", C: "♣", S: "♠" };
+
+    let deck = [],
+      discard = [],
+      gamePlayers = [],
+      turnIndex = 0,
+      direction = 1,
+      activeSuit = null;
+    let pendingDraw2 = 0,
+      pendingDrawJ = 0,
+      pendingSkip = 0;
+    let selectionOrder = [],
+      isProcessing = false,
+      acePending = false;
+    let isPassAndPlay = false,
+      extraTurn = false;
+
+    // gameMode: offline | pass_play | p2p
+    let gameMode = "offline";
+    let myP2PIndex = 0; // 0 host, 1 joiner (for 2-player p2p)
+
+    function initGame(config) {
+      deck = createDeck();
+      shuffle(deck);
+      discard = [];
+      turnIndex = 0;
+      direction = 1;
+      activeSuit = null;
+      pendingDraw2 = 0;
+      pendingDrawJ = 0;
+      pendingSkip = 0;
+      selectionOrder = [];
+      isProcessing = false;
+      extraTurn = false;
+      acePending = false;
+
+      gamePlayers = config.map((p) => ({
+        name: p.name,
+        isBot: p.isBot,
+        hand: [],
+        lastDeclared: false,
+      }));
+      isPassAndPlay = gameMode === "pass_play" ? gamePlayers.some((p, i) => i > 0 && !p.isBot) : false;
+
+      for (let i = 0; i < 7; i++) gamePlayers.forEach((p) => p.hand.push(deck.pop()));
+
+      while (true) {
+        let start = deck.pop();
+        if (!POWER_RANKS.has(start.rank)) {
+          discard.push(start);
+          activeSuit = start.suit;
+          break;
+        }
+        deck.unshift(start);
+      }
+
+      sortHand(gamePlayers[0].hand);
+      updateFeed("Cards are in play!");
+
+      if (gameMode === "pass_play" && isPassAndPlay) triggerPassScreen();
+      else {
+        showScreen("game-screen");
+        updateSortUI();
+        updateGameUI();
+        gameLoop();
+      }
+    }
+
+    function triggerPassScreen() {
+      let p = gamePlayers[turnIndex];
+      document.getElementById("next-player-name").innerText = p.name;
+      showScreen("pass-device-screen");
+    }
+
+    function startTurn() {
+      showScreen("game-screen");
+      updateSortUI();
+      updateGameUI();
+      gameLoop();
+    }
+
+    function createDeck() {
+      let d = [];
+      for (let s of SUITS) for (let r of RANKS) d.push({ suit: s, rank: r });
+      return d;
+    }
+    function shuffle(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+    }
+
+    function gameLoop() {
+      if (gamePlayers.some((p) => p.hand.length === 0)) return;
+      updateGameUI();
+      let p = gamePlayers[turnIndex];
+      let statusDiv = document.getElementById("turn-status");
+      let atkDiv = document.getElementById("attack-status");
+
+      // P2P: lock controls if it's not your turn
+      if (gameMode === "p2p") {
+        const myTurn = (turnIndex === myP2PIndex);
+        statusDiv.innerText = myTurn ? "YOUR TURN" : "WAITING...";
+        statusDiv.style.color = myTurn ? "white" : "#ccc";
+      } else {
+        statusDiv.innerText = p.isBot ? `${p.name} thinking...` : `${p.name}'S TURN`;
+        statusDiv.style.color = p.isBot ? "#ccc" : "white";
+      }
+
+      if (gameMode !== "p2p" && p.isBot) {
+        setTimeout(cpuTurn, 1000);
+      } else {
+        isProcessing = false;
+        updateControls();
+        let msg = "";
+        if (pendingDraw2) msg = `⚠️ DRAW +${pendingDraw2}`;
+        else if (pendingDrawJ) msg = `⚠️ DRAW +${pendingDrawJ}`;
+        else if (pendingSkip) msg = `⚠️ SKIPPED! (8 or Draw)`;
+        atkDiv.innerText = msg;
+      }
+    }
+
+    function nextTurn() {
+      turnIndex = (turnIndex + direction + gamePlayers.length) % gamePlayers.length;
+
+      if (gameMode === "pass_play" && isPassAndPlay && !gamePlayers[turnIndex].isBot) {
+        setTimeout(triggerPassScreen, 800);
+        return;
+      }
+
+      gameLoop();
+      // P2P host sends snapshot after turn changes too
+      if (gameMode === "p2p" && P2P.isHost) p2pBroadcastState();
+    }
+
+    // --- ACTIONS ---
+    function toggleSelect(i) {
+      if (isProcessing) return;
+      if (gameMode === "p2p" && turnIndex !== myP2PIndex) return;
+      if (gameMode !== "p2p" && gamePlayers[turnIndex].isBot) return;
+
+      const existingIdx = selectionOrder.indexOf(i);
+      if (existingIdx !== -1) selectionOrder.splice(existingIdx, 1);
+      else {
+        selectionOrder.push(i);
+        AudioEngine.playTone(300, "sine", 0.05, 0.05);
+      }
+      renderHandUI();
+      updateControls();
+    }
+
+    function humanPickup() {
+      if (isProcessing) return;
+      if (gameMode === "p2p") {
+        if (turnIndex !== myP2PIndex) return;
+        if (P2P.isHost) {
+          isProcessing = true;
+          _humanPickupLocal();
+          p2pBroadcastState();
+        } else {
+          p2pSend({ type: "pickup" });
+        }
+        return;
+      }
+
+      isProcessing = true;
+      _humanPickupLocal();
+    }
+
+    function _humanPickupLocal(){
+      let p = gamePlayers[turnIndex];
+
+      if (pendingSkip > 0) {
+        pendingSkip = 0;
+        updateFeed(`${p.name} missed turn!`);
+        p.lastDeclared = false;
+        selectionOrder = [];
+        updateGameUI();
+        setTimeout(nextTurn, 600);
+        return;
+      }
+
+      let pen = pendingDraw2 || pendingDrawJ || 1;
+      if (pendingDraw2) {
+        pendingDraw2 = 0;
+        updateFeed(`${p.name} drew ${pen}`);
+      } else if (pendingDrawJ) {
+        pendingDrawJ = 0;
+        updateFeed(`${p.name} drew ${pen}`);
+      } else updateFeed(`${p.name} drew 1`);
+
+      p.hand.push(...draw(pen));
+      AudioEngine.playCardSnap();
+      p.lastDeclared = false;
+      sortHand(p.hand);
+      selectionOrder = [];
+      updateGameUI();
+      setTimeout(nextTurn, 600);
+    }
+
+    function humanDeclareLast() {
+      if (gameMode === "p2p") {
+        if (turnIndex !== myP2PIndex) return;
+        if (P2P.isHost) {
+          gamePlayers[turnIndex].lastDeclared = true;
+          AudioEngine.playCall();
+          document.getElementById("turn-status").innerText = "CALLED LAST!";
+          updateControls();
+          p2pBroadcastState();
+        } else {
+          p2pSend({ type: "declare_last" });
+        }
+        return;
+      }
+
+      gamePlayers[turnIndex].lastDeclared = true;
+      AudioEngine.playCall();
+      document.getElementById("turn-status").innerText = "CALLED LAST!";
+      updateControls();
+    }
+
+    function humanPlay() {
+      if (isProcessing || !selectionOrder.length) return;
+      if (gameMode === "p2p" && turnIndex !== myP2PIndex) return;
+
+      let p = gamePlayers[turnIndex];
+
+      let remaining = p.hand.length - selectionOrder.length;
+      if (remaining === 1 && !p.lastDeclared) {
+        showToast("⚠️ Call LAST before playing!");
+        AudioEngine.playError();
+        return;
+      }
+      if (remaining === 0 && !p.lastDeclared) {
+        showToast("⚠️ Call LAST before finishing!");
+        AudioEngine.playError();
+        return;
+      }
+
+      if (gameMode === "p2p") {
+        if (P2P.isHost) {
+          attemptPlay(turnIndex, [...selectionOrder]);
+          p2pBroadcastState();
+        } else {
+          p2pSend({ type: "play", indices: [...selectionOrder] });
+          // clear local selection immediately (host will echo full snapshot)
+          selectionOrder = [];
+          renderHandUI();
+          updateControls();
+        }
+        return;
+      }
+
+      attemptPlay(turnIndex, [...selectionOrder]);
+    }
+
+    function attemptPlay(pidx, indices) {
+      isProcessing = true;
+      acePending = false;
+
+      let p = gamePlayers[pidx];
+      let cards = indices.map((i) => p.hand[i]);
+
+      let err = null;
+      if (pendingDraw2 > 0 && cards[0].rank !== "2") err = "Must play a 2!";
+      else if (pendingDrawJ > 0 && cards[0].rank !== "J") err = "Must play a Jack!";
+      else if (pendingSkip > 0 && cards[0].rank !== "8") err = "Play an 8 or Draw!";
+      else if (!canStart(cards[0], getTop(), activeSuit)) err = "Invalid Card";
+      else {
+        for (let i = 0; i < cards.length - 1; i++) if (!linkOk(cards[i], cards[i + 1])) err = "Invalid Combo";
+      }
+
+      if (err) {
+        if (gameMode !== "p2p") {
+          showToast(err);
+          AudioEngine.playError();
+          shakeCards(indices);
+        } else {
+          // host can notify client
+          if (P2P.isHost) p2pSendToClient({ type:"toast", msg: err });
+        }
+        isProcessing = false;
+        return;
+      }
+
+      AudioEngine.playCardSnap();
+
+      // Remove from hand
+      let removeIndices = [...indices].sort((a, b) => b - a);
+      for (let i of removeIndices) p.hand.splice(i, 1);
+
+      let isSet = cards.length > 1 && cards.every((c) => c.rank === cards[0].rank);
+
+      // Push to discard + apply powers
+      cards.forEach((c, i) => {
+        discard.push(c);
+        let isLast = i === cards.length - 1;
+        if (POWER_RANKS.has(c.rank) && (isSet || isLast)) applyPower(c, pidx, isLast);
+      });
+
+      updateFeed(`${p.name} played ${cards.length} card(s)`);
+
+      let lastCard = cards[cards.length - 1];
+      if (lastCard.rank !== "A") activeSuit = lastCard.suit;
+
+      // --- RULE FIX: NO POWER CARD FINISH (includes King) + Draw 2 ---
+      let triedToFinish = p.hand.length === 0;
+      let finishedOnPower = triedToFinish && POWER_RANKS.has(lastCard.rank);
+
+      if (finishedOnPower) {
+        showToast("⚠️ No power-card finish! Draw 2");
+        updateFeed(`${p.name} can't finish on a power card! Drew 2`);
+        AudioEngine.playError();
+
+        extraTurn = false; // cancel any king-go-again chain
+        p.hand.push(...draw(2));
+        p.lastDeclared = false;
+        sortHand(p.hand);
+        selectionOrder = [];
+        updateGameUI();
+
+        // If Ace was last, still resolve suit (optional)
+        if (lastCard.rank === "A" && gameMode !== "p2p") {
+          acePending = true;
+          document.getElementById("suit-modal").style.display = "flex";
+          isProcessing = false;
+          return;
+        }
+
+        isProcessing = false;
+        setTimeout(nextTurn, 900);
+        return;
+      }
+
+      selectionOrder = [];
+
+      if (p.hand.length === 0) {
+        endMatch(pidx);
+        return;
+      }
+
+      if (extraTurn) {
+        extraTurn = false;
+        updateFeed("KING: Play Again!");
+        // IMPORTANT FIX: refresh UI so selection doesn't get weird after king
+        updateGameUI();
+
+        if (gameMode !== "p2p" && p.isBot) setTimeout(cpuTurn, 1000);
+        else {
+          isProcessing = false;
+          document.getElementById("turn-status").innerText = (gameMode === "p2p") ? "PLAY AGAIN!" : "PLAY AGAIN!";
+          updateControls();
+        }
+        return;
+      }
+
+      if (acePending && gameMode !== "p2p" && !p.isBot) {
+        document.getElementById("suit-modal").style.display = "flex";
+        isProcessing = false;
+        return;
+      }
+
+      setTimeout(nextTurn, 900);
+    }
+
+    // --- UTILS ---
+    function getTop() { return discard[discard.length - 1]; }
+    function rankVal(r) {
+      if (r === "A") return 1;
+      if (r === "J") return 11;
+      if (r === "Q") return 12;
+      if (r === "K") return 13;
+      return parseInt(r);
+    }
+    function canStart(c, top, suit) { return c.rank === "A" || c.suit === suit || c.rank === top.rank; }
+    function linkOk(p, n) { return p.rank === n.rank || (p.suit === n.suit && Math.abs(rankVal(p.rank) - rankVal(n.rank)) === 1); }
+
+    function draw(n) {
+      let arr = [];
+      for (let i = 0; i < n; i++) {
+        if (deck.length === 0) {
+          if (discard.length > 1) {
+            let top = discard.pop();
+            let rest = discard;
+            discard = [top];
+            shuffle(rest);
+            deck = rest;
+            updateFeed("Reshuffled!");
+          } else {
+            let newD = createDeck();
+            shuffle(newD);
+            deck = newD;
+            updateFeed("New Cards Added!");
+          }
+        }
+        if (deck.length > 0) arr.push(deck.pop());
+      }
+      return arr;
+    }
+
+    function applyPower(c, pidx, isLast) {
+      let r = c.rank;
+      if (r === "A" && isLast) {
+        if (gamePlayers[pidx].isBot) {
+          let counts = { "♠": 0, "♥": 0, "♦": 0, "♣": 0 };
+          gamePlayers[pidx].hand.forEach((x) => counts[x.suit]++);
+          activeSuit = Object.keys(counts).reduce((a, b) => (counts[a] > counts[b] ? a : b));
+          updateFeed(`Suit is ${activeSuit}`);
+        } else acePending = true;
+      } else if (r === "2") pendingDraw2 += 2;
+      else if (r === "8") pendingSkip++;
+      else if (r === "Q") { direction *= -1; updateFeed("Direction Reversed!"); }
+      else if (r === "K") extraTurn = true;
+      else if (r === "J") {
+        if (c.suit === "♥" || c.suit === "♦") {
+          if (pendingDrawJ > 0) pendingDrawJ = 0;
+          updateFeed("Attack Blocked!");
+        } else pendingDrawJ += 5;
+      }
+    }
+
+    function updateFeed(msg) { document.getElementById("status-feed").innerText = msg; }
+
+    function shakeCards(indices) {
+      let handDiv = document.getElementById("player-hand");
+      indices.forEach((i) => {
+        if (handDiv.children[i]) {
+          handDiv.children[i].classList.add("shake");
+          setTimeout(() => handDiv.children[i].classList.remove("shake"), 450);
+        }
+      });
+    }
+
+    function endMatch(winnerIdx) {
+      AudioEngine.playWin();
+      let title = document.getElementById("result-title");
+      let desc = document.getElementById("result-desc");
+      let modal = document.getElementById("match-result-modal");
+      let winner = gamePlayers[winnerIdx];
+
+      if (isLeagueMode) {
+        if (winnerIdx === 0) {
+          leagueData.player.wins++;
+          leagueData.player.pts += 3;
+          leagueData.player.winStreak = (leagueData.player.winStreak || 0) + 1;
+          unlockBackIfNeeded();
+          title.innerText = "WIN!";
+          desc.innerText = "Nice one.";
+        } else {
+          leagueData.player.losses++;
+          leagueData.player.winStreak = 0;
+          title.innerText = "LOSE";
+          desc.innerText = `${winner.name} got you`;
+        }
+        saveData();
+      } else {
+        title.innerText = `${winner.name} WINS!`;
+        desc.innerText = "Table closed.";
+      }
+
+      modal.style.display = "flex";
+    }
+
+    function exitGame() {
+      document.getElementById("match-result-modal").style.display = "none";
+      if (isLeagueMode) showScreen("dashboard-screen");
+      else showScreen("menu-screen");
+    }
+
+    function resolveAce(char) {
+      activeSuit = SUIT_MAP[char];
+      acePending = false;
+      document.getElementById("suit-modal").style.display = "none";
+      setTimeout(nextTurn, 250);
+    }
+
+    function openHelp() { document.getElementById("help-modal").style.display = "flex"; }
+    function closeHelp() { document.getElementById("help-modal").style.display = "none"; }
+
+    // --- CPU LOGIC ---
+    function cpuTurn() {
+      let p = gamePlayers[turnIndex];
+
+      if (pendingDraw2) {
+        let idx = p.hand.findIndex((c) => c.rank === "2");
+        if (idx > -1) attemptPlay(turnIndex, [idx]);
+        else {
+          let drawn = draw(pendingDraw2);
+          p.hand.push(...drawn);
+          pendingDraw2 = 0;
+          updateFeed(`${p.name} drew ${drawn.length} cards`);
+          updateGameUI();
+          setTimeout(nextTurn, 1500);
+        }
+        return;
+      }
+      if (pendingDrawJ) {
+        let idx = p.hand.findIndex((c) => c.rank === "J");
+        if (idx > -1) attemptPlay(turnIndex, [idx]);
+        else {
+          let drawn = draw(pendingDrawJ);
+          p.hand.push(...drawn);
+          pendingDrawJ = 0;
+          updateFeed(`${p.name} drew ${drawn.length} cards`);
+          updateGameUI();
+          setTimeout(nextTurn, 1500);
+        }
+        return;
+      }
+      if (pendingSkip > 0) {
+        let idx = p.hand.findIndex((c) => c.rank === "8");
+        if (idx > -1) attemptPlay(turnIndex, [idx]);
+        else {
+          pendingSkip = 0;
+          updateFeed(`${p.name} skipped!`);
+          setTimeout(nextTurn, 1500);
+        }
+        return;
+      }
+
+      let bestMove = null;
+      let bestScore = -999;
+      p.hand.forEach((c, i) => {
+        if (canStart(c, getTop(), activeSuit)) {
+          let setIndices = [i];
+          p.hand.forEach((x, xi) => {
+            if (xi !== i && x.rank === c.rank) setIndices.push(xi);
+          });
+          let score = setIndices.length * 10;
+          if (c.rank === "K") score += 50;
+          if (score > bestScore) { bestScore = score; bestMove = setIndices; }
+        }
+      });
+
+      if (bestMove) {
+        if (p.hand.length - bestMove.length === 1) p.lastDeclared = true;
+        attemptPlay(turnIndex, bestMove);
+      } else {
+        let drawn = draw(1);
+        p.hand.push(...drawn);
+        p.lastDeclared = false;
+        updateFeed(`${p.name} drew a card`);
+        updateGameUI();
+        setTimeout(nextTurn, 1500);
+      }
+    }
+
+    // --- RENDER ---
+    function updateGameUI() {
+      let dp = document.getElementById("discard-pile");
+      dp.innerHTML = "";
+      if (discard.length) {
+        let top = discard[discard.length - 1];
+        let cardDiv = createCardDiv(top, -1, false);
+        dp.appendChild(cardDiv);
+        if (top.rank === "A" && activeSuit) {
+          let sDiv = document.createElement("div");
+          sDiv.innerText = activeSuit;
+          sDiv.style.cssText =
+            "position:absolute; bottom:-10px; right:-10px; background:white; width:30px; height:30px; border-radius:50%; text-align:center; font-size:20px; line-height:30px; color:" +
+            (activeSuit === "♥" || activeSuit === "♦" ? "#b71c1c" : "black") +
+            "; border:2px solid black;";
+          dp.appendChild(sDiv);
+        }
+      }
+      renderHandUI();
+      updateControls();
+      updateSortUI();
+    }
+
+    function renderHandUI() {
+      let ph = document.getElementById("player-hand");
+      ph.innerHTML = "";
+      let cpuArea = document.getElementById("cpu-area");
+      cpuArea.innerHTML = "";
+      let activeP = gamePlayers[turnIndex];
+      let bottomP, opponents;
+
+      if (gameMode === "pass_play" && isPassAndPlay) {
+        bottomP = activeP;
+        opponents = gamePlayers.filter((p) => p !== activeP);
+      } else if (gameMode === "p2p") {
+        bottomP = gamePlayers[myP2PIndex];
+        opponents = gamePlayers.filter((p, i) => i !== myP2PIndex);
+      } else {
+        bottomP = gamePlayers[0];
+        opponents = gamePlayers.filter((p, i) => i !== 0);
+      }
+
+      if (!(gameMode === "pass_play" && bottomP.isBot)) {
+        const totalCards = bottomP.hand.length;
+        const maxAngle = 20;
+        const degreesPerCard = 3;
+
+        bottomP.hand.forEach((c, i) => {
+          let isMyTurn = bottomP === activeP && (gameMode !== "p2p" || turnIndex === myP2PIndex);
+          let cardDiv = createCardDiv(c, i, isMyTurn);
+
+          let centerIdx = (totalCards - 1) / 2;
+          let distFromCenter = i - centerIdx;
+          let angle = distFromCenter * degreesPerCard;
+          angle = Math.max(-maxAngle, Math.min(maxAngle, angle));
+          let yOffset = Math.abs(distFromCenter) * 4;
+
+          cardDiv.style.setProperty("--fan-rot", `${angle}deg`);
+          cardDiv.style.setProperty("--fan-y", `${yOffset}px`);
+          cardDiv.style.zIndex = i + 1;
+
+          ph.appendChild(cardDiv);
+        });
+      }
+
+      opponents.forEach((p) => {
+        let wrap = document.createElement("div");
+        wrap.className = "opponent-wrapper " + (p === activeP ? "active-turn" : "inactive");
+        let nameDiv = document.createElement("div");
+        nameDiv.className = "opponent-name";
+        nameDiv.innerText = `${p.name} (${p.hand.length})`;
+        wrap.appendChild(nameDiv);
+        let handDiv = document.createElement("div");
+        handDiv.style.display = "flex";
+        handDiv.style.transform = "scale(0.7)";
+        let showCount = Math.min(p.hand.length, 5);
+        for (let k = 0; k < showCount; k++) {
+          let card = document.createElement("div");
+          card.className = "card back";
+          card.style.marginRight = "-45px";
+          handDiv.appendChild(card);
+        }
+        wrap.appendChild(handDiv);
+        cpuArea.appendChild(wrap);
+      });
+    }
+
+    function createCardDiv(c, i, isClickable) {
+      let d = document.createElement("div");
+      d.className = `card ${c.suit === "♥" || c.suit === "♦" ? "red" : ""}`;
+      let corner = document.createElement("div");
+      corner.className = "card-corner";
+      corner.innerHTML = `<div class="rank">${c.rank}</div><div class="suit">${c.suit}</div>`;
+      d.appendChild(corner);
+      let center = document.createElement("div");
+      center.className = "center-suit";
+      center.innerText = c.suit;
+      d.appendChild(center);
+      let bottom = document.createElement("div");
+      bottom.className = "card-bottom";
+      bottom.innerHTML = `<div class="rank">${c.rank}</div><div class="suit">${c.suit}</div>`;
+      d.appendChild(bottom);
+
+      if (isClickable) {
+        let orderIdx = selectionOrder.indexOf(i);
+        if (orderIdx !== -1) {
+          d.classList.add("selected");
+          let badge = document.createElement("div");
+          badge.className = "selection-badge";
+          badge.innerText = orderIdx + 1;
+          d.appendChild(badge);
+        }
+        d.onclick = () => toggleSelect(i);
+      }
+      return d;
+    }
+
+    function updateControls() {
+      let btnPlay = document.getElementById("btn-play");
+      btnPlay.disabled = selectionOrder.length === 0 || (gameMode === "p2p" && turnIndex !== myP2PIndex);
+
+      let p = (gameMode === "p2p") ? gamePlayers[myP2PIndex] : gamePlayers[turnIndex];
+      let effectiveHandLen = (gameMode === "p2p") ? gamePlayers[myP2PIndex].hand.length : gamePlayers[turnIndex].hand.length;
+      let willFinish = effectiveHandLen === selectionOrder.length && selectionOrder.length > 0;
+      if (willFinish && p.lastDeclared) {
+        btnPlay.classList.add("winning-btn");
+        btnPlay.innerText = "WIN IT!";
+      } else {
+        btnPlay.classList.remove("winning-btn");
+        btnPlay.innerText = "PLAY";
+      }
+
+      let btnLast = document.getElementById("btn-last");
+      if (p.lastDeclared) {
+        btnLast.classList.add("called");
+        btnLast.innerText = "CALLED";
+      } else {
+        btnLast.classList.remove("called");
+        btnLast.innerText = "LAST!";
+      }
+
+      const canAct = !(gameMode === "p2p" && turnIndex !== myP2PIndex);
+      document.getElementById("btn-pickup").disabled = !canAct;
+      btnLast.disabled = !canAct;
+      document.getElementById("btn-sort").disabled = !canAct;
+      document.getElementById("player-area").style.opacity = canAct ? "1" : "0.65";
+    }
+
+    // --- SORT ---
+    function toggleSort() {
+      if (gameMode === "p2p" && turnIndex !== myP2PIndex) return;
+
+      sortByRank = !sortByRank;
+      updateSortUI();
+
+      let p = (gameMode === "p2p") ? gamePlayers[myP2PIndex] : gamePlayers[turnIndex];
+      let selectedCards = selectionOrder.map((idx) => p.hand[idx]).filter(Boolean);
+
+      sortHand(p.hand);
+
+      selectionOrder = [];
+      p.hand.forEach((card, idx) => {
+        if (selectedCards.includes(card)) selectionOrder.push(idx);
+      });
+
+      renderHandUI();
+      updateControls();
+    }
+
+    function updateSortUI() {
+      const btn = document.getElementById("btn-sort");
+      btn.innerText = sortByRank ? "RANK" : "SUIT";
+      btn.style.background = sortByRank ? "var(--sticker-pink)" : "white";
+    }
+
+    function sortHand(h) {
+      h.sort((a, b) => {
+        if (sortByRank) {
+          let r = rankVal(a.rank) - rankVal(b.rank);
+          if (r !== 0) return r;
+          return SUITS.indexOf(a.suit) - SUITS.indexOf(b.suit);
+        } else {
+          let s = SUITS.indexOf(a.suit) - SUITS.indexOf(b.suit);
+          if (s !== 0) return s;
+          return rankVal(a.rank) - rankVal(b.rank);
+        }
+      });
+    }
+
+    // =========================
+    // P2P IMPLEMENTATION
+    // =========================
+    function p2pResetUI(){
+      document.getElementById("p2p-status").innerText = "Not connected.";
+      document.getElementById("p2p-my-code").innerText = "...";
+      document.getElementById("p2p-deal-btn").disabled = true;
+      document.getElementById("p2p-join-code").value = "";
+      document.getElementById("p2p-mode-pill").innerText = (P2P.signalMode === "lan") ? "Signal: LAN" : "Signal: Cloud";
+    }
+
+    function p2pSetStatus(msg){
+      document.getElementById("p2p-status").innerText = msg;
+    }
+
+    function p2pUseCloud(){
+      P2P.signalMode = "cloud";
+      p2pLeave(true);
+      p2pResetUI();
+      p2pEnsurePeer();
+      document.getElementById("p2p-mode-pill").innerText = "Signal: Cloud";
+      showToast("Signal: Cloud");
+    }
+
+    function p2pUseLan(){
+      const host = (document.getElementById("p2p-signal-host").value || "").trim();
+      const portStr = (document.getElementById("p2p-signal-port").value || "9000").trim();
+      const port = parseInt(portStr || "9000", 10);
+      if (!host) return showToast("Enter LAN signal host IP");
+      if (!port || port < 1) return showToast("Invalid port");
+      P2P.signalMode = "lan";
+      P2P.lanHost = host;
+      P2P.lanPort = port;
+      p2pLeave(true);
+      p2pResetUI();
+      p2pEnsurePeer();
+      document.getElementById("p2p-mode-pill").innerText = "Signal: LAN";
+      showToast("Signal: LAN");
+    }
+
+    
+// ===============================
+// ONLINE (WebSocket relay) P2P shim
+// Server only relays messages. HOST is authoritative and broadcasts full state.
+// ===============================
+let WS = null;
+
+function wsUrl(){
+  // Use same origin, upgrade to ws(s)
+  const proto = (location.protocol === "https:") ? "wss" : "ws";
+  return `${proto}://${location.host}/ws`;
+}
+
+function wsConnect(){
+  return new Promise((resolve, reject) => {
+    if (WS && (WS.readyState === 0 || WS.readyState === 1)) return resolve(WS);
+    WS = new WebSocket(wsUrl());
+    WS.addEventListener("open", () => resolve(WS), { once:true });
+    WS.addEventListener("error", (e) => reject(e), { once:true });
+    WS.addEventListener("message", (ev) => {
+      let data;
+      try { data = JSON.parse(ev.data); } catch { return; }
+
+      // Server control messages
+      if (data.type === "error") { toast(data.message || "Server error"); return; }
+      if (data.type === "created") {
+        P2P.roomCode = data.roomCode;
+        P2P.isHost = true;
+        myP2PIndex = data.playerIndex ?? 0;
+        document.getElementById("p2p-code").textContent = P2P.roomCode;
+        toast(`Room created: ${P2P.roomCode}`);
+        return;
+      }
+      if (data.type === "joined") {
+        P2P.roomCode = data.roomCode;
+        P2P.isHost = false;
+        myP2PIndex = data.playerIndex ?? 1;
+        toast(`Joined room: ${P2P.roomCode}`);
+        return;
+      }
+      if (data.type === "peer_joined") {
+        // Host learns about the joiner
+        P2P.peerName = data.name || "Player 2";
+        toast(`${P2P.peerName} joined!`);
+        // If host already has a room state (e.g., from lobby), broadcast it now
+        if (P2P.isHost && P2P.roomState) {
+          p2pBroadcastState();
+        }
+        return;
+      }
+      if (data.type === "peer_left") {
+        toast("Opponent disconnected.");
+        // Back to lobby safely
+        try { resetToLobby(); } catch {}
+        return;
+      }
+
+      // Game messages are forwarded as-is
+      try { p2pOnMessage(data); } catch (e) { console.error(e); }
     });
-
-    ws.addEventListener("message", (ev) => {
-      let msg;
-      try{ msg = JSON.parse(ev.data); }catch{ return; }
-
-      if (msg.t === "hello_ok"){
-        you = msg.you;
-        return;
-      }
-      if (msg.t === "toast"){
-        showToast(msg.msg);
-        return;
-      }
-      if (msg.t === "room"){
-        room = msg.room;
-        updateUI();
-        return;
-      }
-      if (msg.t === "state"){
-        state = msg.state;
-        updateUI();
-        return;
-      }
-      if (msg.t === "need_suit"){
-        pendingSuitForPlay = true;
-        suitPicker.style.display = "flex";
-        showToast("Pick a suit");
-        return;
-      }
-      if (msg.t === "ended"){
-        showToast("Winner: " + msg.winner.name);
-        setBanner("Winner: " + msg.winner.name);
-        return;
-      }
-      if (msg.t === "rooms"){
-        // ignore for now (optional room list UI)
-        return;
-      }
-      // Private hand update
-      if (msg.t === "hand"){
-        if (!state) state = {};
-        state._youHand = msg.hand || [];
-        renderHand();
-      }
-    });
-
-    ws.addEventListener("close", () => {
-      wsStatus.textContent = "Disconnected (refresh)";
-    });
-  }
-
-  // Hook controls
-  btnCreate.addEventListener("click", () => {
-    const nm = (nameInput.value || "Player").trim().slice(0,24);
-    if (!nm) return;
-    saveName(nm);
-    if (ws && ws.readyState === 1) ws.send(JSON.stringify({t:"hello", name:nm}));
-    const seats = parseInt(seatSelect.value,10)===4 ? 4 : 2;
-    ws.send(JSON.stringify({t:"create_room", seats}));
-  });
-  btnJoin.addEventListener("click", () => {
-    const nm = (nameInput.value || "Player").trim().slice(0,24);
-    saveName(nm);
-    if (ws && ws.readyState === 1) ws.send(JSON.stringify({t:"hello", name:nm}));
-    const code = (codeInput.value || "").trim().toUpperCase();
-    if (!code) return;
-    ws.send(JSON.stringify({t:"join_room", code}));
-  });
-  btnStart.addEventListener("click", () => ws.send(JSON.stringify({t:"start"})));
-  btnLeave.addEventListener("click", () => ws.send(JSON.stringify({t:"leave"})));
-
-  btnDraw.addEventListener("click", () => {
-    resetSelection();
-    ws.send(JSON.stringify({t:"draw"}));
-  });
-
-  btnLast.addEventListener("click", () => {
-    ws.send(JSON.stringify({t:"last"}));
-  });
-
-  btnPlay.addEventListener("click", () => {
-    if (!selectedIds.length) return;
-    // If Ace/8, we can optionally choose suit; if not chosen, server will ask
-    ws.send(JSON.stringify({t:"play", cardIds: selectedIds, suit: pendingSuitForPlay ? null : null }));
-    // do not clear until server confirms state; but clear selection now
-    resetSelection();
-  });
-
-  btnSuit.addEventListener("click", () => {
-    // open suit picker for an upcoming play
-    suitPicker.style.display = "flex";
-  });
-
-  suitPicker.addEventListener("click", (e) => {
-    if (e.target === suitPicker) suitPicker.style.display = "none";
-  });
-  suitPicker.querySelectorAll(".suitBtn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const s = btn.getAttribute("data-s");
-      suitPicker.style.display = "none";
-      // send a play with suit choice using currently selected (but we reset selection on PLAY)
-      // Instead, store suit choice and re-play last chosen? simplest: ask user to select cards again.
-      showToast("Suit set: " + suitSym(s) + " (play Ace/8 now)");
-      // We'll stash preferred suit; next time you play Ace/8 it should include suit.
-      window._preferredSuit = s;
+    WS.addEventListener("close", () => {
+      // mark conn closed
+      if (P2P && P2P.conn) P2P.conn.open = false;
     });
   });
+}
 
-  // Patch PLAY to include preferred suit if Ace/8 selected
-  btnPlay.addEventListener("click", () => {
-    // replaced above? We'll override by using capture? We'll just set with once.
-  }, { once:true });
+function p2pEnsurePeer(){
+  // Kept for compatibility, now uses WebSocket.
+  return wsConnect();
+}
 
-  // Rebind play properly (remove earlier)
-  btnPlay.onclick = () => {
-    if (!selectedIds.length) return;
-    const handCards = (state && state._youHand) ? state._youHand : [];
-    const first = handCards.find(c=>c.id===selectedIds[0]);
-    let suit = null;
-    if (first && (first.r==="A" || first.r==="8")) suit = window._preferredSuit || null;
-    ws.send(JSON.stringify({t:"play", cardIds: selectedIds, suit }));
-    resetSelection();
-  };
+function p2pHost(){
+  const name = (document.getElementById("p2p-name").value || "Player 1").trim();
+  wsConnect().then(() => {
+    P2P = P2P || {};
+    P2P.isHost = true;
+    P2P.peer = { id: "ws" };
+    P2P.conn = {
+      open: true,
+      send: (obj) => { if (WS && WS.readyState === 1) WS.send(JSON.stringify(obj)); }
+    };
+    WS.send(JSON.stringify({ type:"create", name }));
+  }).catch(() => toast("Could not connect to server."));
+}
 
-  // Server currently doesn't send your hand unless we add it.
-  // We'll request it by piggybacking state broadcast with a private hand message on every state.
-  // The server in this bundle does NOT yet do that, so we implement it client-side by asking:
-  // not needed if server broadcasts hands by ws only. We'll add that server-side below? (We will.)
-  connect();
-})();
-</script>
+function p2pJoin(){
+  const name = (document.getElementById("p2p-name").value || "Player").trim();
+  const code = (document.getElementById("p2p-joincode").value || "").trim().toUpperCase();
+  if (!code) { toast("Enter a room code"); return; }
+  wsConnect().then(() => {
+    P2P = P2P || {};
+    P2P.isHost = false;
+    P2P.peer = { id: "ws" };
+    P2P.conn = {
+      open: true,
+      send: (obj) => { if (WS && WS.readyState === 1) WS.send(JSON.stringify(obj)); }
+    };
+    WS.send(JSON.stringify({ type:"join", roomCode: code, name }));
+  }).catch(() => toast("Could not connect to server."));
+}
+
+function p2pHost(){
+      P2P.isHost = true;
+      p2pSetStatus("Hosting... share your code. Wait for join.");
+      document.getElementById("p2p-deal-btn").disabled = true;
+      showToast("Hosting...");
+    }
+
+    function p2pJoin(){
+      const code = (document.getElementById("p2p-join-code").value || "").trim();
+      if (!code) return showToast("Paste host code");
+      if (!P2P.peer) p2pEnsurePeer();
+      P2P.isHost = false;
+
+      // Common mistake: pasting YOUR OWN code into the join box.
+      // That attempts a connection to yourself and often throws PeerJS "webrtc" errors.
+      if (P2P.peer && P2P.peer.id && code === P2P.peer.id) {
+        p2pSetStatus("That is your own code. Share it to the other device, then join THEIR code here.");
+        return showToast("Can't join your own code");
+      }
+
+      const conn = P2P.peer.connect(code, { reliable: true });
+      P2P.conn = conn;
+      p2pWireConn(conn);
+      p2pSetStatus("Joining...");
+
+      conn.on("open", () => {
+        p2pSend({ type: "hello", name: leagueData.player.name });
+        p2pSetStatus("Connected. Waiting for host to DEAL.");
+        document.getElementById("p2p-deal-btn").disabled = true;
+        showToast("Connected");
+      });
+    }
+
+    function p2pDeal(){
+      if (!P2P.isHost) return showToast("Only host can deal");
+      if (!P2P.conn || !P2P.conn.open) return showToast("No one joined yet");
+
+      // Start a 2-player P2P game (host = index 0)
+      gameMode = "p2p";
+      myP2PIndex = 0;
+
+      const hostName = leagueData.player.name || "Host";
+      const joinName = P2P.connectedName || "Guest";
+
+      isLeagueMode = false;
+
+      initGame([
+        { name: hostName, isBot: false },
+        { name: joinName, isBot: false },
+      ]);
+
+      p2pBroadcastState();
+      showToast("Dealt!");
+    }
+
+    function p2pOnMessage(msg){
+      if (!msg || typeof msg !== "object") return;
+
+      // Joiner receiving state
+      if (msg.type === "state") {
+        if (!msg.state) return;
+        applyState(msg.state);
+        return;
+      }
+
+      // Host receiving hello / actions
+      if (P2P.isHost) {
+        if (msg.type === "hello") {
+          P2P.connectedName = msg.name || "Guest";
+          p2pSetStatus("Client: " + P2P.connectedName + ". Host can DEAL!");
+          document.getElementById("p2p-deal-btn").disabled = false;
+          return;
+        }
+        if (msg.type === "pickup") {
+          if (gameMode !== "p2p") return;
+          if (turnIndex !== 1) return;
+          myP2PIndex = 0;
+          isProcessing = true;
+          _humanPickupLocal();
+          p2pBroadcastState();
+          return;
+        }
+        if (msg.type === "declare_last") {
+          if (gameMode !== "p2p") return;
+          if (turnIndex !== 1) return;
+          gamePlayers[1].lastDeclared = true;
+          updateFeed(gamePlayers[1].name + " called LAST!");
+          updateGameUI();
+          p2pBroadcastState();
+          return;
+        }
+        if (msg.type === "play") {
+          if (gameMode !== "p2p") return;
+          if (turnIndex !== 1) return;
+          const indices = Array.isArray(msg.indices) ? msg.indices : [];
+          // Safety: clamp indices
+          const safe = indices.filter(i => Number.isInteger(i) && i >= 0 && i < gamePlayers[1].hand.length);
+          attemptPlay(1, safe);
+          p2pBroadcastState();
+          return;
+        }
+      } else {
+        // client toasts
+        if (msg.type === "toast" && msg.msg) showToast(msg.msg);
+      }
+    }
+
+    function p2pSend(payload){
+      if (!P2P.conn || !P2P.conn.open) return showToast("Not connected");
+      try { P2P.conn.send(payload); } catch (e) { console.error(e); }
+    }
+
+    function p2pSendToClient(payload){
+      if (!P2P.conn || !P2P.conn.open) return;
+      try { P2P.conn.send(payload); } catch (e) {}
+    }
+
+    function serializeState(){
+      return {
+        v: 1,
+        ts: Date.now(),
+        mode: "p2p",
+        deck,
+        discard,
+        gamePlayers,
+        turnIndex,
+        direction,
+        activeSuit,
+        pendingDraw2,
+        pendingDrawJ,
+        pendingSkip,
+        extraTurn,
+        sortByRank,
+      };
+    }
+
+    function applyState(st){
+      // client side: accept authoritative snapshot
+      deck = st.deck || [];
+      discard = st.discard || [];
+      gamePlayers = st.gamePlayers || [];
+      turnIndex = st.turnIndex || 0;
+      direction = st.direction || 1;
+      activeSuit = st.activeSuit || null;
+      pendingDraw2 = st.pendingDraw2 || 0;
+      pendingDrawJ = st.pendingDrawJ || 0;
+      pendingSkip = st.pendingSkip || 0;
+      extraTurn = !!st.extraTurn;
+      sortByRank = !!st.sortByRank;
+
+      // client is always index 1 in this two-player build
+      gameMode = "p2p";
+      myP2PIndex = 1;
+      isLeagueMode = false;
+      isPassAndPlay = false;
+
+      showScreen("game-screen");
+      selectionOrder = [];
+      isProcessing = false;
+      updateGameUI();
+      gameLoop();
+    }
+
+    function p2pBroadcastState(){
+      if (!P2P.isHost) return;
+      if (!P2P.conn || !P2P.conn.open) return;
+      const state = serializeState();
+      P2P.roomState = state;
+      try { P2P.conn.send({ type:"state", state }); } catch (e) { console.error(e); }
+    }
+
+    function p2pDump(){
+      const box = document.getElementById("p2p-status");
+      const snap = (gameMode === "p2p") ? serializeState() : (P2P.roomState || { v:1, mode: P2P.isHost ? "p2p_host":"p2p_join", hostName: leagueData.player.name, players:[{name:leagueData.player.name}], started:false, ts: Date.now()});
+      // simple modal-like toast: show in console too
+      console.log("P2P SNAPSHOT", snap);
+      showToast("Dumped to console");
+      // also show quick summary in status line
+      box.innerText = `Players: ${(snap.gamePlayers? snap.gamePlayers.length : 1)} • Turn: ${snap.turnIndex ?? "-"} • Mode: ${P2P.isHost ? "HOST" : "JOIN"}`;
+    }
+
+    function p2pLeave(silent){
+      // return to menu and teardown connection (optional)
+      try {
+        if (P2P.conn) { try { P2P.conn.close(); } catch(e){} }
+        P2P.conn = null;
+        P2P.isHost = false;
+        P2P.connectedName = null;
+        P2P.roomState = null;
+      } catch(e){}
+      if (!silent) showScreen("menu-screen");
+    }
+
+    loadData();
+  </script>
 </body>
 </html>
