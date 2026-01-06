@@ -1,436 +1,575 @@
-const path = require("path");
-const http = require("http");
-const express = require("express");
-const WebSocket = require("ws");
+import express from "express";
+import http from "http";
+import { WebSocketServer } from "ws";
+import crypto from "crypto";
 
-const PORT = process.env.PORT || 10000;
+const PORT = process.env.PORT || 3000;
+
 const app = express();
-
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static("public"));
 
 const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
+const wss = new WebSocketServer({ server, path: "/ws" });
 
-/** -------------------- GAME RULES -------------------- */
+// =========================
+// Rules (SERVER truth)
+// =========================
+const SUITS = ["♠", "♥", "♦", "♣"];
 const RANKS = ["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
-const SUITS = ["S","H","D","C"];
-const POWER_RANKS = new Set(["A", "2", "8", "J", "Q", "K"]); // Cannot finish on these
+const POWER_RANKS = new Set(["A", "2", "8", "J", "Q", "K"]); // King treated separately but also no-finish
+const SUIT_MAP = { H:"♥", D:"♦", C:"♣", S:"♠" };
 
-// Deck Helper
-function makeDeck() {
-  const deck = [];
-  for (const s of SUITS) for (const r of RANKS) {
-    deck.push({ id: Math.random().toString(36).substr(2, 9), r, s });
-  }
-  for (let i = deck.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [deck[i], deck[j]] = [deck[j], deck[i]];
-  }
-  return deck;
+function rankVal(r){
+  if (r === "A") return 1;
+  if (r === "J") return 11;
+  if (r === "Q") return 12;
+  if (r === "K") return 13;
+  return parseInt(r, 10);
 }
-
-function draw(deck, n) {
+function canStart(c, top, suit){
+  return c.rank === "A" || c.suit === suit || c.rank === top.rank;
+}
+function linkOk(p, n){
+  return p.rank === n.rank || (p.suit === n.suit && Math.abs(rankVal(p.rank) - rankVal(n.rank)) === 1);
+}
+function createDeck(){
+  const d = [];
+  for (const s of SUITS) for (const r of RANKS) d.push({ suit:s, rank:r });
+  return d;
+}
+function shuffle(arr){
+  for (let i = arr.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+}
+function drawCards(room, n){
   const out = [];
-  for(let i=0; i<n; i++) if(deck.length) out.push(deck.pop());
+  for (let i = 0; i < n; i++){
+    if (room.deck.length === 0){
+      if (room.discard.length > 1){
+        const top = room.discard.pop();
+        const rest = room.discard;
+        room.discard = [top];
+        shuffle(rest);
+        room.deck = rest;
+        room.feed = "Reshuffled!";
+      } else {
+        room.deck = createDeck();
+        shuffle(room.deck);
+        room.feed = "New Cards Added!";
+      }
+    }
+    out.push(room.deck.pop());
+  }
   return out;
 }
 
-// Logic: Can card be played?
-function canPlayOn(card, top, activeSuit) {
-  if (!card || !top) return false;
-  // Ace is Wild
-  if (card.r === "A") return true; 
-  // Otherwise must match Rank or Suit (Active Suit if set)
-  return card.r === top.r || card.s === (activeSuit || top.s);
+// =========================
+// Rooms / Lobby
+// =========================
+const rooms = new Map(); // code -> room
+const clients = new Map(); // ws -> { id, name, roomCode, seat }
+
+function makeCode(){
+  return crypto.randomBytes(4).toString("hex").slice(0,6).toUpperCase();
 }
 
-/** -------------------- SERVER STATE -------------------- */
-// Rooms: { code: { players:[], deck, discard, ... } }
-const rooms = new Map();
+function makeRoom(hostWs, hostName){
+  let code = makeCode();
+  while (rooms.has(code)) code = makeCode();
 
-function createRoom(code, hostId, name) {
-  return {
+  const room = {
     code,
-    hostId,
-    players: [{ id: hostId, name, ws: null, hand: [], lastCalled: false, isBot: false }],
-    inGame: false,
+    createdAt: Date.now(),
+    started: false,
+
     deck: [],
     discard: [],
-    turnIndex: 0,
+    players: [], // {id,name,ws,hand,lastDeclaredTurn,connected}
+    turn: 0,
     direction: 1,
     activeSuit: null,
-    // ATTACK STATES
+
     pendingDraw2: 0,
     pendingDrawJ: 0,
     pendingSkip: 0,
     extraTurn: false,
-    awaitingSuit: false
+
+    awaitingAceSeat: null,
+    turnCounter: 0,
+    feed: "Lobby ready."
+  };
+
+  room.players.push({
+    id: crypto.randomUUID(),
+    name: hostName,
+    ws: hostWs,
+    hand: [],
+    lastDeclaredTurn: -1,
+    connected: true
+  });
+
+  rooms.set(code, room);
+  return room;
+}
+
+function joinRoom(room, ws, name){
+  if (room.players.length >= 4) return { ok:false, err:"Room full (max 4)." };
+  if (room.started) return { ok:false, err:"Game already started." };
+
+  room.players.push({
+    id: crypto.randomUUID(),
+    name,
+    ws,
+    hand: [],
+    lastDeclaredTurn: -1,
+    connected: true
+  });
+  room.feed = `${name} joined.`;
+  return { ok:true };
+}
+
+function roomPublicInfo(room){
+  return {
+    code: room.code,
+    started: room.started,
+    players: room.players.map((p, i) => ({ seat:i, name:p.name, connected:p.connected }))
   };
 }
 
-/** -------------------- PLAY LOGIC -------------------- */
-function handlePlay(room, p, cardIds, suitChoice) {
-  // 1. Validate Turn
-  if (room.players[room.turnIndex].id !== p.id) return { err: "Not your turn" };
-  if (room.awaitingSuit) return { err: "Waiting for suit selection" };
-
-  // 2. Get Cards
-  const hand = p.hand;
-  const cards = cardIds.map(id => hand.find(c => c.id === id)).filter(Boolean);
-  if (cards.length !== cardIds.length) return { err: "Cards not in hand" };
-  if (cards.length === 0) return { err: "No cards selected" };
-
-  // 3. Validate Combo (Must be same rank)
-  const first = cards[0];
-  if (!cards.every(c => c.r === first.r)) return { err: "Must play same ranks together" };
-
-  // 4. Validate Move against Top Card
-  const top = room.discard[room.discard.length - 1];
-  
-  // -- DEFENSE CHECK --
-  // If getting attacked by 2, must play 2
-  if (room.pendingDraw2 > 0 && first.r !== "2") return { err: `Must play a 2 (Draw ${room.pendingDraw2})` };
-  // If getting attacked by Black Jack, must play Red Jack
-  if (room.pendingDrawJ > 0) {
-     if (first.r !== "J") return { err: `Must play a Jack (Draw ${room.pendingDrawJ})` };
-     // Note: Any Jack plays on a Jack, but we handle the "Red blocks" logic in effects
-  }
-  // If skipped (8), usually you miss turn, but some rules allow playing an 8 to counter. 
-  // Your rules say "8: Skip". Usually that means immediate skip. 
-  // We'll enforce skipping in the `nextTurn` logic, but if player is active, they can play.
-  
-  if (!canPlayOn(first, top, room.activeSuit)) return { err: "Invalid card" };
-
-  // 5. REMOVE CARDS & UPDATE DISCARD
-  p.hand = p.hand.filter(c => !cardIds.includes(c.id));
-  room.discard.push(...cards);
-  
-  // 6. CHECK WIN / DIRTY FINISH
-  if (p.hand.length === 0) {
-    const lastPlayed = cards[cards.length - 1];
-    if (POWER_RANKS.has(lastPlayed.r)) {
-      // Dirty Finish Penalty
-      p.hand.push(...draw(room.deck, 2));
-      p.lastCalled = false;
-      // Reset any powers derived from this illegal play
-      room.extraTurn = false;
-      room.awaitingSuit = false;
-      finishTurn(room);
-      return { msg: "Can't finish on a Power Card! Drew 2." };
-    } else {
-      // WINNER!
-      room.inGame = false;
-      broadcast(room, { type: "ENDED", winner: p.name });
-      return { msg: `${p.name} WINS!` };
-    }
-  }
-
-  // 7. APPLY EFFECTS
-  const last = cards[cards.length - 1];
-  
-  // Set Active Suit (Default to card suit, Ace overrides later)
-  if (last.r !== "A") room.activeSuit = last.s;
-
-  // Q: Reverse
-  if (last.r === "Q") {
-    room.direction *= -1;
-  }
-  
-  // 2: Draw 2 (Stacks)
-  if (last.r === "2") {
-    room.pendingDraw2 += (2 * cards.length);
-  }
-  
-  // 8: Skip
-  if (last.r === "8") {
-    room.pendingSkip += cards.length; 
-  }
-  
-  // K: Go Again
-  if (last.r === "K") {
-    room.extraTurn = true;
-  }
-  
-  // J: Black draws, Red blocks
-  if (last.r === "J") {
-    cards.forEach(c => {
-      if (c.s === "S" || c.s === "C") {
-        room.pendingDrawJ += 5; // Black Jack adds 5
-      } else {
-        room.pendingDrawJ = 0; // Red Jack clears ALL penalty
-      }
-    });
-  }
-
-  // A: Wild (Request Suit)
-  if (last.r === "A") {
-    if (suitChoice && SUITS.includes(suitChoice)) {
-      room.activeSuit = suitChoice;
-    } else {
-      // Ask player for suit
-      room.awaitingSuit = true;
-      return { state: true }; // Stop here, don't advance turn
-    }
-  }
-
-  finishTurn(room);
-  return { state: true };
+function send(ws, obj){
+  if (!ws || ws.readyState !== 1) return;
+  ws.send(JSON.stringify(obj));
 }
 
-function handleDraw(room, p) {
-  if (room.players[room.turnIndex].id !== p.id) return;
+function broadcastRoom(room){
+  room.players.forEach((p, seat) => {
+    if (!p.connected) return;
 
-  // If under attack, draw the penalty
-  let count = 1;
-  if (room.pendingDraw2 > 0) {
-    count = room.pendingDraw2;
-    room.pendingDraw2 = 0;
-  } else if (room.pendingDrawJ > 0) {
-    count = room.pendingDrawJ;
-    room.pendingDrawJ = 0;
-  } else if (room.pendingSkip > 0) {
-    // If skipped, you don't draw, you just miss turn. 
-    // But if client hit "Draw" button, usually means they have no play.
-    // We just clear skip and move on.
-    room.pendingSkip = 0;
-    count = 0; 
-  }
+    const view = {
+      you: { seat, name: p.name, hand: p.hand, lastDeclaredTurn: p.lastDeclaredTurn },
+      others: room.players.map((op, i) => i === seat
+        ? null
+        : ({ seat:i, name:op.name, count: op.hand.length, lastDeclaredTurn: op.lastDeclaredTurn, connected:op.connected })
+      ).filter(Boolean),
 
-  if (count > 0) {
-    // Reshuffle if needed
-    if (room.deck.length < count) {
-      const top = room.discard.pop();
-      room.deck = [...room.deck, ...room.discard].sort(() => Math.random() - 0.5);
-      room.discard = [top];
-    }
-    p.hand.push(...draw(room.deck, count));
-  }
+      top: room.discard[room.discard.length - 1] || null,
+      activeSuit: room.activeSuit,
+      turn: room.turn,
+      direction: room.direction,
 
-  finishTurn(room);
+      pendingDraw2: room.pendingDraw2,
+      pendingDrawJ: room.pendingDrawJ,
+      pendingSkip: room.pendingSkip,
+
+      awaitingAceSeat: room.awaitingAceSeat,
+      extraTurn: room.extraTurn,
+      turnCounter: room.turnCounter,
+      feed: room.feed
+    };
+
+    send(p.ws, { type:"state", room: roomPublicInfo(room), view });
+  });
 }
 
-function finishTurn(room) {
-  // If Ace is pending suit selection, don't move turn
-  if (room.awaitingSuit) return;
+function endGame(room, winnerSeat){
+  const winner = room.players[winnerSeat];
+  room.feed = `🎉 ${winner?.name || "Player"} wins!`;
+  room.started = false;
+  broadcastRoom(room);
+}
 
-  // If King played (Extra Turn), don't move turn
-  if (room.extraTurn) {
+// =========================
+// Turn & start-of-turn effects
+// =========================
+function advanceTurn(room){
+  if (room.extraTurn){
     room.extraTurn = false;
-    return; // Same player goes again
+    room.feed = "KING: Play again!";
+    return;
   }
 
-  const p = room.players[room.turnIndex];
-  p.lastCalled = false; // Reset "Last" status
+  room.turn = (room.turn + room.direction + room.players.length) % room.players.length;
+  room.turnCounter++;
 
-  // Advance
-  let steps = 1 + room.pendingSkip;
-  room.pendingSkip = 0; // consumed
-  
-  let n = room.players.length;
-  room.turnIndex = (room.turnIndex + (room.direction * steps)) % n;
-  if (room.turnIndex < 0) room.turnIndex += n;
+  applyStartOfTurn(room);
+}
 
-  // Check if next player is a Bot
-  const nextP = room.players[room.turnIndex];
-  if (nextP.isBot) {
-    setTimeout(() => botTurn(room), 1000);
+function applyStartOfTurn(room){
+  if (room.awaitingAceSeat !== null) return;
+
+  let safety = 0;
+  while (room.pendingSkip > 0 && safety++ < 12){
+    const p = room.players[room.turn];
+    const top = room.discard[room.discard.length - 1];
+    const suit = room.activeSuit;
+
+    const playable8 = p.hand.findIndex(c => c.rank === "8" && canStart(c, top, suit));
+    if (playable8 !== -1){
+      room.feed = `⚠️ SKIP x${room.pendingSkip} on ${p.name} (Play an 8 to stack, or get skipped).`;
+      return;
+    }
+
+    room.pendingSkip--;
+    room.feed = `⏭️ ${p.name} skipped! (8 stack left: ${room.pendingSkip})`;
+    room.turn = (room.turn + room.direction + room.players.length) % room.players.length;
+    room.turnCounter++;
   }
 }
 
-function botTurn(room) {
-  if (!room.inGame) return;
-  const p = room.players[room.turnIndex];
-  if (!p.isBot) return;
+function dealNewGame(room){
+  room.deck = createDeck();
+  shuffle(room.deck);
+  room.discard = [];
+  room.direction = 1;
+  room.turn = 0;
+  room.turnCounter = 0;
 
-  // Simple Bot Logic
-  // 1. Can play?
-  const top = room.discard[room.discard.length-1];
-  const valid = p.hand.filter(c => canPlayOn(c, top, room.activeSuit));
-  
-  // Filter for defense if needed
-  let candidates = valid;
-  if (room.pendingDraw2 > 0) candidates = valid.filter(c => c.r === "2");
-  if (room.pendingDrawJ > 0) candidates = valid.filter(c => c.r === "J");
+  room.pendingDraw2 = 0;
+  room.pendingDrawJ = 0;
+  room.pendingSkip = 0;
+  room.extraTurn = false;
+  room.awaitingAceSeat = null;
 
-  if (candidates.length > 0) {
-    // Play first valid
-    const c = candidates[0];
-    // Check for multiples
-    const others = p.hand.filter(x => x.r === c.r && x.id !== c.id);
-    const toPlay = [c.id, ...others.map(x => x.id)];
-    
-    // Call last if needed
-    if (p.hand.length - toPlay.length <= 1) p.lastCalled = true;
+  room.players.forEach(p => {
+    p.hand = [];
+    p.lastDeclaredTurn = -1;
+  });
 
-    // Pick random suit for Ace
-    let suit = null;
-    if (c.r === "A") suit = SUITS[Math.floor(Math.random()*4)];
-
-    handlePlay(room, p, toPlay, suit);
-  } else {
-    handleDraw(room, p);
+  for (let i = 0; i < 7; i++){
+    room.players.forEach(p => p.hand.push(room.deck.pop()));
   }
-  broadcastState(room);
+
+  while (true){
+    const start = room.deck.pop();
+    if (!POWER_RANKS.has(start.rank) && start.rank !== "K"){
+      room.discard.push(start);
+      room.activeSuit = start.suit;
+      break;
+    }
+    room.deck.unshift(start);
+  }
+
+  room.feed = "Cards are in play!";
+  room.started = true;
+
+  applyStartOfTurn(room);
 }
 
-/** -------------------- WEBSOCKETS -------------------- */
+// =========================
+// Powers
+// =========================
+function applyPower(room, card, seat, isLastInPlay){
+  const r = card.rank;
+
+  if (r === "A" && isLastInPlay){
+    room.awaitingAceSeat = seat;
+    return;
+  }
+  if (r === "2"){
+    room.pendingDraw2 += 2;
+    return;
+  }
+  if (r === "8"){
+    room.pendingSkip += 1;
+    return;
+  }
+  if (r === "Q"){
+    room.direction *= -1;
+    return;
+  }
+  if (r === "K"){
+    room.extraTurn = true;
+    return;
+  }
+  if (r === "J"){
+    if (card.suit === "♥" || card.suit === "♦"){
+      if (room.pendingDrawJ > 0) room.pendingDrawJ = 0;
+    } else {
+      room.pendingDrawJ += 5;
+    }
+  }
+}
+
+// =========================
+// Validations & actions
+// =========================
+function ensureRoomAndSeat(ws){
+  const c = clients.get(ws);
+  if (!c?.roomCode) return { ok:false, err:"Not in a room." };
+  const room = rooms.get(c.roomCode);
+  if (!room) return { ok:false, err:"Room missing." };
+  const seat = c.seat;
+  if (seat == null || !room.players[seat]) return { ok:false, err:"Seat missing." };
+  return { ok:true, room, seat };
+}
+
+function reject(ws, msg){
+  send(ws, { type:"toast", msg });
+}
+
+function handleDraw(room, seat){
+  if (!room.started) return;
+  if (room.awaitingAceSeat !== null) return;
+  if (seat !== room.turn) return;
+
+  const p = room.players[seat];
+
+  if (room.pendingSkip > 0){
+    room.feed = "No draw under 8-skip. Play an 8 or you'll be skipped.";
+    return;
+  }
+
+  let n = 1;
+  if (room.pendingDraw2 > 0){
+    n = room.pendingDraw2;
+    room.pendingDraw2 = 0;
+  } else if (room.pendingDrawJ > 0){
+    n = room.pendingDrawJ;
+    room.pendingDrawJ = 0;
+  }
+
+  const drawn = drawCards(room, n);
+  p.hand.push(...drawn);
+
+  room.feed = `${p.name} drew ${n}.`;
+  p.lastDeclaredTurn = -1;
+
+  advanceTurn(room);
+  applyStartOfTurn(room);
+}
+
+function handleLast(room, seat){
+  if (!room.started) return;
+  if (room.awaitingAceSeat !== null) return;
+  if (seat !== room.turn) return;
+
+  const p = room.players[seat];
+  p.lastDeclaredTurn = room.turnCounter;
+  room.feed = `${p.name} called LAST!`;
+}
+
+function handleAcePick(room, seat, suitChar){
+  if (!room.started) return;
+  if (room.awaitingAceSeat !== seat) return;
+
+  const suit = SUIT_MAP[suitChar];
+  if (!suit) return;
+
+  room.activeSuit = suit;
+  room.awaitingAceSeat = null;
+  room.feed = `Suit is ${suit}`;
+
+  advanceTurn(room);
+  applyStartOfTurn(room);
+}
+
+function handlePlay(room, seat, indices){
+  if (!room.started) return;
+  if (room.awaitingAceSeat !== null) return;
+  if (seat !== room.turn) return;
+
+  const p = room.players[seat];
+  if (!Array.isArray(indices) || indices.length === 0) return;
+
+  const uniq = [...new Set(indices)]
+    .filter(i => Number.isInteger(i) && i >= 0 && i < p.hand.length);
+
+  if (uniq.length === 0) return;
+
+  const cards = uniq.map(i => p.hand[i]);
+
+  if (room.pendingDraw2 > 0 && cards[0].rank !== "2"){
+    room.feed = "Must play a 2!";
+    return;
+  }
+  if (room.pendingDrawJ > 0 && cards[0].rank !== "J"){
+    room.feed = "Must play a Jack!";
+    return;
+  }
+  if (room.pendingSkip > 0 && cards[0].rank !== "8"){
+    room.feed = "Under 8-skip: play an 8 or be skipped.";
+    return;
+  }
+
+  const top = room.discard[room.discard.length - 1];
+  if (!canStart(cards[0], top, room.activeSuit)){
+    room.feed = "Invalid card.";
+    return;
+  }
+  for (let i = 0; i < cards.length - 1; i++){
+    if (!linkOk(cards[i], cards[i + 1])){
+      room.feed = "Invalid combo.";
+      return;
+    }
+  }
+
+  const isSet = cards.length > 1 && cards.every(c => c.rank === cards[0].rank);
+
+  const remaining = p.hand.length - cards.length;
+  if ((remaining === 1 || remaining === 0) && p.lastDeclaredTurn !== room.turnCounter){
+    room.feed = "Call LAST before leaving 1 or finishing!";
+    return;
+  }
+
+  const remove = [...uniq].sort((a,b)=>b-a);
+  for (const i of remove) p.hand.splice(i, 1);
+
+  room.feed = `${p.name} played ${cards.length}.`;
+
+  cards.forEach((c, i) => {
+    room.discard.push(c);
+    const isLast = i === cards.length - 1;
+    const allowPower = (isSet || isLast);
+    if (allowPower){
+      if (POWER_RANKS.has(c.rank) || c.rank === "K"){
+        applyPower(room, c, seat, isLast);
+      }
+    }
+  });
+
+  const lastCard = cards[cards.length - 1];
+  if (lastCard.rank !== "A"){
+    room.activeSuit = lastCard.suit;
+  }
+
+  const triedFinish = p.hand.length === 0;
+  const finishedOnPower = triedFinish && (POWER_RANKS.has(lastCard.rank) || lastCard.rank === "K");
+  if (finishedOnPower){
+    p.hand.push(...drawCards(room, 2));
+    p.lastDeclaredTurn = -1;
+    room.extraTurn = false;
+    room.feed = `⚠️ No power-card finish! ${p.name} drew 2.`;
+    advanceTurn(room);
+    applyStartOfTurn(room);
+    return;
+  }
+
+  if (p.hand.length === 0){
+    endGame(room, seat);
+    return;
+  }
+
+  if (room.awaitingAceSeat !== null){
+    room.feed = `${p.name} must pick a suit.`;
+    return;
+  }
+
+  advanceTurn(room);
+  applyStartOfTurn(room);
+}
+
 wss.on("connection", (ws) => {
-  let myRoom = null;
-  let myUser = null;
+  const id = crypto.randomUUID();
+  clients.set(ws, { id, name: null, roomCode: null, seat: null });
 
-  function send(type, data) {
-    if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type, ...data }));
-  }
+  send(ws, { type:"hello", id });
 
-  ws.on("message", (msg) => {
-    const data = JSON.parse(msg);
+  ws.on("message", (raw) => {
+    let msg;
+    try { msg = JSON.parse(raw.toString()); } catch { return; }
 
-    if (data.type === "HELLO") {
-      myUser = { id: Math.random().toString(36).substr(2), name: data.name };
-      send("WELCOME", { id: myUser.id });
+    const c = clients.get(ws);
+    if (!c) return;
+
+    if (msg.type === "set_name"){
+      const name = String(msg.name || "").trim().slice(0, 12);
+      if (!name) return reject(ws, "Enter a name.");
+      c.name = name;
+      send(ws, { type:"name_ok", name });
+      return;
     }
 
-    if (data.type === "CREATE_ROOM") {
-      const code = Math.floor(1000 + Math.random() * 9000).toString(); // 4 digit code
-      myRoom = createRoom(code, myUser.id, data.name || "Host");
-      rooms.set(code, myRoom);
-      myRoom.players[0].ws = ws;
-      send("ROOM_JOINED", { code, isHost: true });
-      broadcastRoom(myRoom);
+    if (msg.type === "create_room"){
+      if (!c.name) return reject(ws, "Set your name first.");
+      const room = makeRoom(ws, c.name);
+      c.roomCode = room.code;
+      c.seat = 0;
+      room.feed = `${c.name} created room ${room.code}.`;
+      send(ws, { type:"room_created", room: roomPublicInfo(room), seat: 0 });
+      broadcastRoom(room);
+      return;
     }
 
-    if (data.type === "JOIN_ROOM") {
-      const r = rooms.get(data.code);
-      if (!r) return send("ERROR", { msg: "Room not found" });
-      if (r.inGame) return send("ERROR", { msg: "Game already started" });
-      
-      myRoom = r;
-      const newUser = { id: myUser.id, name: data.name, ws, hand:[], lastCalled:false, isBot:false };
-      r.players.push(newUser);
-      send("ROOM_JOINED", { code: r.code, isHost: false });
-      broadcastRoom(r);
+    if (msg.type === "join_room"){
+      if (!c.name) return reject(ws, "Set your name first.");
+      const code = String(msg.code || "").trim().toUpperCase();
+      const room = rooms.get(code);
+      if (!room) return reject(ws, "Room not found.");
+      const res = joinRoom(room, ws, c.name);
+      if (!res.ok) return reject(ws, res.err);
+
+      c.roomCode = room.code;
+      c.seat = room.players.length - 1;
+
+      send(ws, { type:"room_joined", room: roomPublicInfo(room), seat: c.seat });
+      broadcastRoom(room);
+      return;
     }
 
-    if (data.type === "START_GAME") {
-      if (!myRoom || myRoom.hostId !== myUser.id) return;
-      
-      // Fill with bots if needed (min 2)
-      while(myRoom.players.length < 2) {
-        myRoom.players.push({ 
-          id: "bot"+Math.random(), name: "Bot " + myRoom.players.length, 
-          isBot: true, hand: [], lastCalled: false 
-        });
+    if (msg.type === "start_game"){
+      const { ok, room, seat, err } = ensureRoomAndSeat(ws);
+      if (!ok) return reject(ws, err);
+      if (seat !== 0) return reject(ws, "Only host can deal.");
+      if (room.players.length < 2) return reject(ws, "Need at least 2 players.");
+      dealNewGame(room);
+      broadcastRoom(room);
+      return;
+    }
+
+    if (msg.type === "action"){
+      const { ok, room, seat, err } = ensureRoomAndSeat(ws);
+      if (!ok) return reject(ws, err);
+      if (!room.started) return;
+
+      const a = msg.action;
+
+      if (a === "draw"){
+        handleDraw(room, seat);
+        broadcastRoom(room);
+        return;
       }
-
-      // Init Deck
-      myRoom.deck = makeDeck();
-      // Deal 7
-      myRoom.players.forEach(p => { p.hand = draw(myRoom.deck, 7); });
-      // Top Card (Retry if power card)
-      while(true) {
-        let top = myRoom.deck.pop();
-        if(!POWER_RANKS.has(top.r)) {
-          myRoom.discard = [top];
-          myRoom.activeSuit = top.s;
-          break;
-        }
-        myRoom.deck.unshift(top);
+      if (a === "last"){
+        handleLast(room, seat);
+        broadcastRoom(room);
+        return;
       }
-      
-      myRoom.inGame = true;
-      broadcastState(myRoom);
-    }
-
-    if (data.type === "ACTION_PLAY") {
-      if (!myRoom) return;
-      const res = handlePlay(myRoom, myRoom.players.find(p=>p.id===myUser.id), data.indices, data.suit); // Client sends card IDs in indices for P2P logic usually, or we map indices to IDs.
-      // Wait, your client sends indices (0, 1, 2...). We need to map that to the server hand.
-      // Correction: The new client code I gave sends `indices`.
-      // Let's adjust handlePlay to take indices or IDs. 
-      // Actually, safest is to map indices to objects here.
-      const p = myRoom.players.find(p=>p.id===myUser.id);
-      if(p) {
-         // Map indices to IDs
-         const cardIds = data.indices.map(i => p.hand[i] ? p.hand[i].id : null).filter(Boolean);
-         const res = handlePlay(myRoom, p, cardIds, data.suitChar); 
-         if(res.err) send("TOAST", { msg: res.err });
-         broadcastState(myRoom);
+      if (a === "play"){
+        handlePlay(room, seat, msg.indices);
+        broadcastRoom(room);
+        return;
       }
-    }
-
-    if (data.type === "ACTION_PICKUP") {
-      if (!myRoom) return;
-      handleDraw(myRoom, myRoom.players.find(p=>p.id===myUser.id));
-      broadcastState(myRoom);
-    }
-
-    if (data.type === "ACTION_LAST") {
-      if (!myRoom) return;
-      const p = myRoom.players.find(p=>p.id===myUser.id);
-      if(p) p.lastCalled = true;
-      broadcastState(myRoom);
-    }
-    
-    if (data.type === "ACTION_SUIT") {
-       if (!myRoom) return;
-       myRoom.activeSuit = (data.suitChar === "H" ? "♥" : data.suitChar === "D" ? "♦" : data.suitChar === "C" ? "♣" : "♠"); // Map char to symbol if needed, or just keep char
-       // Wait, your logic uses symbols. Let's stick to symbols in server.
-       const map = {H:"♥", D:"♦", C:"♣", S:"♠"};
-       if(map[data.suitChar]) myRoom.activeSuit = map[data.suitChar];
-       myRoom.awaitingSuit = false;
-       finishTurn(myRoom);
-       broadcastState(myRoom);
+      if (a === "ace"){
+        handleAcePick(room, seat, msg.suit);
+        broadcastRoom(room);
+        return;
+      }
     }
   });
 
   ws.on("close", () => {
-    if (myRoom) {
-      myRoom.players = myRoom.players.filter(p => p.id !== myUser.id);
-      if (myRoom.players.length === 0) rooms.delete(myRoom.code);
-      else broadcastRoom(myRoom);
+    const c = clients.get(ws);
+    if (!c) return;
+
+    if (c.roomCode){
+      const room = rooms.get(c.roomCode);
+      if (room){
+        const p = room.players[c.seat];
+        if (p){
+          p.connected = false;
+          room.feed = `${p.name} disconnected.`;
+        }
+        broadcastRoom(room);
+
+        const anyConnected = room.players.some(x => x.connected);
+        if (!anyConnected) rooms.delete(room.code);
+      }
     }
+    clients.delete(ws);
   });
 });
 
-function broadcastRoom(room) {
-  const names = room.players.map(p => p.name);
-  room.players.forEach(p => {
-    if (p.ws) safeSend(p.ws, { type: "PLAYER_UPDATE", names });
-  });
-}
-
-function broadcastState(room) {
-  room.players.forEach(p => {
-    if (p.ws) {
-      // Send FULL state but hide other hands
-      const cleanPlayers = room.players.map(pl => ({
-        id: pl.id,
-        name: pl.name,
-        isBot: pl.isBot,
-        lastDeclared: pl.lastCalled,
-        hand: pl.id === p.id ? pl.hand : pl.hand.map(() => ({ r:"?", s:"?" })), // Hide cards
-        cardCount: pl.hand.length
-      }));
-      
-      const state = {
-        discard: room.discard,
-        activeSuit: room.activeSuit, // Symbol
-        players: cleanPlayers,
-        turnIndex: room.turnIndex,
-        pendingDraw2: room.pendingDraw2,
-        pendingDrawJ: room.pendingDrawJ,
-        pendingSkip: room.pendingSkip,
-        awaitingSuit: room.awaitingSuit,
-        winner: room.inGame ? null : (room.players.find(x=>x.hand.length===0)?.name)
-      };
-      
-      safeSend(p.ws, { type: "GAME_STATE", state, playerId: p.id });
-    }
-  });
-}
-
-function safeSend(ws, data) {
-  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(data));
-}
-
-server.listen(PORT, () => console.log(`Server running on ${PORT}`));
+server.listen(PORT, () => {
+  console.log(`Old Skool Blackjack WS running on :${PORT}`);
+});
