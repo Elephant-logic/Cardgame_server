@@ -1,135 +1,186 @@
-// Old Skool Blackjack - Online Relay Server (Render-friendly)
-// Host client is authoritative and broadcasts full state snapshots.
-// Other clients send input actions; server relays within the room.
 
 const path = require("path");
-const http = require("http");
 const express = require("express");
-const WebSocket = require("ws");
+const http = require("http");
+const { WebSocketServer } = require("ws");
 
 const PORT = process.env.PORT || 10000;
 
 const app = express();
-const server = http.createServer(app);
-
-// Serve static files (index.html)
 app.use(express.static(path.join(__dirname, "public")));
-app.get("/", (req, res) => res.sendFile(path.join(__dirname, "public", "index.html")));
 
-const wss = new WebSocket.Server({ server, path: "/ws" });
+app.get("/health", (req,res)=>res.json({ok:true}));
 
-/** rooms: code -> { host: ws, hostName: string, clients: Set<ws>, names: Map<ws,string> } */
+const server = http.createServer(app);
+const wss = new WebSocketServer({ server, path: "/ws" });
+
+/**
+ * Rooms:
+ *  roomCode -> { hostId, players: Map(clientId -> {id,name,isHost}), sockets: Map(clientId -> ws) }
+ */
 const rooms = new Map();
 
-function makeCode() {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let code = "";
-  for (let i = 0; i < 5; i++) code += chars[Math.floor(Math.random() * chars.length)];
-  return code;
+function mkCode(len=6){
+  const chars="ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  let s="";
+  for(let i=0;i<len;i++) s += chars[Math.floor(Math.random()*chars.length)];
+  return s;
 }
 
-function safeSend(ws, obj) {
-  if (!ws || ws.readyState !== WebSocket.OPEN) return;
-  ws.send(JSON.stringify(obj));
+function safeSend(ws, obj){
+  try { ws.send(JSON.stringify(obj)); } catch {}
 }
 
-function broadcast(room, fromWs, obj) {
-  for (const c of room.clients) {
-    if (c !== fromWs && c.readyState === WebSocket.OPEN) {
-      c.send(JSON.stringify(obj));
-    }
+function broadcastRoom(roomCode){
+  const room = rooms.get(roomCode);
+  if(!room) return;
+  const players = Array.from(room.players.values()).map(p=>({id:p.id,name:p.name,isHost:p.isHost}));
+  for(const [cid, ws] of room.sockets.entries()){
+    safeSend(ws, { t:"roomUpdate", roomCode, isHost: cid === room.hostId, players });
   }
 }
 
-function cleanupWs(ws) {
-  // Find any room containing this ws
-  for (const [code, room] of rooms.entries()) {
-    if (!room.clients.has(ws)) continue;
+function leaveRoom(clientId){
+  // find room containing client
+  for(const [code, room] of rooms.entries()){
+    if(room.players.has(clientId)){
+      room.players.delete(clientId);
+      room.sockets.delete(clientId);
 
-    const wasHost = (room.host === ws);
-    room.clients.delete(ws);
-    room.names.delete(ws);
+      // if host left, promote first remaining player
+      if(room.hostId === clientId){
+        const first = room.players.values().next().value;
+        room.hostId = first ? first.id : null;
+        if(first) first.isHost = true;
+      }
+      // update host flag for others
+      for(const p of room.players.values()) p.isHost = (p.id === room.hostId);
 
-    if (wasHost) {
-      // End room, notify others
-      broadcast(room, ws, { type: "peer_left" });
-      rooms.delete(code);
-      return;
-    } else {
-      // Notify host
-      safeSend(room.host, { type: "peer_left" });
-      // Keep room alive for reconnection (optional)
+      if(room.players.size === 0){
+        rooms.delete(code);
+      } else {
+        broadcastRoom(code);
+      }
       return;
     }
   }
 }
 
 wss.on("connection", (ws) => {
-  ws.on("message", (raw) => {
-    let msg;
-    try { msg = JSON.parse(raw.toString()); } catch { return; }
+  const clientId = mkCode(10);
+  let currentName = "Player";
 
-    // Room management
-    if (msg.type === "create") {
-      const name = String(msg.name || "Player 1").slice(0, 20);
-      let code = makeCode();
-      while (rooms.has(code)) code = makeCode();
+  safeSend(ws, { t:"hello", clientId });
+
+  ws.on("message", (buf) => {
+    let msg;
+    try { msg = JSON.parse(buf.toString()); } catch { return; }
+    if(!msg || !msg.t) return;
+
+    if(msg.t === "setName"){
+      const nm = (msg.name || "").toString().trim().slice(0,16);
+      if(nm) currentName = nm;
+      return;
+    }
+
+    if(msg.t === "createRoom"){
+      // leave existing
+      leaveRoom(clientId);
+
+      const nm = (msg.name || currentName).toString().trim().slice(0,16) || "Player";
+      currentName = nm;
+
+      let code;
+      do { code = mkCode(6); } while(rooms.has(code));
 
       const room = {
-        code,
-        host: ws,
-        hostName: name,
-        clients: new Set([ws]),
-        names: new Map([[ws, name]])
+        hostId: clientId,
+        players: new Map(),
+        sockets: new Map(),
       };
+      room.players.set(clientId, { id: clientId, name: nm, isHost: true });
+      room.sockets.set(clientId, ws);
       rooms.set(code, room);
-
-      safeSend(ws, { type: "created", roomCode: code, playerIndex: 0, hostName: name });
+      broadcastRoom(code);
       return;
     }
 
-    if (msg.type === "join") {
-      const code = String(msg.roomCode || "").toUpperCase();
-      const name = String(msg.name || "Player 2").slice(0, 20);
+    if(msg.t === "joinRoom"){
+      const code = (msg.roomCode || "").toString().trim().toUpperCase();
       const room = rooms.get(code);
-
-      if (!room) {
-        safeSend(ws, { type: "error", message: "Room not found" });
-        return;
+      if(!room){
+        return safeSend(ws, { t:"roomError", message:"Room not found" });
       }
-      if (room.clients.size >= 2) {
-        safeSend(ws, { type: "error", message: "Room full" });
-        return;
-      }
+      // leave current
+      leaveRoom(clientId);
 
-      room.clients.add(ws);
-      room.names.set(ws, name);
+      const nm = (msg.name || currentName).toString().trim().slice(0,16) || "Player";
+      currentName = nm;
 
-      safeSend(ws, { type: "joined", roomCode: code, playerIndex: 1, hostName: room.hostName });
-      safeSend(room.host, { type: "peer_joined", name, playerIndex: 1 });
-
-      // Tell joiner who host is (for UI if needed)
-      safeSend(ws, { type: "peer_joined", name: room.hostName, playerIndex: 0 });
+      room.players.set(clientId, { id: clientId, name: nm, isHost:false });
+      room.sockets.set(clientId, ws);
+      // ensure host flag
+      for(const p of room.players.values()) p.isHost = (p.id === room.hostId);
+      broadcastRoom(code);
       return;
     }
 
-    // Relay game messages within room
-    // Determine room by membership
-    let roomFound = null;
-    for (const room of rooms.values()) {
-      if (room.clients.has(ws)) { roomFound = room; break; }
+    if(msg.t === "leaveRoom"){
+      leaveRoom(clientId);
+      return;
     }
-    if (!roomFound) return;
 
-    // Only allow host to broadcast "state" (authoritative snapshot)
-    if (msg.type === "state" && ws !== roomFound.host) return;
+    // Relay: host -> everyone, or guest -> host
+    if(msg.t === "startMatch"){
+      // broadcast to everyone in room
+      const code = findClientRoom(clientId);
+      if(!code) return;
+      const room = rooms.get(code);
+      if(!room) return;
+      if(room.hostId !== clientId) return; // only host
+      for(const ws2 of room.sockets.values()){
+        safeSend(ws2, { t:"startMatch" });
+      }
+      return;
+    }
 
-    // Otherwise relay to everyone else in room
-    broadcast(roomFound, ws, msg);
+    if(msg.t === "hostAction"){
+      const code = findClientRoom(clientId);
+      if(!code) return;
+      const room = rooms.get(code);
+      if(!room) return;
+      if(room.hostId !== clientId) return; // only host can send
+      for(const [cid, ws2] of room.sockets.entries()){
+        if(cid === clientId) continue;
+        safeSend(ws2, { t:"hostAction", state: msg.state });
+      }
+      return;
+    }
+
+    if(msg.t === "inputRequest"){
+      const code = findClientRoom(clientId);
+      if(!code) return;
+      const room = rooms.get(code);
+      if(!room) return;
+      const hostWs = room.sockets.get(room.hostId);
+      if(!hostWs) return;
+      safeSend(hostWs, { t:"inputRequest", fromId: clientId, action: msg.action });
+      return;
+    }
   });
 
-  ws.on("close", () => cleanupWs(ws));
-  ws.on("error", () => cleanupWs(ws));
+  ws.on("close", () => {
+    leaveRoom(clientId);
+  });
 });
 
-server.listen(PORT, () => console.log(`Server listening on ${PORT}`));
+function findClientRoom(clientId){
+  for(const [code, room] of rooms.entries()){
+    if(room.players.has(clientId)) return code;
+  }
+  return null;
+}
+
+server.listen(PORT, () => {
+  console.log("Server listening on", PORT);
+});
