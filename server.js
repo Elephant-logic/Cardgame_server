@@ -2,15 +2,19 @@ const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
 const path = require('path');
-const { v4: uuidv4 } = require('uuid'); // This caused the crash before fix
+const { v4: uuidv4 } = require('uuid');
 
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-// Serve the static HTML file
+// Serve static files from the "public" directory
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Serve the index.html file specifically
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
+    // FIX IS HERE: Added 'public' to the path
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // --- GAME LOGIC CONSTANTS ---
@@ -209,7 +213,7 @@ function finishTurn(state) {
 // --- WEBSOCKET HANDLER ---
 wss.on('connection', (ws) => {
     let currentRoom = null;
-    let myId = uuidv4(); // Generate ID using the fixed library import
+    let myId = uuidv4();
 
     const send = (type, data) => ws.send(JSON.stringify({ type, ...data }));
 
