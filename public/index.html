@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Old Skool Blackjack — Switch Rules</title>
   <style>
-    /* --- ORIGINAL STYLES FROM YOUR FILE --- */
+    /* --- STYLES (Restored from your index-5.html) --- */
     :root {
       --chalk-green: #3a5f42; --chalk-white: #eeeeee; --paper-white: #fdfbf7;
       --line-blue: #a2d2ff; --sticker-yellow: #ffeb3b; --sticker-pink: #ff80ab;
@@ -21,41 +21,17 @@
       background-size: 30px 30px;
     }
 
-    @media (max-width: 600px) {
-      :root { --card-w: 60px; --card-h: 84px; }
-      .hud-btn { padding: 10px 10px !important; font-size: 0.8rem !important; }
-      #game-info-bar { font-size: 0.8rem !important; padding: 4px !important; }
-    }
-
     /* ANIMATIONS */
-    @keyframes shake {
-      0% { transform: translateX(0) translateY(-25px); }
-      25% { transform: translateX(-5px) rotate(-5deg) translateY(-25px); }
-      50% { transform: translateX(5px) rotate(5deg) translateY(-25px); }
-      75% { transform: translateX(-5px) rotate(-5deg) translateY(-25px); }
-      100% { transform: translateX(0) translateY(-25px); }
-    }
+    @keyframes shake { 0% { transform: translate(0, -25px); } 25% { transform: translate(-5px, -25px) rotate(-5deg); } 50% { transform: translate(5px, -25px) rotate(5deg); } 75% { transform: translate(-5px, -25px) rotate(-5deg); } 100% { transform: translate(0, -25px); } }
     .shake { animation: shake 0.4s ease-in-out; border-color: #ff5252 !important; }
 
-    @keyframes popIn {
-      0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
-      80% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
-      100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-    }
+    @keyframes popIn { 0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; } 80% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; } 100% { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
     
-    @keyframes rainbow-glow {
-      0% { box-shadow: 0 0 10px #ff0000; border-color: #ff0000; }
-      50% { box-shadow: 0 0 10px #25d1cb; border-color: #25d1cb; }
-      100% { box-shadow: 0 0 10px #ff00c8; border-color: #ff00c8; }
-    }
+    @keyframes rainbow-glow { 0% { box-shadow: 0 0 10px #ff0000; } 50% { box-shadow: 0 0 10px #25d1cb; } 100% { box-shadow: 0 0 10px #ff00c8; } }
     .winning-btn { animation: rainbow-glow 0.5s infinite; transform: scale(1.05) !important; background: white !important; color: black !important; }
 
     /* SCREENS */
-    .screen {
-      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-      display: none; flex-direction: column; justify-content: center; align-items: center;
-      background: var(--chalk-green); z-index: 10;
-    }
+    .screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; flex-direction: column; justify-content: center; align-items: center; background: var(--chalk-green); z-index: 10; }
     .screen.active { display: flex; }
 
     #login-screen, #menu-screen, #lobby-screen, #dashboard-screen, #online-screen {
@@ -64,7 +40,7 @@
       background-size: 100% 25px; color: #333;
     }
 
-    /* LOGOS & BUTTONS */
+    /* UI ELEMENTS */
     .logo-wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 25px; cursor: pointer; user-select: none; }
     .logo-badge { display: inline-flex; align-items: center; gap: 10px; background: white; padding: 10px 16px; border: 3px solid #333; border-radius: 12px; box-shadow: 5px 5px 0 rgba(0,0,0,0.2); transform: rotate(-2deg); }
     .logo-mark { width: 42px; height: 42px; display: inline-flex; align-items: center; justify-content: center; border: 2px solid #333; border-radius: 10px; background: var(--sticker-yellow); box-shadow: 2px 2px 0 rgba(0,0,0,0.2); font-size: 26px; line-height: 1; color: black; }
@@ -80,17 +56,13 @@
     .menu-btn:active { transform: scale(0.95); box-shadow: 1px 1px 0 #333; }
     .menu-btn small { font-size: 0.8rem; font-weight: normal; opacity: 0.8; text-transform: none; }
 
-    /* DASHBOARD / LOBBY */
     .standings-box, .lobby-list, .p2p-box { background: white; width: 90%; border: 3px solid #333; border-radius: 10px; padding: 10px; margin-bottom: 20px; box-shadow: 5px 5px 0 rgba(0,0,0,0.1); }
     table { width: 100%; border-collapse: collapse; font-size: 1rem; }
     th { text-align: left; color: #d32f2f; border-bottom: 2px dashed #333; padding: 8px; }
     td { padding: 10px 8px; border-bottom: 1px solid #ddd; font-weight: bold; }
     .lobby-item { display: flex; justify-content: space-between; padding: 12px; border-bottom: 1px dashed #ccc; font-weight: bold; font-size: 1.2rem; }
     .btn-add { flex: 1; padding: 12px; background: white; border: 2px solid #333; border-radius: 10px; font-weight: bold; cursor: pointer; box-shadow: 3px 3px 0 #ccc; }
-    
-    /* ONLINE BOX */
     .p2p-box { max-width: 520px; text-align: center; }
-    .p2p-code { font-family: monospace; font-size: 1.5rem; background: #fff9c4; border: 2px dashed #333; border-radius: 10px; padding: 10px; word-break: break-all; margin: 10px 0; }
 
     /* GAME UI */
     #status-feed { position: absolute; top: 0; left: 0; width: 100%; height: 35px; background: rgba(0,0,0,0.3); color: white; font-family: "Chalkduster", fantasy, sans-serif; font-size: 1rem; display: flex; align-items: center; justify-content: center; z-index: 20; }
@@ -115,7 +87,7 @@
     #player-area { position: absolute; bottom: 0; width: 100%; height: calc(var(--card-h) + 60px); z-index: 50; overflow-x: auto; overflow-y: visible; white-space: nowrap; padding: 0 20px; -webkit-overflow-scrolling: touch; background-color: #d2a679; border-top: 5px solid #8d6e63; box-shadow: 0 -5px 15px rgba(0,0,0,0.5); }
     .hand { display: inline-flex; justify-content: center; min-width: 100%; padding-top: 25px; align-items: flex-end; }
 
-    /* CARD STYLES */
+    /* CARDS */
     .card { width: var(--card-w); height: var(--card-h); background: white; border-radius: 8px; border: 2px solid #333; box-shadow: 2px 2px 5px rgba(0,0,0,0.3); position: relative; display: inline-flex; flex-direction: column; color: black; flex-shrink: 0; margin-left: -35px; cursor: pointer; transform: rotate(var(--fan-rot)) translateY(var(--fan-y)); transform-origin: bottom center; transition: transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1), margin 0.1s, box-shadow 0.2s; }
     .card:first-child { margin-left: 0; }
     .card.red { color: #d32f2f; }
@@ -131,7 +103,6 @@
     .card-bottom .rank { font-size: 22px; font-weight: 900; }
     .card-bottom .suit { font-size: 20px; margin-top: -2px; }
 
-    /* MODALS */
     #match-result-modal, #suit-modal, #help-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: none; justify-content: center; align-items: center; z-index: 200; flex-direction: column; color: white; }
     .suit-btn { font-size: 50px; width: 80px; height: 80px; margin: 10px; cursor: pointer; background: white; border-radius: 20px; border: 3px solid black; box-shadow: 5px 5px 0 rgba(0,0,0,0.5); }
     #pass-device-screen { background: #333; text-align: center; border: 10px solid #fff; box-sizing: border-box; }
@@ -153,7 +124,6 @@
   <div id="menu-screen" class="screen">
     <div class="logo-text" style="font-size: 1.5rem; margin-bottom: 10px;">Player: <span id="menu-username"></span></div>
     <div style="font-size:0.95rem; font-weight:900; margin-bottom:16px; padding:8px 12px; background:var(--sticker-yellow); border:2px solid #333; border-radius:999px; color:#333;">Streak: <span id="menu-streak">0</span> • Card Back: <span id="menu-back">classic</span></div>
-
     <button class="menu-btn btn-league" onclick="goToLeague()">🏆 Ranked Table<small>Solo • Vs Bots</small></button>
     <button class="menu-btn btn-party" onclick="goToPartyLobby()">🎲 Local Table<small>Pass & Play</small></button>
     <button class="menu-btn btn-league" onclick="goToOnline()">📡 Online Table<small>Host / Join Server</small></button>
@@ -162,9 +132,7 @@
 
   <div id="dashboard-screen" class="screen">
     <div style="display:flex; justify-content:space-between; width:90%; align-items:center; margin-bottom:10px;"><button onclick="showScreen('menu-screen')" style="background:none; border:none; font-size:2rem;">↩</button><h2 style="margin:0; color:#333">RANKED</h2><div style="width:30px"></div></div>
-    <div class="standings-box">
-      <table><thead><tr><th>#</th><th>Name</th><th>W-L</th><th>Pts</th></tr></thead><tbody id="standings-body"></tbody></table>
-    </div>
+    <div class="standings-box"><table><thead><tr><th>#</th><th>Name</th><th>W-L</th><th>Pts</th></tr></thead><tbody id="standings-body"></tbody></table></div>
     <button class="menu-btn btn-league" style="width: 90%" onclick="startLeagueMatch()">Start Match</button>
   </div>
 
@@ -180,11 +148,7 @@
 
   <div id="online-screen" class="screen">
     <div style="display:flex; justify-content:space-between; width:90%; align-items:center; margin-bottom:10px;"><button onclick="disconnectAndExit()" style="background:none; border:none; font-size:2rem;">↩</button><h2 style="margin:0; color:#333">ONLINE</h2><div style="width:30px"></div></div>
-    
-    <div class="p2p-box">
-      <div style="font-weight:900;">Status: <span id="online-status">Connecting...</span></div>
-    </div>
-
+    <div class="p2p-box"><div style="font-weight:900;">Status: <span id="online-status">Connecting...</span></div></div>
     <div class="p2p-box">
       <div style="font-weight:900; margin-bottom:5px;">Join a Room</div>
       <input id="online-join-code" type="text" placeholder="Enter Code" style="background:#eee">
@@ -193,7 +157,6 @@
         <button class="menu-btn btn-league" style="width:120px; margin:0; transform:none;" onclick="netHost()">HOST</button>
       </div>
     </div>
-
     <div id="online-host-panel" class="p2p-box" style="display:none; border-color:var(--sticker-pink);">
       <div style="font-weight:900;">Share Code: <span id="online-my-code" style="background:#ffeb3b; padding:2px 8px;">...</span></div>
       <div style="margin:10px 0;">Waiting for players...</div>
@@ -224,14 +187,11 @@
   </div>
 
   <div id="match-result-modal"><h1 id="result-title" style="font-size:4rem; color:var(--sticker-yellow); text-shadow:4px 4px 0 #000;"></h1><p id="result-desc" style="font-size:1.5rem"></p><button class="menu-btn btn-start" onclick="exitGame()">Back to Menu</button></div>
-  <div id="suit-modal">
-    <h2>Pick a Suit!</h2>
-    <div style="display:flex;"><button class="suit-btn" onclick="resolveAce('H')" style="color:#b71c1c">♥</button><button class="suit-btn" onclick="resolveAce('D')" style="color:#b71c1c">♦</button><button class="suit-btn" onclick="resolveAce('C')">♣</button><button class="suit-btn" onclick="resolveAce('S')">♠</button></div>
-  </div>
+  <div id="suit-modal"><h2>Pick a Suit!</h2><div style="display:flex;"><button class="suit-btn" onclick="resolveAce('H')" style="color:#b71c1c">♥</button><button class="suit-btn" onclick="resolveAce('D')" style="color:#b71c1c">♦</button><button class="suit-btn" onclick="resolveAce('C')">♣</button><button class="suit-btn" onclick="resolveAce('S')">♠</button></div></div>
   <div id="help-modal" onclick="closeHelp()"><div style="background:white; color:#333; padding:20px; border-radius:15px; border:3px solid black;"><h2>CHEAT SHEET</h2><p><b>2</b>: Draw 2</p><p><b>8</b>: Skip</p><p><b>J</b>: Black=Draw 5 / Red=Block</p><p><b>Q</b>: Reverse</p><p><b>K</b>: Go Again</p><p><b>A</b>: Wild</p><button class="menu-btn btn-league" onclick="closeHelp()">OK</button></div></div>
 
   <script>
-    // --- 1. CORE & AUDIO ---
+    // --- CORE & AUDIO ---
     const AudioEngine = {
       ctx: null, init: function() { if(!this.ctx) this.ctx=new(window.AudioContext||window.webkitAudioContext)(); },
       playTone: function(f,t,d,v) { this.init(); if(this.ctx.state==="suspended")this.ctx.resume(); const o=this.ctx.createOscillator(); const g=this.ctx.createGain(); o.type=t; o.frequency.value=f; g.gain.value=v||0.1; o.connect(g); g.connect(this.ctx.destination); o.start(); o.stop(this.ctx.currentTime+d); },
@@ -241,31 +201,26 @@
       playWin: function(){ [400,500,600,800].forEach((f,i)=>setTimeout(()=>this.playTone(f,"square",0.3,0.1), i*100)); }
     };
 
-    // --- 2. GAME DATA ---
+    // --- GAME DATA ---
     const BOTS = [{name:"Bully Bob",wins:0,losses:0,pts:0},{name:"Teacher",wins:0,losses:0,pts:0},{name:"Nerd Ned",wins:0,losses:0,pts:0}];
-    const CARD_BACKS = ["classic","blueberry","graph","graffiti"];
     let leagueData = { player: { name:"", wins:0, losses:0, pts:0, winStreak:0, selectedBack:"classic", unlockedBacks:["classic"] }, bots: JSON.parse(JSON.stringify(BOTS)) };
     
-    // --- 3. STATE ---
+    // --- STATE ---
     let gameMode = "offline"; // offline | online
     let ws = null;
-    let myId = null; // Online ID
-    let gameState = null; // Holds the active game state (synced from server OR local)
+    let myId = null; 
+    let gameState = null; 
     let selectionOrder = [];
     let lobbyPlayers = [];
     let isPassAndPlay = false;
     let sortByRank = false;
 
-    // --- 4. INIT ---
+    // --- SETUP ---
     function loadData() {
       const s = localStorage.getItem("oldskool_bj_v2");
       if(s) try { leagueData = JSON.parse(s); } catch(e){}
-      if(leagueData.player.name) {
-        document.getElementById("menu-username").innerText = leagueData.player.name;
-        showScreen("menu-screen");
-      }
-      applyCardBack();
-      updateMenuBadges();
+      if(leagueData.player.name) { document.getElementById("menu-username").innerText = leagueData.player.name; showScreen("menu-screen"); }
+      applyCardBack(); updateMenuBadges();
     }
     function saveData() { localStorage.setItem("oldskool_bj_v2", JSON.stringify(leagueData)); updateMenuBadges(); }
     function updateMenuBadges() { document.getElementById("menu-streak").innerText = leagueData.player.winStreak; document.getElementById("menu-back").innerText = leagueData.player.selectedBack; }
@@ -276,16 +231,13 @@
       leagueData.player.selectedBack = leagueData.player.unlockedBacks[(idx+1)%leagueData.player.unlockedBacks.length];
       saveData(); applyCardBack();
     }
-
     function signUp() {
       const n = document.getElementById("username-input").value.trim();
       if(!n) return showToast("Enter Name");
-      leagueData.player.name = n; saveData();
-      document.getElementById("menu-username").innerText = n;
-      showScreen("menu-screen");
+      leagueData.player.name = n; saveData(); document.getElementById("menu-username").innerText = n; showScreen("menu-screen");
     }
 
-    // --- 5. NAVIGATION ---
+    // --- NAV ---
     function showScreen(id) { document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); document.getElementById(id).classList.add('active'); AudioEngine.init(); }
     function showToast(m) { const t=document.getElementById("toast-notification"); t.innerText=m; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),2000); }
     function openHelp() { document.getElementById("help-modal").style.display="flex"; }
@@ -295,9 +247,7 @@
     function renderStandings() {
       const t = document.getElementById("standings-body"); t.innerHTML="";
       let all = [leagueData.player, ...leagueData.bots].sort((a,b)=>b.pts-a.pts);
-      all.forEach((p,i) => {
-        t.innerHTML += `<tr style="${p===leagueData.player?'background:#fff9c4':''}"><td>#${i+1}</td><td>${p.name}</td><td>${p.wins}-${p.losses}</td><td>${p.pts}</td></tr>`;
-      });
+      all.forEach((p,i) => t.innerHTML += `<tr style="${p===leagueData.player?'background:#fff9c4':''}"><td>#${i+1}</td><td>${p.name}</td><td>${p.wins}-${p.losses}</td><td>${p.pts}</td></tr>`);
     }
 
     function goToPartyLobby() { lobbyPlayers=[{name:leagueData.player.name, isBot:false}]; renderLobby(); showScreen("lobby-screen"); }
@@ -308,10 +258,11 @@
       lobbyPlayers.forEach((p,i)=>l.innerHTML+=`<div class="lobby-item"><span>${p.name}</span><small>${p.isBot?'BOT':'HUMAN'}</small></div>`);
     }
 
-    // --- 6. LOCAL GAME ENGINE (League & Party) ---
+    // --- LOGIC (LOCAL) ---
     const SUITS=["♠","♥","♦","♣"]; const RANKS=["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
-    
     function createDeck(){ let d=[]; for(let s of SUITS)for(let r of RANKS)d.push({suit:s,rank:r}); return d.sort(()=>Math.random()-0.5); }
+    function getTop(){ return gameState.discard[gameState.discard.length-1]; }
+    function canStart(c, top, suit) { return c.rank === "A" || c.suit === suit || c.rank === top.rank; }
     
     function startLeagueMatch() { gameMode="offline"; initLocalGame([{name:leagueData.player.name, isBot:false}, leagueData.bots[Math.floor(Math.random()*leagueData.bots.length)]], true); }
     function startPartyGame() { gameMode="offline"; initLocalGame(lobbyPlayers, false); }
@@ -320,73 +271,86 @@
       const deck = createDeck();
       const pObjs = players.map(p=>({id:Math.random(), name:p.name, isBot:p.isBot, hand:[], lastDeclared:false}));
       for(let i=0; i<7; i++) pObjs.forEach(p=>p.hand.push(deck.pop()));
-      
       let discard=[deck.pop()];
       while(['2','8','J','Q','K','A'].includes(discard[0].rank)) { deck.unshift(discard[0]); discard=[deck.pop()]; }
 
-      gameState = {
-        deck, discard, players: pObjs, turnIndex:0, direction:1, activeSuit:discard[0].suit,
-        pendingDraw2:0, pendingDrawJ:0, pendingSkip:0, awaitingSuit:false, winner:null, isLeague: isLeague
-      };
-      
+      gameState = { deck, discard, players: pObjs, turnIndex:0, direction:1, activeSuit:discard[0].suit, pendingDraw2:0, pendingDrawJ:0, pendingSkip:0, awaitingSuit:false, winner:null, isLeague: isLeague };
       isPassAndPlay = !isLeague && pObjs.filter(p=>!p.isBot).length > 1;
-      selectionOrder = [];
-      showScreen("game-screen");
-      updateGameUI();
-      localGameLoop();
+      selectionOrder = []; showScreen("game-screen"); updateGameUI(); localGameLoop();
     }
 
     function localGameLoop() {
       if(!gameState || gameState.winner) return;
       const p = gameState.players[gameState.turnIndex];
-      
       if(isPassAndPlay && !p.isBot && document.getElementById("game-screen").classList.contains("active")) {
-         // Show pass screen if it's a new human turn
-         showScreen("pass-device-screen");
-         document.getElementById("next-player-name").innerText = p.name;
-         return; 
+         showScreen("pass-device-screen"); document.getElementById("next-player-name").innerText = p.name; return; 
       }
-
-      if(p.isBot) setTimeout(localBotTurn, 1000);
-      updateGameUI();
+      if(p.isBot) {
+         document.getElementById("status-feed").innerText = `${p.name} thinking...`;
+         setTimeout(cpuTurn, 1000);
+      } else {
+         document.getElementById("status-feed").innerText = "Your Turn";
+      }
     }
     
     function startTurn() { showScreen("game-screen"); updateGameUI(); }
 
-    function localBotTurn() {
-       // Simple bot
-       const st = gameState;
-       const p = st.players[st.turnIndex];
-       if(st.winner) return;
-       
-       // Try play
-       const top = st.discard[st.discard.length-1];
-       const idx = p.hand.findIndex(c => c.rank===top.rank || c.suit===st.activeSuit || c.rank==='A');
-       
-       if(idx >= 0) {
-         if(p.hand.length===2) p.lastDeclared=true; 
-         attemptPlayLocal([idx]);
-       } else {
+    // --- SMART CPU LOGIC ---
+    function cpuTurn() {
+      let p = gameState.players[gameState.turnIndex];
+      
+      // 1. Handle Attacks
+      if(gameState.pendingDraw2) {
+         let idx = p.hand.findIndex(c=>c.rank==='2');
+         if(idx>-1) attemptPlayLocal([idx]); else attemptPickupLocal();
+         return;
+      }
+      if(gameState.pendingDrawJ) {
+         let idx = p.hand.findIndex(c=>c.rank==='J' && ['♥','♦'].includes(c.suit)); // Red Jack to block
+         if(idx>-1) attemptPlayLocal([idx]); else attemptPickupLocal();
+         return;
+      }
+      if(gameState.pendingSkip) {
+         let idx = p.hand.findIndex(c=>c.rank==='8');
+         if(idx>-1) attemptPlayLocal([idx]); else { gameState.pendingSkip=0; nextTurnLocal(); }
+         return;
+      }
+
+      // 2. Find Best Move
+      let bestMove = null;
+      // Simple greedy: play matched rank first (to shed cards), then suit
+      const top = getTop();
+      for(let i=0; i<p.hand.length; i++) {
+         const c = p.hand[i];
+         if(canStart(c, top, gameState.activeSuit)) {
+            // Check for multiple cards of same rank
+            let indices = [i];
+            for(let k=0; k<p.hand.length; k++) {
+               if(i!==k && p.hand[k].rank === c.rank) indices.push(k);
+            }
+            bestMove = indices;
+            break; 
+         }
+      }
+
+      if(bestMove) {
+         if(p.hand.length - bestMove.length <= 1) p.lastDeclared = true;
+         attemptPlayLocal(bestMove);
+      } else {
          attemptPickupLocal();
-       }
+      }
     }
 
-    // --- 7. ONLINE ENGINE (WebSocket) ---
+    // --- ONLINE ---
     function goToOnline() { showScreen("online-screen"); connectNet(); }
-    
     function connectNet() {
        if(ws) return;
-       const proto = location.protocol==='https:'?'wss':'ws';
-       ws = new WebSocket(`${proto}://${location.host}`);
+       ws = new WebSocket(`${location.protocol==='https:'?'wss':'ws'}://${location.host}`);
        ws.onopen = () => document.getElementById("online-status").innerText = "Connected";
        ws.onclose = () => document.getElementById("online-status").innerText = "Disconnected";
        ws.onmessage = (e) => handleNetMsg(JSON.parse(e.data));
     }
-    
-    function disconnectAndExit() {
-       if(ws) ws.close(); ws=null; showScreen("menu-screen");
-    }
-
+    function disconnectAndExit() { if(ws) ws.close(); ws=null; showScreen("menu-screen"); }
     function netHost() { ws.send(JSON.stringify({type:'CREATE_ROOM', name:leagueData.player.name})); }
     function netJoin() { 
        const c = document.getElementById("online-join-code").value.trim().toUpperCase();
@@ -394,7 +358,6 @@
        ws.send(JSON.stringify({type:'JOIN_ROOM', code:c, name:leagueData.player.name})); 
     }
     function netDeal() { ws.send(JSON.stringify({type:'START_GAME'})); }
-
     function handleNetMsg(msg) {
        if(msg.type==='ROOM_JOINED') {
           myId = msg.playerId;
@@ -408,11 +371,7 @@
           if(msg.names.length>1) document.getElementById("net-deal-btn").disabled=false;
        }
        if(msg.type==='GAME_STATE') {
-          // MAP SERVER STATE TO LOCAL FORMAT
-          // Server sends: { players:[{id,name,hand...}], ... }
-          // We use this directly for rendering
           gameState = msg.state;
-          // IMPORTANT: Check if we are "me" to populate my hand visually
           const me = gameState.players.find(p=>p.id===myId);
           if(me && me.hand.length > 0) AudioEngine.playCardSnap();
           updateGameUI();
@@ -420,7 +379,7 @@
        if(msg.type==='TOAST') { showToast(msg.msg); AudioEngine.playError(); shakeHand(); }
     }
 
-    // --- 8. SHARED ACTIONS & VALIDATION ---
+    // --- ACTIONS ---
     function isMyTurn() {
       if(!gameState) return false;
       const p = gameState.players[gameState.turnIndex];
@@ -428,44 +387,27 @@
       return p.id === myId;
     }
 
-    // PRE-VALIDATION to fix "Any card down" issue
     function isValidLocalMove(indices) {
        if(indices.length===0) return false;
        const p = gameMode==='offline' ? gameState.players[gameState.turnIndex] : gameState.players.find(x=>x.id===myId);
        const cards = indices.map(i=>p.hand[i]);
-       const top = gameState.discard[gameState.discard.length-1];
+       const top = getTop();
        const suit = gameState.activeSuit;
        
-       // 1. Check match
+       // Match check
        const c1 = cards[0];
-       const matches = (c1.rank === top.rank) || (c1.suit === suit) || (c1.rank === 'A');
-       if(!matches) return false;
+       if(!canStart(c1, top, suit)) return false;
+       // Combo check
+       if(cards.length > 1 && !cards.every(c => c.rank === c1.rank)) return false;
        
-       // 2. Check combo (must be same rank or run)
-       // Simplified: only same rank for multi-play to match generic rules
-       if(cards.length > 1) {
-          const allSame = cards.every(c => c.rank === c1.rank);
-          if(!allSame) return false; 
-       }
        return true;
     }
 
     function humanPlay() {
       if(!isMyTurn() || selectionOrder.length===0) return;
-      
-      // FIX: Check validity locally FIRST
-      if(!isValidLocalMove(selectionOrder)) {
-         showToast("Invalid Move!");
-         AudioEngine.playError();
-         shakeHand();
-         return;
-      }
-      
+      if(!isValidLocalMove(selectionOrder)) { showToast("Invalid Move!"); AudioEngine.playError(); shakeHand(); return; }
       if(gameMode==='offline') attemptPlayLocal(selectionOrder);
-      else {
-         ws.send(JSON.stringify({type:'ACTION_PLAY', indices:selectionOrder}));
-         selectionOrder=[]; // clear immediately for visual feedback
-      }
+      else { ws.send(JSON.stringify({type:'ACTION_PLAY', indices:selectionOrder})); selectionOrder=[]; }
     }
     
     function humanPickup() {
@@ -486,108 +428,69 @@
        document.getElementById("suit-modal").style.display="none";
     }
 
-    // --- 9. LOCAL LOGIC IMPLEMENTATION ---
+    // --- LOCAL LOGIC IMPL ---
     function attemptPlayLocal(indices) {
-       // Logic condensed for brevity but functionally complete
-       const st = gameState;
-       const p = st.players[st.turnIndex];
-       const cards = indices.map(i=>p.hand[i]);
-       
-       // Sort indices desc to remove
+       const st = gameState; const p = st.players[st.turnIndex]; const cards = indices.map(i=>p.hand[i]);
        indices.sort((a,b)=>b-a).forEach(i=>p.hand.splice(i,1));
-       
-       const isSet = cards.length>1; 
        cards.forEach((c,i)=>{
           st.discard.push(c);
           const isLast = i===cards.length-1;
           if(c.rank==='2') st.pendingDraw2 += 2;
           if(c.rank==='8') st.pendingSkip++;
           if(c.rank==='Q') st.direction *= -1;
-          if(c.rank==='J') st.pendingDrawJ += (['♠','♣'].includes(c.suit)?5:0); // Red blocks (simplification: red J adds 0)
+          if(c.rank==='J') st.pendingDrawJ += (['♠','♣'].includes(c.suit)?5:0); 
           if(c.rank==='A' && isLast) st.awaitingSuit = true;
           if(c.rank!=='A' && isLast) st.activeSuit = c.suit;
        });
-       
-       AudioEngine.playCardSnap();
-       selectionOrder=[];
-       
-       if(p.hand.length===0) {
-          st.winner = p.name;
-          finishGameLocal(p);
-          return;
-       }
-       
+       AudioEngine.playCardSnap(); selectionOrder=[];
+       if(p.hand.length===0) { st.winner = p.name; finishGameLocal(p); return; }
        if(st.awaitingSuit) {
           if(!p.isBot) document.getElementById("suit-modal").style.display="flex";
           else { st.activeSuit=['♠','♥','♦','♣'][Math.floor(Math.random()*4)]; st.awaitingSuit=false; nextTurnLocal(); }
-       } else {
-          nextTurnLocal();
-       }
+       } else nextTurnLocal();
     }
     
     function attemptPickupLocal() {
-       const st = gameState;
-       const p = st.players[st.turnIndex];
+       const st = gameState; const p = st.players[st.turnIndex];
        const pen = st.pendingDraw2 || st.pendingDrawJ || 1;
-       
        for(let i=0; i<pen; i++) {
           if(!st.deck.length) st.deck = st.discard.splice(0,st.discard.length-1).sort(()=>Math.random()-0.5);
           if(st.deck.length) p.hand.push(st.deck.pop());
        }
-       st.pendingDraw2=0; st.pendingDrawJ=0; st.pendingSkip=0;
-       nextTurnLocal();
+       st.pendingDraw2=0; st.pendingDrawJ=0; st.pendingSkip=0; nextTurnLocal();
     }
     
     function nextTurnLocal() {
-       const st = gameState;
-       st.players[st.turnIndex].lastDeclared=false;
+       const st = gameState; st.players[st.turnIndex].lastDeclared=false;
        st.turnIndex = (st.turnIndex + st.direction + st.players.length) % st.players.length;
-       updateGameUI();
-       localGameLoop();
+       updateGameUI(); localGameLoop();
     }
     
     function finishGameLocal(winner) {
        AudioEngine.playWin();
        document.getElementById("result-title").innerText = winner.name + " WINS!";
        document.getElementById("match-result-modal").style.display="flex";
-       if(gameState.isLeague && !winner.isBot) {
-          leagueData.player.wins++; leagueData.player.pts+=10; leagueData.player.winStreak++;
-          saveData();
-       } else if(gameState.isLeague) {
-          leagueData.player.losses++; leagueData.player.winStreak=0;
-          saveData();
-       }
+       if(gameState.isLeague && !winner.isBot) { leagueData.player.wins++; leagueData.player.pts+=10; leagueData.player.winStreak++; saveData(); } 
+       else if(gameState.isLeague) { leagueData.player.losses++; leagueData.player.winStreak=0; saveData(); }
     }
 
-    // --- 10. RENDERER ---
+    // --- RENDER ---
     function updateGameUI() {
        if(!gameState) return;
        showScreen("game-screen");
        
-       // Who am I?
        let me = (gameMode==='offline') ? gameState.players[gameState.turnIndex] : gameState.players.find(p=>p.id===myId);
-       // In pass-and-play, we render from the perspective of the current player (if human)
-       if(gameMode==='offline' && !me.isBot) { /* already set me */ }
-       // In online, 'me' is fixed by myId.
-
        const activeP = gameState.players[gameState.turnIndex];
        const isMe = (gameMode==='offline' && !activeP.isBot) || (gameMode==='online' && activeP.id===myId);
        
        document.getElementById("turn-status").innerText = isMe ? "YOUR TURN" : `${activeP.name}'s Turn`;
-       document.getElementById("status-feed").innerText = isMe ? "Your Move..." : "Waiting...";
-       
-       let atk = "";
-       if(gameState.pendingDraw2) atk=`Draw +${gameState.pendingDraw2}`;
-       if(gameState.pendingDrawJ) atk=`Draw +${gameState.pendingDrawJ}`;
-       if(gameState.pendingSkip) atk=`Skip!`;
+       let atk = ""; if(gameState.pendingDraw2) atk=`Draw +${gameState.pendingDraw2}`; if(gameState.pendingDrawJ) atk=`Draw +${gameState.pendingDrawJ}`; if(gameState.pendingSkip) atk=`Skip!`;
        document.getElementById("attack-status").innerText = atk;
 
-       // Discard
        const dp = document.getElementById("discard-pile"); dp.innerHTML="";
        if(gameState.discard.length) {
           const top = gameState.discard[gameState.discard.length-1];
           dp.appendChild(createCard(top, -1, false));
-          // Suit bubble
           if(gameState.activeSuit) {
              const b=document.createElement("div"); b.innerText=gameState.activeSuit;
              b.style.cssText=`position:absolute; bottom:-10px; right:-10px; background:white; width:30px; height:30px; border-radius:50%; border:2px solid black; text-align:center; line-height:30px; color:${['♥','♦'].includes(gameState.activeSuit)?'red':'black'}`;
@@ -595,54 +498,38 @@
           }
        }
 
-       // Hand
        const handDiv = document.getElementById("player-hand"); handDiv.innerHTML="";
-       // In offline mode, if it's bot turn, show backs? Or just show active player hand?
-       // Pass & Play: Show active player hand.
-       // Online: Show 'me' hand.
        const handToShow = (gameMode==='offline') ? activeP.hand : me.hand;
-       
-       // If it's online and I'm a spectator (game started, I joined late?), hand might be empty/null
        if(handToShow) {
          const center = (handToShow.length-1)/2;
          handToShow.forEach((c,i) => {
             const el = createCard(c, i, true);
-            const dist = i-center;
-            el.style.setProperty("--fan-rot", (dist*4)+"deg");
-            el.style.setProperty("--fan-y", (Math.abs(dist)*4)+"px");
-            el.style.zIndex=i;
+            const dist = i-center; el.style.setProperty("--fan-rot", (dist*4)+"deg"); el.style.setProperty("--fan-y", (Math.abs(dist)*4)+"px"); el.style.zIndex=i;
             handDiv.appendChild(el);
          });
        }
 
-       // Opponents
        const cpuDiv = document.getElementById("cpu-area"); cpuDiv.innerHTML="";
        gameState.players.forEach(p => {
-          // Don't show me in opponent bar
           if(gameMode==='online' && p.id===myId) return;
           if(gameMode==='offline' && p===activeP) return; 
-
           const w=document.createElement("div"); w.className=`opponent-wrapper ${p===activeP?'active-turn':''}`;
           w.innerHTML=`<div class="opponent-name">${p.name}</div>`;
           const h=document.createElement("div"); h.style.display="flex"; h.style.transform="scale(0.6)";
           const cnt=Math.min(p.cardCount || p.hand.length, 5);
           for(let k=0;k<cnt;k++) h.innerHTML+=`<div class="card back" style="margin-right:-45px"></div>`;
-          w.appendChild(h);
-          cpuDiv.appendChild(w);
+          w.appendChild(h); cpuDiv.appendChild(w);
        });
 
-       // Buttons
        document.getElementById("btn-play").disabled = !isMe || selectionOrder.length===0;
        document.getElementById("btn-pickup").disabled = !isMe;
        const btnLast = document.getElementById("btn-last");
        if((gameMode==='offline'?activeP:me).lastDeclared) { btnLast.innerText="CALLED"; btnLast.classList.add("called"); }
        else { btnLast.innerText="LAST!"; btnLast.classList.remove("called"); }
        
-       // Modal
        if(gameState.winner) {
           document.getElementById("result-title").innerText = gameState.winner + " WINS!";
-          document.getElementById("match-result-modal").style.display="flex";
-          AudioEngine.playWin();
+          document.getElementById("match-result-modal").style.display="flex"; AudioEngine.playWin();
        }
        if(gameState.awaitingSuit && isMe) document.getElementById("suit-modal").style.display="flex";
     }
@@ -650,31 +537,19 @@
     function createCard(c, i, clickable) {
        const el = document.createElement("div");
        el.className = `card ${['♥','♦'].includes(c.suit)?'red':''}`;
-       if(selectionOrder.includes(i)) {
-          el.classList.add("selected");
-          el.innerHTML += `<div class="selection-badge">${selectionOrder.indexOf(i)+1}</div>`;
-       }
+       if(selectionOrder.includes(i)) { el.classList.add("selected"); el.innerHTML += `<div class="selection-badge">${selectionOrder.indexOf(i)+1}</div>`; }
        el.innerHTML += `<div class="card-corner">${c.rank}<br>${c.suit}</div><div class="center-suit">${c.suit}</div><div class="card-bottom">${c.rank}<br>${c.suit}</div>`;
        if(clickable) el.onclick = () => {
           if(!isMyTurn()) return;
           const idx = selectionOrder.indexOf(i);
           if(idx>-1) selectionOrder.splice(idx,1); else selectionOrder.push(i);
-          AudioEngine.playTone(300,"sine",0.05,0.05);
-          updateGameUI();
+          AudioEngine.playTone(300,"sine",0.05,0.05); updateGameUI();
        };
        return el;
     }
 
-    function shakeHand() {
-       const h = document.getElementById("player-hand");
-       for(let c of h.children) { c.classList.add("shake"); setTimeout(()=>c.classList.remove("shake"),400); }
-    }
-    
-    function toggleSort() { 
-       sortByRank=!sortByRank;
-       // Sort logic would go here, updating local hand array or display order
-       showToast("Sorted!");
-    }
+    function shakeHand() { const h=document.getElementById("player-hand"); for(let c of h.children){c.classList.add("shake"); setTimeout(()=>c.classList.remove("shake"),400);} }
+    function toggleSort() { sortByRank=!sortByRank; showToast("Sorted!"); }
     function exitGame() { location.reload(); }
 
     loadData();
