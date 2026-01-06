@@ -1,9 +1,8 @@
-// server.js
 const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
 const path = require('path');
-const { v4: uuidv4 } = require('uuid');
+const { v4: uuidv4 } = require('uuid'); // This caused the crash before fix
 
 const app = express();
 const server = http.createServer(app);
@@ -21,7 +20,7 @@ const POWER_RANKS = new Set(["A", "2", "8", "J", "Q", "K"]);
 const SUIT_MAP = { H: "♥", D: "♦", C: "♣", S: "♠" };
 
 // --- ROOM STORAGE ---
-const rooms = {}; // { roomCode: { players: [], gameState: {}, ... } }
+const rooms = {};
 
 // --- GAME HELPER FUNCTIONS ---
 function createDeck() {
@@ -79,7 +78,6 @@ function initGame(room) {
     const deck = createDeck();
     shuffle(deck);
     
-    // Setup state
     room.gameState = {
         deck: deck,
         discard: [],
@@ -88,7 +86,7 @@ function initGame(room) {
             name: p.name,
             hand: [],
             lastDeclared: false,
-            wins: 0 // Track session wins if needed
+            wins: 0
         })),
         turnIndex: 0,
         direction: 1,
@@ -98,7 +96,8 @@ function initGame(room) {
         pendingSkip: 0,
         extraTurn: false,
         winner: null,
-        status: 'playing'
+        status: 'playing',
+        awaitingSuit: false
     };
 
     // Deal 7 cards
@@ -122,25 +121,16 @@ function handlePlay(room, playerId, cardIndices) {
     const state = room.gameState;
     const player = state.players[state.turnIndex];
 
-    // Security check: is it this player's turn?
     if (player.id !== playerId) return { error: "Not your turn" };
 
-    // Get card objects
-    // Sort indices descending to remove safely
+    // Sort descending to splice safely
     cardIndices.sort((a, b) => b - a);
-    
-    // Validate indices exist
     if (cardIndices.some(idx => idx < 0 || idx >= player.hand.length)) return { error: "Invalid cards" };
 
     const cards = cardIndices.map(idx => player.hand[idx]);
-    // Note: The array `cards` is in reverse order of indices now, need to reverse it back to play order if logic depends on order (usually P2P logic depended on selection order). 
-    // For safety, let's assume the Client sends them in logical play order, but we must map them to actual hand objects carefully.
-    // Actually, simpler approach: The Client sends indices. We grab them.
-    // The "Front of chain" is the first card selected.
-    // Let's reverse the array back to "Play Order" for logic checks
+    // Client selection order is crucial, reverse to get play order
     cards.reverse(); 
 
-    // Validation Logic (Ported from Client)
     let err = null;
     let top = state.discard[state.discard.length - 1];
 
@@ -157,22 +147,15 @@ function handlePlay(room, playerId, cardIndices) {
     if (err) return { error: err };
 
     // Execute Play
-    // Remove from hand
     cardIndices.forEach(idx => player.hand.splice(idx, 1));
-    
     let isSet = cards.length > 1 && cards.every(c => c.rank === cards[0].rank);
 
     cards.forEach((c, i) => {
         state.discard.push(c);
         let isLast = i === cards.length - 1;
         
-        // Apply Power
         if (POWER_RANKS.has(c.rank) && (isSet || isLast)) {
             if (c.rank === "A" && isLast) {
-                // Ace logic handled by separate event usually, but for speed, let's auto-set to Ace's suit until player picks
-                // Or better: Server waits for "SUIT_PICK" message?
-                // For simplicity: Default to card suit, Client sends specific "PICK_SUIT" msg immediately after.
-                // WE WILL MARK STATE AS 'WAITING_FOR_SUIT'
                 state.awaitingSuit = true;
             } 
             else if (c.rank === "2") state.pendingDraw2 += 2;
@@ -181,46 +164,35 @@ function handlePlay(room, playerId, cardIndices) {
             else if (c.rank === "K") state.extraTurn = true;
             else if (c.rank === "J") {
                  if (c.suit === "♥" || c.suit === "♦") {
-                     if (state.pendingDrawJ > 0) state.pendingDrawJ = 0; // Block
+                     if (state.pendingDrawJ > 0) state.pendingDrawJ = 0; 
                  } else state.pendingDrawJ += 5;
             }
         }
     });
 
-    // Update Active Suit
     let lastCard = cards[cards.length - 1];
     if (lastCard.rank !== "A") state.activeSuit = lastCard.suit;
 
-    // Check Win Condition / Dirty Finish
+    // Check Finish
     if (player.hand.length === 0) {
         if (POWER_RANKS.has(lastCard.rank)) {
             // Illegal Finish
             player.hand.push(...draw(state, 2));
             player.lastDeclared = false;
-            // Clean up power effects from the illegal finish? 
-            // The original code cancels "King go again", but keeps others. 
             state.extraTurn = false; 
             state.awaitingSuit = false;
-            
             finishTurn(state);
             return { message: "Can't finish on power card! Drew 2." };
         } else {
-            // WINNER
             state.winner = player.name;
             state.status = 'ended';
             return { success: true };
         }
     }
 
-    // Handle Ace Pending (Stop here, wait for suit pick)
-    if (state.awaitingSuit) {
-        return { success: true, action: "PICK_SUIT" };
-    }
-
-    // Handle King Extra Turn
+    if (state.awaitingSuit) return { success: true, action: "PICK_SUIT" };
     if (state.extraTurn) {
         state.extraTurn = false;
-        // Turn index doesn't change
         return { success: true };
     }
 
@@ -229,7 +201,7 @@ function handlePlay(room, playerId, cardIndices) {
 }
 
 function finishTurn(state) {
-    state.players[state.turnIndex].lastDeclared = false; // Reset "Last" call
+    state.players[state.turnIndex].lastDeclared = false;
     let num = state.players.length;
     state.turnIndex = (state.turnIndex + state.direction + num) % num;
 }
@@ -237,12 +209,13 @@ function finishTurn(state) {
 // --- WEBSOCKET HANDLER ---
 wss.on('connection', (ws) => {
     let currentRoom = null;
-    let myId = uuidv4();
+    let myId = uuidv4(); // Generate ID using the fixed library import
 
     const send = (type, data) => ws.send(JSON.stringify({ type, ...data }));
 
     ws.on('message', (message) => {
-        const msg = JSON.parse(message);
+        let msg;
+        try { msg = JSON.parse(message); } catch(e) { return; }
 
         if (msg.type === 'CREATE_ROOM') {
             const roomCode = Math.random().toString(36).substring(2, 6).toUpperCase();
@@ -263,8 +236,6 @@ wss.on('connection', (ws) => {
             room.players.push({ id: myId, name: msg.name, ws: ws });
             currentRoom = msg.code;
             send('ROOM_JOINED', { code: msg.code, isHost: false, playerId: myId });
-            
-            // Notify Host
             broadcast(room, 'PLAYER_UPDATE', { names: room.players.map(p => p.name) });
         }
 
@@ -281,10 +252,10 @@ wss.on('connection', (ws) => {
             const state = room.gameState;
             const p = state.players[state.turnIndex];
             
-            if (p.id !== myId) return; // Not your turn
+            if (p.id !== myId) return;
 
             if (state.pendingSkip > 0) {
-                state.pendingSkip = 0; // Miss turn
+                state.pendingSkip = 0;
             } else {
                 let pen = state.pendingDraw2 || state.pendingDrawJ || 1;
                 let cards = draw(state, pen);
@@ -292,7 +263,6 @@ wss.on('connection', (ws) => {
                 state.pendingDraw2 = 0;
                 state.pendingDrawJ = 0;
             }
-            
             finishTurn(state);
             broadcastState(room);
         }
@@ -300,16 +270,9 @@ wss.on('connection', (ws) => {
         else if (msg.type === 'ACTION_PLAY') {
             const room = rooms[currentRoom];
             if (!room) return;
-            
             const result = handlePlay(room, myId, msg.indices);
-            if (result.error) {
-                send('TOAST', { msg: result.error });
-            } else {
-                if (result.action === "PICK_SUIT") {
-                     // Just broadcast state, UI will see active player needs to pick suit
-                }
-                broadcastState(room);
-            }
+            if (result.error) send('TOAST', { msg: result.error });
+            else broadcastState(room);
         }
 
         else if (msg.type === 'ACTION_SUIT') {
@@ -317,7 +280,6 @@ wss.on('connection', (ws) => {
              if (!room || !room.gameState.awaitingSuit) return;
              const state = room.gameState;
              if (state.players[state.turnIndex].id !== myId) return;
-
              state.activeSuit = SUIT_MAP[msg.suitChar] || "♠";
              state.awaitingSuit = false;
              finishTurn(state);
@@ -345,24 +307,19 @@ wss.on('connection', (ws) => {
 
 function broadcast(room, type, data) {
     room.players.forEach(p => {
-        if (p.ws.readyState === WebSocket.OPEN) {
-            p.ws.send(JSON.stringify({ type, ...data }));
-        }
+        if (p.ws.readyState === WebSocket.OPEN) p.ws.send(JSON.stringify({ type, ...data }));
     });
 }
 
 function broadcastState(room) {
-    // We sanitize the state so players can't see opponent hands
     room.players.forEach(p => {
         const safeState = JSON.parse(JSON.stringify(room.gameState));
         safeState.players.forEach(pl => {
             if (pl.id !== p.id) {
-                // Hide opponent cards (replace with count)
                 pl.cardCount = pl.hand.length;
                 pl.hand = []; 
             }
         });
-        
         if (p.ws.readyState === WebSocket.OPEN) {
             p.ws.send(JSON.stringify({ type: 'GAME_STATE', state: safeState, myId: p.id }));
         }
