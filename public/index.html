@@ -5,12 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Old Skool Blackjack — Online</title>
   <style>
-    /* --- CSS STYLES (Kept from original) --- */
     :root {
       --chalk-green: #3a5f42;
       --chalk-white: #eeeeee;
-      --paper-white: #fdfbf7;
-      --line-blue: #a2d2ff;
       --sticker-yellow: #ffeb3b;
       --sticker-pink: #ff80ab;
       --sticker-blue: #80d8ff;
@@ -19,7 +16,7 @@
     }
 
     body {
-      font-family: "Comic Sans MS", "Chalkboard SE", "Marker Felt", sans-serif;
+      font-family: "Comic Sans MS", "Chalkboard SE", sans-serif;
       background-color: var(--chalk-green);
       color: var(--chalk-white);
       margin: 0;
@@ -28,102 +25,39 @@
       display: flex;
       flex-direction: column;
       touch-action: manipulation;
-      background-image: radial-gradient(#4a6f52 2px, transparent 2px);
-      background-size: 30px 30px;
     }
 
-    /* --- ANIMATIONS --- */
-    @keyframes popIn {
-      0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
-      80% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
-      100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-    }
-    
-    @keyframes rainbow-glow {
-      0% { box-shadow: 0 0 10px #ff0000; border-color: #ff0000; }
-      50% { box-shadow: 0 0 10px #25d1cb; border-color: #25d1cb; }
-      100% { box-shadow: 0 0 10px #ff00c8; border-color: #ff00c8; }
-    }
-    .winning-btn {
-      animation: rainbow-glow 0.5s infinite;
-      transform: scale(1.05) !important;
-      background: white !important;
-      color: black !important;
-    }
-
-    /* --- SCREENS --- */
+    /* SCREENS */
     .screen {
-      position: absolute;
-      top: 0; left: 0; width: 100%; height: 100%;
-      display: none;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      background: var(--chalk-green);
-      z-index: 10;
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      display: none; flex-direction: column; justify-content: center; align-items: center;
+      background: var(--chalk-green); z-index: 10;
     }
     .screen.active { display: flex; }
 
-    #login-screen, #menu-screen, #p2p-screen {
-      background-color: var(--paper-white);
-      background-image: linear-gradient(var(--line-blue) 1px, transparent 1px);
-      background-size: 100% 25px;
-      color: #333;
-    }
-
-    /* --- UI ELEMENTS --- */
-    .logo-badge {
-      display: inline-flex; align-items: center; gap: 10px;
-      background: white; padding: 10px 16px; border: 3px solid #333;
-      border-radius: 12px; transform: rotate(-2deg); margin-bottom: 20px;
-      box-shadow: 5px 5px 0 rgba(0,0,0,0.2);
-    }
-    .logo-text { font-size: 2rem; font-weight: 900; line-height: 1; }
-
-    input[type="text"] {
-      padding: 10px; font-family: inherit; font-size: 1.3rem;
-      background: transparent; color: #333; border: none;
-      border-bottom: 3px solid #333; width: 280px; text-align: center;
-      margin-bottom: 18px; outline: none;
-    }
-
+    /* UI ELEMENTS */
     .menu-btn {
-      width: 85%; max-width: 340px; padding: 15px;
-      border: 3px solid #333;
-      border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
-      font-family: inherit; font-size: 1.4rem; font-weight: bold;
-      text-transform: uppercase; cursor: pointer;
-      display: flex; flex-direction: column; align-items: center;
-      box-shadow: 3px 3px 0 #333; margin-bottom: 15px;
-      background: white; color: #333;
+      width: 280px; padding: 15px; margin: 10px;
+      border: 3px solid #333; border-radius: 10px;
+      font-weight: bold; cursor: pointer; background: white; color: #333;
+      box-shadow: 4px 4px 0 #333;
     }
-    .menu-btn:active { transform: scale(0.95); box-shadow: 1px 1px 0 #333; }
     .btn-start { background: var(--sticker-pink); }
-    .btn-league { background: var(--sticker-yellow); }
-
-    /* --- GAME TABLE --- */
-    #status-feed {
-      position: absolute; top: 0; left: 0; width: 100%; height: 35px;
-      background: rgba(0,0,0,0.3); color: white;
-      display: flex; align-items: center; justify-content: center;
-    }
-    #game-info-bar {
-      position: absolute; top: 40px; width: 100%;
-      text-align: center; display: flex; justify-content: center; gap: 20px;
+    .btn-action { background: var(--sticker-yellow); }
+    
+    input[type="text"] {
+      padding: 10px; font-size: 1.2rem; margin: 10px;
+      width: 260px; text-align: center; border-radius: 5px; border: none;
     }
 
+    /* GAME AREAS */
     #cpu-area {
-      position: absolute; top: 80px; width: 100%;
-      display: flex; justify-content: space-around; height: 120px;
+      position: absolute; top: 60px; width: 100%; height: 120px;
+      display: flex; justify-content: center; gap: 10px;
     }
-    .opponent-wrapper {
-      display: flex; flex-direction: column; align-items: center;
-      transform: scale(0.85); transition: 0.3s; opacity: 0.6;
-    }
-    .opponent-wrapper.active-turn { opacity: 1; transform: scale(1.1); }
-    .opponent-name {
-      background: white; color: black; border: 2px solid black;
-      padding: 4px 10px; font-weight: bold; margin-bottom: 5px;
+    .opponent {
+      background: rgba(0,0,0,0.2); padding: 5px; border-radius: 5px;
+      text-align: center; font-size: 0.8rem;
     }
 
     #center-area {
@@ -132,474 +66,326 @@
     }
 
     #player-area {
-      position: absolute; bottom: 0; width: 100%;
-      height: 140px; background: #d2a679;
-      border-top: 5px solid #8d6e63;
-      overflow-x: auto; white-space: nowrap;
-      display: flex; justify-content: center; align-items: flex-end;
-      padding-bottom: 20px; box-sizing: border-box;
+      position: absolute; bottom: 0; width: 100%; height: 150px;
+      background: #8d6e63; border-top: 5px solid #5d4037;
+      display: flex; justify-content: center; align-items: flex-end; padding-bottom: 20px;
     }
 
-    /* --- CARDS --- */
+    /* CARDS */
     .card {
       width: var(--card-w); height: var(--card-h);
-      background: white; border-radius: 8px; border: 2px solid #333;
-      position: relative; display: inline-flex; flex-direction: column;
-      margin-left: -35px; cursor: pointer; box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
-      
-      /* Fan support */
-      transform: rotate(var(--fan-rot, 0deg)) translateY(var(--fan-y, 0px));
-      transform-origin: bottom center; transition: transform 0.2s;
+      background: white; border-radius: 6px; border: 2px solid #333;
+      position: relative; margin-left: -30px; cursor: pointer;
+      display: flex; flex-direction: column; justify-content: space-between;
+      padding: 2px; box-sizing: border-box; color: black;
+      transition: transform 0.2s;
     }
     .card.red { color: #d32f2f; }
-    .card.selected {
-      border: 4px solid var(--sticker-pink);
-      transform: rotate(var(--fan-rot, 0deg)) translateY(-40px) scale(1.1);
-      z-index: 100 !important;
-    }
-    .card.back {
-      background: repeating-linear-gradient(45deg, #333 0, #333 2px, #fff 2px, #fff 4px);
-      border: 2px solid white;
-    }
+    .card.selected { transform: translateY(-30px); border-color: var(--sticker-pink); }
+    .card.back { background: repeating-linear-gradient(45deg, #333 0, #333 2px, #fff 2px, #fff 4px); }
     .card.back * { display: none; }
     
-    .card-corner { position: absolute; top: 2px; left: 4px; line-height: 0.9; text-align: center; }
-    .card-corner .rank { font-size: 20px; font-weight: 900; }
-    .card-bottom { position: absolute; bottom: 2px; right: 4px; transform: rotate(180deg); line-height: 0.9; text-align: center; }
-    .center-suit { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 30px; opacity: 0.2; }
+    .card-corner { font-size: 14px; font-weight: bold; line-height: 1; }
+    .card-center { font-size: 24px; text-align: center; opacity: 0.3; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
 
     /* HUD */
-    #game-hud {
-      position: absolute; top: 60%; right: 10px;
-      display: flex; flex-direction: column; gap: 10px; z-index: 100;
+    #hud-controls {
+      position: absolute; bottom: 170px; width: 100%;
+      display: flex; justify-content: center; gap: 10px; pointer-events: none;
     }
     .hud-btn {
-      padding: 15px 10px; border: 3px solid black; border-radius: 10px;
-      font-weight: 900; cursor: pointer; background: white;
-      box-shadow: 4px 4px 0 rgba(0,0,0,0.3);
+      pointer-events: auto; padding: 10px 20px; border: 2px solid black;
+      background: white; font-weight: bold; border-radius: 8px; cursor: pointer;
     }
-    #btn-play { background: var(--sticker-pink); }
-    #btn-last.called { background: #4caf50; color: white; transform: scale(0.95); }
-    .hud-btn:disabled { background: #ccc; color: #777; transform: none; box-shadow: none; }
+    .hud-btn:disabled { background: #ccc; color: #777; }
 
-    /* MODALS */
-    #suit-modal, #match-result-modal {
+    /* MODAL */
+    #modal-overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.9); display: none;
-      flex-direction: column; justify-content: center; align-items: center;
-      z-index: 200; color: white;
+      background: rgba(0,0,0,0.85); display: none;
+      justify-content: center; align-items: center; z-index: 100;
+      color: white; flex-direction: column;
     }
-    .suit-btn { font-size: 50px; width: 80px; height: 80px; margin: 10px; cursor: pointer; border-radius: 20px; border: 3px solid black; background: white; }
+    .suit-btn { font-size: 40px; margin: 10px; cursor: pointer; background: white; border: none; border-radius: 5px; width: 60px; }
 
-    /* TOAST */
     #toast {
-      position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
-      background: #333; color: white; padding: 15px 30px; border-radius: 30px;
-      font-weight: bold; opacity: 0; pointer-events: none; transition: opacity 0.3s; z-index: 300;
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      background: #333; color: white; padding: 15px 30px; border-radius: 20px;
+      opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 200;
     }
     #toast.show { opacity: 1; }
   </style>
 </head>
 <body>
 
-  <div id="toast"></div>
+<div id="toast"></div>
 
-  <div id="login-screen" class="screen active">
-    <div class="logo-badge">
-      <div style="font-size:30px">♠</div>
-      <div class="logo-text">OLD SKOOL<br>BLACKJACK</div>
-    </div>
-    <input type="text" id="username-input" placeholder="Enter Your Name" maxlength="12">
-    <button class="menu-btn btn-start" onclick="signUp()">ENTER</button>
+<div id="login-screen" class="screen active">
+  <h1>♠ OLD SKOOL ♠</h1>
+  <input type="text" id="username" placeholder="Your Name">
+  <button class="menu-btn btn-start" onclick="login()">ENTER</button>
+</div>
+
+<div id="lobby-screen" class="screen">
+  <h2>ONLINE LOBBY</h2>
+  <div style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; margin-bottom: 20px;">
+    Status: <span id="connection-status">Connecting...</span>
+  </div>
+  
+  <input type="text" id="room-code" placeholder="Enter Room Code">
+  <button class="menu-btn btn-action" onclick="hostGame()">CREATE ROOM</button>
+  <button class="menu-btn btn-start" onclick="joinGame()">JOIN ROOM</button>
+  
+  <div id="host-panel" style="display:none; margin-top: 20px; text-align: center;">
+    <h3>Room: <span id="my-room-code" style="color:var(--sticker-yellow)">---</span></h3>
+    <p>Waiting for player...</p>
+    <button class="menu-btn btn-start" onclick="startGame()">DEAL CARDS</button>
+  </div>
+</div>
+
+<div id="game-screen" class="screen">
+  <div style="position:absolute; top:10px; text-align:center; width:100%;">
+    <div id="turn-indicator" style="font-weight:bold; font-size:1.2rem;">Waiting...</div>
+    <div id="game-message" style="color:var(--sticker-yellow); height: 20px;"></div>
   </div>
 
-  <div id="menu-screen" class="screen">
-    <h2 style="margin-bottom: 30px">Welcome, <span id="menu-username"></span></h2>
-    <button class="menu-btn btn-league" onclick="goToP2P()">
-      📡 PLAY ONLINE
-      <small>Host or Join a Room</small>
-    </button>
+  <div id="cpu-area"></div>
+
+  <div id="center-area">
+    <div id="deck" class="card back" onclick="drawCard()"></div>
+    <div id="discard"></div>
   </div>
 
-  <div id="p2p-screen" class="screen">
-    <h2 style="margin:0">ONLINE LOBBY</h2>
-    <div style="margin: 20px 0; text-align:center;">
-      <div style="font-weight:bold; margin-bottom:5px;">Room Status:</div>
-      <div id="p2p-status" style="background:#fff9c4; padding:10px; border:2px dashed #333; border-radius:10px;">
-        Not Connected
-      </div>
-    </div>
-
-    <div style="margin-bottom: 20px; display:flex; flex-direction:column; gap:10px;">
-      <input type="text" id="p2p-join-code" placeholder="Enter Room Code" style="background:white">
-      <div style="display:flex; gap:10px; justify-content:center;">
-        <button class="hud-btn" onclick="p2pHost()" style="background:var(--sticker-yellow)">CREATE ROOM</button>
-        <button class="hud-btn" onclick="p2pJoin()" style="background:var(--sticker-blue)">JOIN ROOM</button>
-      </div>
-    </div>
-
-    <div style="border-top: 2px dashed #ccc; width:80%; margin:10px 0;"></div>
-
-    <div id="host-controls" style="text-align:center;">
-      <div style="margin-bottom:10px; font-weight:bold;">Your Room Code: <span id="p2p-my-code" style="font-family:monospace; font-size:1.5rem;">---</span></div>
-      <button id="p2p-deal-btn" class="menu-btn btn-start" onclick="p2pDeal()" disabled>
-        DEAL CARDS!
-      </button>
-    </div>
+  <div id="hud-controls">
+    <button id="btn-play" class="hud-btn" onclick="playCards()">PLAY</button>
+    <button id="btn-draw" class="hud-btn" onclick="drawCard()">DRAW</button>
+    <button id="btn-last" class="hud-btn" onclick="sayLast()">LAST!</button>
   </div>
 
-  <div id="game-screen" class="screen" style="background: var(--chalk-green);">
-    <div id="status-feed">Waiting for move...</div>
+  <div id="player-area"></div>
+</div>
+
+<div id="modal-overlay">
+  <div id="modal-content" style="text-align:center"></div>
+</div>
+
+<script>
+  // --- CLIENT LOGIC ---
+  const wsProtocol = location.protocol === 'https:' ? 'wss' : 'ws';
+  const socket = new WebSocket(`${wsProtocol}://${location.host}`);
+  
+  let myId = null;
+  let myName = localStorage.getItem("username") || "";
+  let gameState = null;
+  let selectedIndices = [];
+
+  // --- AUDIO ---
+  const beep = (f=500) => {
+    try {
+      const ctx = new (window.AudioContext||window.webkitAudioContext)();
+      const o = ctx.createOscillator(); o.frequency.value=f;
+      o.connect(ctx.destination); o.start(); o.stop(ctx.currentTime+0.1);
+    } catch(e){}
+  };
+
+  // --- SCREEN NAV ---
+  function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+  }
+  
+  if(myName) document.getElementById('username').value = myName;
+
+  // --- SOCKET EVENTS ---
+  socket.onopen = () => { document.getElementById('connection-status').innerText = "Connected"; };
+  
+  socket.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
     
-    <div id="game-info-bar">
-      <div id="turn-status" style="font-weight:bold; color:white; text-shadow:1px 1px 0 #000;"></div>
-      <div id="attack-status" style="font-weight:bold; color:var(--sticker-yellow); text-shadow:1px 1px 0 #000;"></div>
-    </div>
-
-    <div id="cpu-area"></div>
-
-    <div id="center-area">
-      <div id="draw-pile" class="card back" onclick="humanPickup()"></div>
-      <div id="discard-pile"></div>
-    </div>
-
-    <div id="game-hud">
-      <button class="hud-btn" id="btn-play" onclick="humanPlay()" disabled>PLAY</button>
-      <button class="hud-btn" id="btn-pickup" onclick="humanPickup()">DRAW</button>
-      <button class="hud-btn" id="btn-last" onclick="humanDeclareLast()">LAST!</button>
-    </div>
-
-    <div id="player-area">
-      <div id="player-hand" style="position:relative; height:100%; display:flex; justify-content:center; align-items:flex-end;"></div>
-    </div>
-  </div>
-
-  <div id="suit-modal">
-    <h2>Pick a Suit!</h2>
-    <div style="display:flex;">
-      <button class="suit-btn" onclick="resolveAce('H')" style="color:#d32f2f">♥</button>
-      <button class="suit-btn" onclick="resolveAce('D')" style="color:#d32f2f">♦</button>
-      <button class="suit-btn" onclick="resolveAce('C')" style="color:black">♣</button>
-      <button class="suit-btn" onclick="resolveAce('S')" style="color:black">♠</button>
-    </div>
-  </div>
-
-  <div id="match-result-modal">
-    <h1 id="result-title" style="font-size:3rem; color:var(--sticker-yellow); text-shadow:3px 3px 0 #000;">WINNER</h1>
-    <p id="result-desc">Game Over</p>
-    <button class="menu-btn btn-start" onclick="location.reload()">Back to Menu</button>
-  </div>
-
-  <script>
-    // --- 1. AUDIO ENGINE ---
-    const AudioEngine = {
-      ctx: null,
-      init: function() { 
-        if(!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); 
-      },
-      beep: function(freq) {
-        this.init();
-        if(this.ctx.state === "suspended") this.ctx.resume();
-        const o = this.ctx.createOscillator();
-        const g = this.ctx.createGain();
-        o.frequency.value = freq;
-        g.gain.value = 0.1;
-        o.connect(g); g.connect(this.ctx.destination);
-        o.start(); o.stop(this.ctx.currentTime + 0.1);
-      }
-    };
-
-    // --- 2. GLOBAL STATE ---
-    let ws = null;
-    let myId = null;
-    let gameState = null;
-    let selectionOrder = [];
-
-    // --- 3. UI HELPERS ---
-    function showScreen(id) {
-      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-      document.getElementById(id).classList.add('active');
-    }
-
-    function showToast(msg) {
-      const t = document.getElementById('toast');
-      t.innerText = msg;
-      t.classList.add('show');
-      setTimeout(() => t.classList.remove('show'), 2000);
-    }
-
-    // --- 4. NETWORK LOGIC (WebSockets) ---
-    function connectToServer() {
-      // Auto-detect ws:// or wss:// based on current page
-      const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-      const host = location.host; // e.g. localhost:3000
-      
-      ws = new WebSocket(`${protocol}://${host}`);
-
-      ws.onopen = () => { console.log("Connected to Server"); };
-      
-      ws.onmessage = (event) => {
-        const msg = JSON.parse(event.data);
-        handleServerMessage(msg);
-      };
-
-      ws.onclose = () => {
-        showToast("Disconnected from Server");
-        setTimeout(() => location.reload(), 2000);
-      };
-    }
-
-    function handleServerMessage(msg) {
-      if (msg.type === 'ROOM_JOINED') {
-        myId = msg.playerId;
-        document.getElementById('p2p-my-code').innerText = msg.code;
-        document.getElementById('p2p-status').innerText = msg.isHost ? "You are Host. Waiting for players..." : "Joined. Waiting for Host to Deal.";
-        document.getElementById('p2p-deal-btn').disabled = !msg.isHost;
-        showScreen('p2p-screen');
-      }
-      else if (msg.type === 'PLAYER_UPDATE') {
-        document.getElementById('p2p-status').innerText = `Players: ${msg.names.join(', ')}`;
-      }
-      else if (msg.type === 'GAME_STATE') {
-        gameState = msg.state;
-        updateGameUI();
-      }
-      else if (msg.type === 'TOAST') {
-        showToast(msg.msg);
-        AudioEngine.beep(150); // Error sound
-      }
-      else if (msg.type === 'ERROR') {
-        showToast(msg.msg);
-      }
-    }
-
-    // --- 5. MENU ACTIONS ---
-    function signUp() {
-      const name = document.getElementById('username-input').value.trim();
-      if (!name) return showToast("Enter your name!");
-      localStorage.setItem("username", name);
-      document.getElementById('menu-username').innerText = name;
-      
-      // Connect to WS immediately upon login
-      connectToServer();
-      showScreen('menu-screen');
-    }
-
-    function goToP2P() {
-      showScreen('p2p-screen');
-    }
-
-    function p2pHost() {
-      const name = localStorage.getItem("username");
-      if (ws && ws.readyState === 1) {
-        ws.send(JSON.stringify({ type: 'CREATE_ROOM', name: name }));
+    if(msg.type === 'ROOM_JOINED') {
+      myId = msg.playerId;
+      document.getElementById('my-room-code').innerText = msg.code;
+      if(msg.isHost) {
+        document.getElementById('host-panel').style.display = 'block';
       } else {
-        showToast("Connecting...");
-        connectToServer();
+        document.getElementById('connection-status').innerText = "Joined. Waiting for host...";
+      }
+    }
+    
+    if(msg.type === 'PLAYER_UPDATE') {
+      document.getElementById('connection-status').innerText = `Players: ${msg.names.join(", ")}`;
+    }
+    
+    if(msg.type === 'GAME_STATE') {
+      gameState = msg.state;
+      renderGame();
+    }
+    
+    if(msg.type === 'TOAST') {
+      showToast(msg.msg);
+      beep(150);
+    }
+  };
+
+  // --- ACTIONS ---
+  function login() {
+    myName = document.getElementById('username').value.trim();
+    if(!myName) return showToast("Name required");
+    localStorage.setItem("username", myName);
+    showScreen('lobby-screen');
+  }
+
+  function hostGame() {
+    socket.send(JSON.stringify({ type: 'CREATE_ROOM', name: myName }));
+  }
+
+  function joinGame() {
+    const code = document.getElementById('room-code').value.trim().toUpperCase();
+    if(!code) return showToast("Enter code");
+    socket.send(JSON.stringify({ type: 'JOIN_ROOM', code, name: myName }));
+  }
+
+  function startGame() {
+    socket.send(JSON.stringify({ type: 'START_GAME' }));
+  }
+
+  function drawCard() {
+    if(!isMyTurn()) return;
+    socket.send(JSON.stringify({ type: 'ACTION_PICKUP' }));
+  }
+
+  function playCards() {
+    if(!isMyTurn() || selectedIndices.length === 0) return;
+    socket.send(JSON.stringify({ type: 'ACTION_PLAY', indices: selectedIndices }));
+    selectedIndices = [];
+  }
+  
+  function sayLast() {
+    socket.send(JSON.stringify({ type: 'ACTION_LAST' }));
+  }
+  
+  function pickSuit(s) {
+    socket.send(JSON.stringify({ type: 'ACTION_SUIT', suitChar: s }));
+    document.getElementById('modal-overlay').style.display = 'none';
+  }
+
+  // --- RENDER ---
+  function isMyTurn() {
+    return gameState && gameState.players[gameState.turnIndex].id === myId;
+  }
+
+  function renderGame() {
+    showScreen('game-screen');
+    
+    // Status
+    const activeP = gameState.players[gameState.turnIndex];
+    const isMe = activeP.id === myId;
+    document.getElementById('turn-indicator').innerText = isMe ? "YOUR TURN" : `${activeP.name}'s TURN`;
+    document.getElementById('turn-indicator').style.color = isMe ? "#fff" : "#aaa";
+    
+    let info = "";
+    if(gameState.pendingDraw2) info = `DRAW +${gameState.pendingDraw2}`;
+    else if(gameState.pendingSkip) info = "SKIPPED!";
+    document.getElementById('game-message').innerText = info;
+
+    // Discard
+    const discardDiv = document.getElementById('discard');
+    discardDiv.innerHTML = "";
+    if(gameState.discard.length) {
+      const top = gameState.discard[gameState.discard.length-1];
+      discardDiv.appendChild(createCard(top));
+      if(gameState.activeSuit) {
+        const bub = document.createElement('div');
+        bub.innerText = gameState.activeSuit;
+        bub.style.cssText = "position:absolute; bottom:-10px; right:-10px; background:white; border-radius:50%; width:30px; height:30px; text-align:center; color:black; border:2px solid black; font-size:20px; line-height:28px;";
+        discardDiv.appendChild(bub);
       }
     }
 
-    function p2pJoin() {
-      const name = localStorage.getItem("username");
-      const code = document.getElementById('p2p-join-code').value.trim().toUpperCase();
-      if (!code) return showToast("Enter a room code!");
-      ws.send(JSON.stringify({ type: 'JOIN_ROOM', code: code, name: name }));
-    }
-
-    function p2pDeal() {
-      ws.send(JSON.stringify({ type: 'START_GAME' }));
-    }
-
-    // --- 6. GAME ACTIONS ---
-    function isMyTurn() {
-      if (!gameState) return false;
-      const p = gameState.players[gameState.turnIndex];
-      return p.id === myId;
-    }
-
-    function humanPickup() {
-      if (!isMyTurn()) return;
-      ws.send(JSON.stringify({ type: 'ACTION_PICKUP' }));
-    }
-
-    function humanPlay() {
-      if (!isMyTurn() || selectionOrder.length === 0) return;
-      ws.send(JSON.stringify({ type: 'ACTION_PLAY', indices: selectionOrder }));
-      selectionOrder = []; // Reset local selection immediately
-    }
-
-    function humanDeclareLast() {
-      ws.send(JSON.stringify({ type: 'ACTION_LAST' }));
-    }
-
-    function resolveAce(suitChar) {
-      ws.send(JSON.stringify({ type: 'ACTION_SUIT', suitChar: suitChar }));
-      document.getElementById('suit-modal').style.display = 'none';
-    }
-
-    // --- 7. RENDERING ---
-    function updateGameUI() {
-      if (!gameState) return;
-      showScreen('game-screen');
-
-      // Update Turn Status
-      const activePlayer = gameState.players[gameState.turnIndex];
-      const isMe = activePlayer.id === myId;
-      const statusDiv = document.getElementById('turn-status');
-      statusDiv.innerText = isMe ? "YOUR TURN" : `${activePlayer.name}'s TURN`;
-      statusDiv.style.color = isMe ? "#fff" : "#ccc";
-
-      // Update Attack Status (Draw 2, etc.)
-      let msg = "";
-      if (gameState.pendingDraw2) msg = `⚠️ DRAW +${gameState.pendingDraw2}`;
-      else if (gameState.pendingDrawJ) msg = `⚠️ DRAW +${gameState.pendingDrawJ}`;
-      else if (gameState.pendingSkip) msg = `⚠️ SKIPPED!`;
-      document.getElementById('attack-status').innerText = msg;
-
-      // Update Discard Pile
-      const dp = document.getElementById('discard-pile');
-      dp.innerHTML = "";
-      if (gameState.discard.length > 0) {
-        const top = gameState.discard[gameState.discard.length - 1];
-        const cardDiv = createCard(top, -1, false);
-        dp.appendChild(cardDiv);
-        
-        // Show Active Suit Bubble
-        if (gameState.activeSuit) {
-          const sDiv = document.createElement('div');
-          sDiv.innerText = gameState.activeSuit;
-          sDiv.style.cssText = "position:absolute; bottom:-10px; right:-10px; background:white; width:30px; height:30px; border-radius:50%; text-align:center; font-size:20px; line-height:30px; border:2px solid black; color:" + (['♥','♦'].includes(gameState.activeSuit)?'#d32f2f':'black');
-          dp.appendChild(sDiv);
-        }
-      }
-
-      // Render Opponents
-      const cpuArea = document.getElementById('cpu-area');
-      cpuArea.innerHTML = "";
-      gameState.players.forEach(p => {
-        if (p.id === myId) return; // Skip me
-        
-        const wrap = document.createElement('div');
-        wrap.className = 'opponent-wrapper';
-        if (p.id === activePlayer.id) wrap.classList.add('active-turn');
-
-        wrap.innerHTML = `<div class="opponent-name">${p.name} (${p.cardCount})</div>`;
-        
-        const handDiv = document.createElement('div');
-        handDiv.style.display = 'flex';
-        handDiv.style.transform = 'scale(0.7)';
-        // Show simplified backs for opponent cards
-        const count = Math.min(p.cardCount, 5);
-        for(let i=0; i<count; i++) {
-          const c = document.createElement('div');
-          c.className = 'card back';
-          c.style.marginRight = '-45px';
-          handDiv.appendChild(c);
-        }
-        wrap.appendChild(handDiv);
-        cpuArea.appendChild(wrap);
-      });
-
-      // Render My Hand
-      const myPlayer = gameState.players.find(p => p.id === myId);
-      const handDiv = document.getElementById('player-hand');
-      handDiv.innerHTML = "";
-      if (myPlayer) {
-        const total = myPlayer.hand.length;
-        const center = (total - 1) / 2;
-        
-        myPlayer.hand.forEach((c, i) => {
-          const cardEl = createCard(c, i, true);
-          
-          // Fan math
-          const dist = i - center;
-          const angle = dist * 3;
-          const yOff = Math.abs(dist) * 4;
-          
-          cardEl.style.setProperty('--fan-rot', `${angle}deg`);
-          cardEl.style.setProperty('--fan-y', `${yOff}px`);
-          cardEl.style.zIndex = i;
-          
-          handDiv.appendChild(cardEl);
-        });
-
-        // Update Last Button
-        const btnLast = document.getElementById('btn-last');
-        if (myPlayer.lastDeclared) {
-          btnLast.classList.add('called');
-          btnLast.innerText = "CALLED";
-        } else {
-          btnLast.classList.remove('called');
-          btnLast.innerText = "LAST!";
-        }
-      }
-
-      // Controls
-      const btnPlay = document.getElementById('btn-play');
-      const btnDraw = document.getElementById('btn-pickup');
-      btnPlay.disabled = !isMe || selectionOrder.length === 0;
-      btnDraw.disabled = !isMe;
-
-      if (btnPlay.disabled === false && selectionOrder.length === myPlayer.hand.length) {
-        btnPlay.innerText = "WIN IT!";
-        btnPlay.classList.add("winning-btn");
-      } else {
-        btnPlay.innerText = "PLAY";
-        btnPlay.classList.remove("winning-btn");
-      }
-
-      // Modals
-      if (gameState.winner) {
-        document.getElementById('result-title').innerText = `${gameState.winner} WINS!`;
-        document.getElementById('match-result-modal').style.display = 'flex';
-      }
-
-      // Ace Selection
-      const modal = document.getElementById('suit-modal');
-      // "awaitingSuit" needs to be in gameState from server
-      if (gameState.awaitingSuit && isMe) {
-        modal.style.display = 'flex';
-      } else {
-        modal.style.display = 'none';
-      }
-    }
-
-    function createCard(c, index, isClickable) {
+    // Opponents
+    const cpuDiv = document.getElementById('cpu-area');
+    cpuDiv.innerHTML = "";
+    gameState.players.forEach(p => {
+      if(p.id === myId) return;
       const el = document.createElement('div');
-      el.className = `card ${['♥','♦'].includes(c.suit) ? 'red' : ''}`;
-      el.innerHTML = `
-        <div class="card-corner"><div class="rank">${c.rank}</div><div class="suit">${c.suit}</div></div>
-        <div class="center-suit">${c.suit}</div>
-        <div class="card-bottom"><div class="rank">${c.rank}</div><div class="suit">${c.suit}</div></div>
-      `;
+      el.className = 'opponent';
+      el.innerHTML = `<div>${p.name}</div><div style="font-size:20px">🂠 ${p.cardCount}</div>`;
+      if(p.id === activeP.id) el.style.border = "2px solid white";
+      cpuDiv.appendChild(el);
+    });
 
-      if (isClickable) {
-        if (selectionOrder.includes(index)) {
-          el.classList.add('selected');
-        }
-        el.onclick = () => {
-          if (!isMyTurn()) return;
-          toggleSelect(index);
-        };
-      }
-      return el;
-    }
-
-    function toggleSelect(index) {
-      const pos = selectionOrder.indexOf(index);
-      if (pos >= 0) {
-        selectionOrder.splice(pos, 1);
+    // My Hand
+    const handDiv = document.getElementById('player-area');
+    handDiv.innerHTML = "";
+    const me = gameState.players.find(p => p.id === myId);
+    if(me) {
+      me.hand.forEach((c, i) => {
+        const el = createCard(c);
+        if(selectedIndices.includes(i)) el.classList.add('selected');
+        el.onclick = () => toggleSelect(i);
+        handDiv.appendChild(el);
+      });
+      
+      const btnLast = document.getElementById('btn-last');
+      if(me.lastDeclared) {
+        btnLast.style.background = "#4caf50";
+        btnLast.innerText = "CALLED";
       } else {
-        selectionOrder.push(index);
-        AudioEngine.beep(400);
+        btnLast.style.background = "white";
+        btnLast.innerText = "LAST!";
       }
-      updateGameUI(); // Re-render to show selection
     }
 
-    // Auto-load name
-    const saved = localStorage.getItem("username");
-    if(saved) document.getElementById('username-input').value = saved;
+    // Controls
+    document.getElementById('btn-play').disabled = !isMe || selectedIndices.length === 0;
+    document.getElementById('btn-draw').disabled = !isMe;
 
-  </script>
+    // Modals
+    const modal = document.getElementById('modal-overlay');
+    const content = document.getElementById('modal-content');
+    
+    if(gameState.winner) {
+      modal.style.display = 'flex';
+      content.innerHTML = `<h1>${gameState.winner} WINS!</h1><button class="menu-btn btn-start" onclick="location.reload()">MENU</button>`;
+    } else if(gameState.awaitingSuit && isMe) {
+      modal.style.display = 'flex';
+      content.innerHTML = `
+        <h2>PICK SUIT</h2>
+        <button class="suit-btn" onclick="pickSuit('H')" style="color:red">♥</button>
+        <button class="suit-btn" onclick="pickSuit('D')" style="color:red">♦</button>
+        <button class="suit-btn" onclick="pickSuit('C')">♣</button>
+        <button class="suit-btn" onclick="pickSuit('S')">♠</button>
+      `;
+    } else {
+      modal.style.display = 'none';
+    }
+  }
+
+  function createCard(c) {
+    const el = document.createElement('div');
+    el.className = `card ${['♥','♦'].includes(c.suit)?'red':''}`;
+    el.innerHTML = `
+      <div class="card-corner">${c.rank}<br>${c.suit}</div>
+      <div class="card-center">${c.suit}</div>
+      <div class="card-corner" style="transform:rotate(180deg)">${c.rank}<br>${c.suit}</div>
+    `;
+    return el;
+  }
+
+  function toggleSelect(i) {
+    if(!isMyTurn()) return;
+    const idx = selectedIndices.indexOf(i);
+    if(idx > -1) selectedIndices.splice(idx, 1);
+    else selectedIndices.push(i);
+    renderGame();
+    beep(400);
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.innerText = msg; t.classList.add('show');
+    setTimeout(()=>t.classList.remove('show'), 2000);
+  }
+</script>
 </body>
 </html>
