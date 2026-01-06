@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Old Skool Blackjack — Ultimate</title>
+  <title>Old Skool Blackjack — Switch Rules</title>
   <style>
+    /* --- ORIGINAL STYLES FROM YOUR FILE --- */
     :root {
       --chalk-green: #3a5f42; --chalk-white: #eeeeee; --paper-white: #fdfbf7;
       --line-blue: #a2d2ff; --sticker-yellow: #ffeb3b; --sticker-pink: #ff80ab;
@@ -13,12 +14,41 @@
 
     body {
       font-family: "Comic Sans MS", "Chalkboard SE", "Marker Felt", sans-serif;
-      background-color: var(--chalk-green); color: var(--chalk-white); margin: 0;
-      height: 100vh; overflow: hidden; display: flex; flex-direction: column;
+      background-color: var(--chalk-green); color: var(--chalk-white);
+      margin: 0; height: 100vh; overflow: hidden; display: flex; flex-direction: column;
       touch-action: manipulation;
       background-image: radial-gradient(#4a6f52 2px, transparent 2px);
       background-size: 30px 30px;
     }
+
+    @media (max-width: 600px) {
+      :root { --card-w: 60px; --card-h: 84px; }
+      .hud-btn { padding: 10px 10px !important; font-size: 0.8rem !important; }
+      #game-info-bar { font-size: 0.8rem !important; padding: 4px !important; }
+    }
+
+    /* ANIMATIONS */
+    @keyframes shake {
+      0% { transform: translateX(0) translateY(-25px); }
+      25% { transform: translateX(-5px) rotate(-5deg) translateY(-25px); }
+      50% { transform: translateX(5px) rotate(5deg) translateY(-25px); }
+      75% { transform: translateX(-5px) rotate(-5deg) translateY(-25px); }
+      100% { transform: translateX(0) translateY(-25px); }
+    }
+    .shake { animation: shake 0.4s ease-in-out; border-color: #ff5252 !important; }
+
+    @keyframes popIn {
+      0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+      80% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
+      100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    }
+    
+    @keyframes rainbow-glow {
+      0% { box-shadow: 0 0 10px #ff0000; border-color: #ff0000; }
+      50% { box-shadow: 0 0 10px #25d1cb; border-color: #25d1cb; }
+      100% { box-shadow: 0 0 10px #ff00c8; border-color: #ff00c8; }
+    }
+    .winning-btn { animation: rainbow-glow 0.5s infinite; transform: scale(1.05) !important; background: white !important; color: black !important; }
 
     /* SCREENS */
     .screen {
@@ -28,509 +58,626 @@
     }
     .screen.active { display: flex; }
 
-    #login-screen, #menu-screen, #lobby-screen, #online-screen {
+    #login-screen, #menu-screen, #lobby-screen, #dashboard-screen, #online-screen {
       background-color: var(--paper-white);
       background-image: linear-gradient(var(--line-blue) 1px, transparent 1px);
       background-size: 100% 25px; color: #333;
     }
-    
-    #pass-device-screen {
-      background: #222; text-align: center; border: 10px solid #fff; z-index: 300;
-    }
 
-    /* UI ELEMENTS */
-    .logo-badge {
-      display: inline-flex; align-items: center; gap: 10px; background: white;
-      padding: 10px 16px; border: 3px solid #333; border-radius: 12px;
-      box-shadow: 5px 5px 0 rgba(0,0,0,0.2); transform: rotate(-2deg); margin-bottom: 25px;
-    }
-    .logo-text { font-size: 2rem; font-weight: 900; line-height: 0.9; }
-    
-    .menu-btn {
-      width: 85%; max-width: 340px; padding: 15px; border: 3px solid #333;
-      border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
-      font-family: inherit; font-size: 1.3rem; font-weight: bold; text-transform: uppercase;
-      cursor: pointer; display: flex; flex-direction: column; align-items: center;
-      gap: 5px; box-shadow: 3px 3px 0 #333; margin-bottom: 15px; background: white; color: #333;
-    }
+    /* LOGOS & BUTTONS */
+    .logo-wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 25px; cursor: pointer; user-select: none; }
+    .logo-badge { display: inline-flex; align-items: center; gap: 10px; background: white; padding: 10px 16px; border: 3px solid #333; border-radius: 12px; box-shadow: 5px 5px 0 rgba(0,0,0,0.2); transform: rotate(-2deg); }
+    .logo-mark { width: 42px; height: 42px; display: inline-flex; align-items: center; justify-content: center; border: 2px solid #333; border-radius: 10px; background: var(--sticker-yellow); box-shadow: 2px 2px 0 rgba(0,0,0,0.2); font-size: 26px; line-height: 1; color: black; }
+    .logo-text { font-size: 2.2rem; font-weight: 900; color: #111; text-transform: uppercase; text-align: left; margin: 0; text-shadow: 2px 2px 0px rgba(0,0,0,0.15); letter-spacing: 0.5px; line-height: 0.9; }
+    .logo-sub { margin-top: -5px; font-weight: 900; font-size: 0.95rem; background: var(--sticker-pink); color: #333; padding: 6px 12px; border: 2px solid #333; border-radius: 999px; box-shadow: 3px 3px 0 rgba(0,0,0,0.15); transform: rotate(1deg); }
+
+    input[type="text"] { padding: 10px; font-family: inherit; font-size: 1.3rem; background: transparent; color: #333; border: none; border-bottom: 3px solid #333; width: 280px; text-align: center; margin-bottom: 18px; outline: none; }
+
+    .menu-btn { width: 85%; max-width: 340px; padding: 15px; border: 3px solid #333; border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px; font-family: inherit; font-size: 1.4rem; font-weight: bold; text-transform: uppercase; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 5px; box-shadow: 3px 3px 0 #333; transition: transform 0.1s; margin-bottom: 15px; background: white; color: #333; }
+    .btn-league { background: var(--sticker-yellow); transform: rotate(1deg); }
+    .btn-party { background: var(--sticker-blue); transform: rotate(-1deg); }
+    .btn-start { background: var(--sticker-pink); }
     .menu-btn:active { transform: scale(0.95); box-shadow: 1px 1px 0 #333; }
-    .btn-yel { background: var(--sticker-yellow); transform: rotate(1deg); }
-    .btn-blu { background: var(--sticker-blue); transform: rotate(-1deg); }
-    .btn-pink { background: var(--sticker-pink); }
+    .menu-btn small { font-size: 0.8rem; font-weight: normal; opacity: 0.8; text-transform: none; }
+
+    /* DASHBOARD / LOBBY */
+    .standings-box, .lobby-list, .p2p-box { background: white; width: 90%; border: 3px solid #333; border-radius: 10px; padding: 10px; margin-bottom: 20px; box-shadow: 5px 5px 0 rgba(0,0,0,0.1); }
+    table { width: 100%; border-collapse: collapse; font-size: 1rem; }
+    th { text-align: left; color: #d32f2f; border-bottom: 2px dashed #333; padding: 8px; }
+    td { padding: 10px 8px; border-bottom: 1px solid #ddd; font-weight: bold; }
+    .lobby-item { display: flex; justify-content: space-between; padding: 12px; border-bottom: 1px dashed #ccc; font-weight: bold; font-size: 1.2rem; }
+    .btn-add { flex: 1; padding: 12px; background: white; border: 2px solid #333; border-radius: 10px; font-weight: bold; cursor: pointer; box-shadow: 3px 3px 0 #ccc; }
     
-    input[type="text"] {
-      padding: 10px; font-family: inherit; font-size: 1.3rem; background: transparent;
-      color: #333; border: none; border-bottom: 3px solid #333; width: 280px;
-      text-align: center; margin-bottom: 18px; outline: none;
-    }
-    
-    /* LOBBY LIST */
-    .lobby-list { width:90%; background:white; border:3px solid #333; border-radius:10px; padding:10px; margin-bottom:10px; min-height:150px; }
-    .lobby-item { display:flex; justify-content:space-between; padding:8px; border-bottom:1px dashed #ccc; font-weight:bold; }
+    /* ONLINE BOX */
+    .p2p-box { max-width: 520px; text-align: center; }
+    .p2p-code { font-family: monospace; font-size: 1.5rem; background: #fff9c4; border: 2px dashed #333; border-radius: 10px; padding: 10px; word-break: break-all; margin: 10px 0; }
 
     /* GAME UI */
-    #game-screen { background: var(--chalk-green); }
-    #status-feed {
-      position: absolute; top: 0; left: 0; width: 100%; height: 35px;
-      background: rgba(0,0,0,0.3); color: white; display: flex; align-items: center; justify-content: center; z-index: 20;
-    }
-    #game-info-bar {
-      position: absolute; top: 40px; width: 100%; display: flex; justify-content: center; gap: 20px; z-index: 5;
-    }
-    #cpu-area {
-      position: absolute; top: 80px; width: 100%; display: flex; justify-content: space-around; height: 120px;
-    }
-    .opponent-wrapper {
-      display: flex; flex-direction: column; align-items: center; transform: scale(0.85); transition: 0.3s; opacity: 0.6;
-    }
+    #status-feed { position: absolute; top: 0; left: 0; width: 100%; height: 35px; background: rgba(0,0,0,0.3); color: white; font-family: "Chalkduster", fantasy, sans-serif; font-size: 1rem; display: flex; align-items: center; justify-content: center; z-index: 20; }
+    #game-info-bar { position: absolute; top: 40px; left: 10px; right: 10px; background: none; padding: 0; font-size: 1rem; text-align: center; z-index: 5; display: flex; justify-content: space-between; align-items: center; height: 35px; }
+    .help-btn { background: var(--sticker-yellow); color: black; border: 2px solid black; border-radius: 50%; width: 35px; height: 35px; font-weight: 900; cursor: pointer; font-size: 1.2rem; box-shadow: 2px 2px 0 rgba(0,0,0,0.5); }
+    
+    #cpu-area { position: absolute; top: 80px; width: 100%; display: flex; justify-content: space-around; align-items: flex-start; height: 120px; padding: 0 10px; box-sizing: border-box; }
+    .opponent-wrapper { display: flex; flex-direction: column; align-items: center; transform: scale(0.85); transition: opacity 0.3s; }
     .opponent-wrapper.active-turn { opacity: 1; transform: scale(1.1); }
-    .opponent-name { background: white; color: black; border: 2px solid black; padding: 2px 8px; font-weight: bold; border-radius: 10px 10px 10px 0; }
-    
-    #center-area {
-      position: absolute; top: 52%; left: 50%; transform: translate(-50%, -50%); display: flex; gap: 20px; z-index: 2;
-    }
-    
-    #player-area {
-      position: absolute; bottom: 0; width: 100%; height: 140px;
-      background-color: #d2a679; border-top: 5px solid #8d6e63;
-      display: flex; justify-content: center; align-items: flex-end; padding-bottom: 20px;
-    }
+    .opponent-name { background: white; color: black; border: 2px solid black; border-radius: 15px 15px 15px 0; padding: 4px 10px; font-size: 14px; margin-bottom: 5px; font-weight: bold; box-shadow: 2px 2px 0 rgba(0,0,0,0.3); }
 
-    #game-hud {
-      position: absolute; top: 62%; right: 10px; transform: translateY(-50%);
-      display: flex; flex-direction: column; gap: 10px; z-index: 100;
-    }
-    .hud-btn {
-      padding: 15px 10px; border: 3px solid black; border-radius: 10px;
-      font-weight: 900; cursor: pointer; background: white; box-shadow: 4px 4px 0 rgba(0,0,0,0.3);
-    }
-    .hud-btn:disabled { background: #ccc; color: #777; box-shadow: none; transform: none; }
-    #btn-play { background: var(--sticker-pink); }
-    #btn-last.called { background: #4caf50; color: white; transform: scale(0.95); }
+    #center-area { position: absolute; top: 52%; left: 50%; transform: translate(-50%, -50%); display: flex; gap: 20px; z-index: 2; }
 
-    /* CARDS */
-    .card {
-      width: var(--card-w); height: var(--card-h); background: white; border-radius: 8px;
-      border: 2px solid #333; position: relative; display: inline-flex; flex-direction: column;
-      margin-left: -35px; cursor: pointer; box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
-      transform: rotate(var(--fan-rot)) translateY(var(--fan-y)); transform-origin: bottom center;
-      transition: transform 0.2s, margin 0.1s;
-    }
+    #game-hud { position: absolute; top: 62%; right: 10px; transform: translateY(-50%); display: flex; flex-direction: column; gap: 10px; z-index: 100; }
+    .hud-btn { padding: 15px 10px; color: black; border: 3px solid black; border-radius: 10px; font-weight: 900; cursor: pointer; box-shadow: 4px 4px 0 rgba(0,0,0,0.3); font-size: 0.9rem; text-transform: uppercase; font-family: inherit; background: white; }
+    #btn-play { background: var(--sticker-pink); transform: rotate(-2deg); }
+    #btn-pickup { background: var(--sticker-blue); transform: rotate(2deg); }
+    #btn-last { background: var(--sticker-yellow); transform: rotate(-1deg); }
+    .hud-btn:disabled { background: #ccc; color: #777; border-color: #777; transform: none; box-shadow: none; }
+    #btn-last.called { background: #4caf50; color: white; box-shadow: none; transform: scale(0.95); }
+
+    #player-area { position: absolute; bottom: 0; width: 100%; height: calc(var(--card-h) + 60px); z-index: 50; overflow-x: auto; overflow-y: visible; white-space: nowrap; padding: 0 20px; -webkit-overflow-scrolling: touch; background-color: #d2a679; border-top: 5px solid #8d6e63; box-shadow: 0 -5px 15px rgba(0,0,0,0.5); }
+    .hand { display: inline-flex; justify-content: center; min-width: 100%; padding-top: 25px; align-items: flex-end; }
+
+    /* CARD STYLES */
+    .card { width: var(--card-w); height: var(--card-h); background: white; border-radius: 8px; border: 2px solid #333; box-shadow: 2px 2px 5px rgba(0,0,0,0.3); position: relative; display: inline-flex; flex-direction: column; color: black; flex-shrink: 0; margin-left: -35px; cursor: pointer; transform: rotate(var(--fan-rot)) translateY(var(--fan-y)); transform-origin: bottom center; transition: transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1), margin 0.1s, box-shadow 0.2s; }
     .card:first-child { margin-left: 0; }
     .card.red { color: #d32f2f; }
-    .card.back { background: repeating-linear-gradient(45deg, #333 0, #333 2px, #fff 2px, #fff 4px); border: 3px solid white; }
+    .card.back { background-color: #000; background-image: radial-gradient(white 15%, transparent 16%), radial-gradient(white 15%, transparent 16%); background-size: 10px 10px; background-position: 0 0, 5px 5px; border: 3px solid white; }
     .card.back * { display: none; }
-    .card.selected { border-color: var(--sticker-pink); transform: rotate(var(--fan-rot)) translateY(-40px) scale(1.1); z-index: 100 !important; }
-    .card-corner { position: absolute; top: 2px; left: 4px; line-height: 0.9; text-align: center; font-weight: 900; }
-    .center-suit { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 30px; opacity: 0.2; }
-    .card-bottom { position: absolute; bottom: 2px; right: 4px; transform: rotate(180deg); line-height: 0.9; text-align: center; font-weight: 900; }
+    .card.selected { border: 4px solid var(--sticker-pink); transform: rotate(var(--fan-rot)) translateY(calc(var(--fan-y) - 40px)) scale(1.1); z-index: 100 !important; box-shadow: 0 10px 20px rgba(0,0,0,0.4); }
+    .selection-badge { position: absolute; top: -10px; right: -10px; background: var(--sticker-pink); color: black; border-radius: 50%; width: 24px; height: 24px; text-align: center; line-height: 24px; font-weight: bold; z-index: 101; border: 2px solid black; }
+    .card-corner { position: absolute; top: 2px; left: 4px; display: flex; flex-direction: column; align-items: center; line-height: 0.9; }
+    .card-corner .rank { font-size: 22px; font-weight: 900; }
+    .card-corner .suit { font-size: 20px; margin-top: -2px; }
+    .center-suit { position: absolute; top: 55%; left: 50%; transform: translate(-50%, -50%); font-size: 36px; opacity: 0.2; pointer-events: none; }
+    .card-bottom { position: absolute; bottom: 2px; right: 4px; transform: rotate(180deg); display: flex; flex-direction: column; align-items: center; line-height: 0.9; }
+    .card-bottom .rank { font-size: 22px; font-weight: 900; }
+    .card-bottom .suit { font-size: 20px; margin-top: -2px; }
 
     /* MODALS */
-    #match-result-modal, #suit-modal {
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.9); display: none;
-      justify-content: center; align-items: center; z-index: 200; flex-direction: column; color: white;
-    }
-    .suit-btn { font-size: 40px; width: 70px; height: 70px; margin: 10px; cursor: pointer; background: white; border: 3px solid black; border-radius: 15px; }
-
-    #toast {
-      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      background: #333; color: white; padding: 15px 30px; border-radius: 20px;
-      opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 300;
-    }
-    #toast.show { opacity: 1; }
+    #match-result-modal, #suit-modal, #help-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: none; justify-content: center; align-items: center; z-index: 200; flex-direction: column; color: white; }
+    .suit-btn { font-size: 50px; width: 80px; height: 80px; margin: 10px; cursor: pointer; background: white; border-radius: 20px; border: 3px solid black; box-shadow: 5px 5px 0 rgba(0,0,0,0.5); }
+    #pass-device-screen { background: #333; text-align: center; border: 10px solid #fff; box-sizing: border-box; }
+    .pass-btn { padding: 20px 60px; font-size: 1.5rem; background: var(--sticker-yellow); color: black; border: 4px solid black; font-family: inherit; font-weight: bold; cursor: pointer; border-radius: 50px; }
+    
+    #toast-notification { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.9); background: var(--chalk-green); color: var(--chalk-white); padding: 20px 40px; border: 4px dashed var(--chalk-white); border-radius: 15px; font-family: "Chalkduster", fantasy, sans-serif; font-size: 1.5rem; box-shadow: 0 10px 30px rgba(0,0,0,0.5); opacity: 0; pointer-events: none; transition: opacity 0.2s, transform 0.2s; z-index: 300; text-align: center; }
+    #toast-notification.show { opacity: 1; transform: translate(-50%, -50%) scale(1); animation: popIn 0.3s forwards; }
   </style>
 </head>
-<body>
+<body data-cardback="classic">
+  <div id="toast-notification"></div>
 
-<div id="toast"></div>
-
-<div id="login-screen" class="screen active">
-  <div class="logo-badge">
-    <div style="font-size:30px">♠</div>
-    <div class="logo-text">OLD SKOOL<br>ULTIMATE</div>
+  <div id="login-screen" class="screen active">
+    <div class="logo-wrap"><div class="logo-badge"><div class="logo-mark">♠</div><div><div class="logo-text">Old Skool<br />Blackjack</div></div></div><div class="logo-sub">Switch Rules</div></div>
+    <input type="text" id="username-input" placeholder="Your Name" maxlength="10" />
+    <button class="menu-btn btn-start" onclick="signUp()">Enter</button>
   </div>
-  <input type="text" id="username-input" placeholder="Your Name" maxlength="10">
-  <button class="menu-btn btn-pink" onclick="signUp()">START</button>
-</div>
 
-<div id="menu-screen" class="screen">
-  <h2 style="margin-bottom:20px">Hello, <span id="menu-username"></span></h2>
-  <button class="menu-btn btn-blu" onclick="goToLobby()">🎲 PASS & PLAY <small>Offline • Bots • Friends</small></button>
-  <button class="menu-btn btn-yel" onclick="goToOnline()">📡 ONLINE <small>Host or Join Server</small></button>
-</div>
+  <div id="menu-screen" class="screen">
+    <div class="logo-text" style="font-size: 1.5rem; margin-bottom: 10px;">Player: <span id="menu-username"></span></div>
+    <div style="font-size:0.95rem; font-weight:900; margin-bottom:16px; padding:8px 12px; background:var(--sticker-yellow); border:2px solid #333; border-radius:999px; color:#333;">Streak: <span id="menu-streak">0</span> • Card Back: <span id="menu-back">classic</span></div>
 
-<div id="lobby-screen" class="screen">
-  <h2>LOCAL TABLE</h2>
-  <div class="lobby-list" id="local-list"></div>
-  <div style="display:flex; gap:10px;">
-    <button class="menu-btn btn-yel" style="width:auto" onclick="addBot()">+ BOT</button>
-    <button class="menu-btn btn-blu" style="width:auto" onclick="addHuman()">+ HUMAN</button>
+    <button class="menu-btn btn-league" onclick="goToLeague()">🏆 Ranked Table<small>Solo • Vs Bots</small></button>
+    <button class="menu-btn btn-party" onclick="goToPartyLobby()">🎲 Local Table<small>Pass & Play</small></button>
+    <button class="menu-btn btn-league" onclick="goToOnline()">📡 Online Table<small>Host / Join Server</small></button>
+    <button class="menu-btn" onclick="cycleCardBack()" style="background: white">🎴 Card Backs<small>Unlock more by win streaks</small></button>
   </div>
-  <button class="menu-btn btn-pink" style="margin-top:10px" onclick="startLocalGame()">DEAL CARDS</button>
-  <button onclick="showScreen('menu-screen')" style="margin-top:10px; border:none; background:none; font-weight:bold; cursor:pointer">↩ BACK</button>
-</div>
 
-<div id="online-screen" class="screen">
-  <h2>ONLINE SERVER</h2>
-  <div style="margin-bottom:20px; font-weight:bold; color:#555">Status: <span id="conn-status">Disconnected</span></div>
-  
-  <div style="background:white; padding:15px; border:3px solid #333; border-radius:10px; margin-bottom:15px; text-align:center;">
-    <input type="text" id="join-code" placeholder="Enter Room Code" style="background:#eee">
-    <div style="display:flex; justify-content:center; gap:10px;">
-      <button class="menu-btn btn-blu" style="width:100px; margin:0" onclick="netJoin()">JOIN</button>
-      <button class="menu-btn btn-yel" style="width:100px; margin:0" onclick="netHost()">HOST</button>
+  <div id="dashboard-screen" class="screen">
+    <div style="display:flex; justify-content:space-between; width:90%; align-items:center; margin-bottom:10px;"><button onclick="showScreen('menu-screen')" style="background:none; border:none; font-size:2rem;">↩</button><h2 style="margin:0; color:#333">RANKED</h2><div style="width:30px"></div></div>
+    <div class="standings-box">
+      <table><thead><tr><th>#</th><th>Name</th><th>W-L</th><th>Pts</th></tr></thead><tbody id="standings-body"></tbody></table>
+    </div>
+    <button class="menu-btn btn-league" style="width: 90%" onclick="startLeagueMatch()">Start Match</button>
+  </div>
+
+  <div id="lobby-screen" class="screen">
+    <div style="display:flex; justify-content:space-between; width:90%; align-items:center; margin-bottom:10px;"><button onclick="showScreen('menu-screen')" style="background:none; border:none; font-size:2rem;">↩</button><h2 style="margin:0; color:#333">LOCAL</h2><div style="width:30px"></div></div>
+    <div class="lobby-list" id="lobby-list"></div>
+    <div style="display: flex; gap: 10px; width: 90%; justify-content: center">
+      <button class="btn-add" onclick="addLobbyBot()">+ Bot</button>
+      <button class="btn-add" onclick="addLobbyHuman()">+ Friend</button>
+    </div>
+    <button class="menu-btn btn-start" id="btn-start-party" style="width: 90%; margin-top: 20px" onclick="startPartyGame()">DEAL!</button>
+  </div>
+
+  <div id="online-screen" class="screen">
+    <div style="display:flex; justify-content:space-between; width:90%; align-items:center; margin-bottom:10px;"><button onclick="disconnectAndExit()" style="background:none; border:none; font-size:2rem;">↩</button><h2 style="margin:0; color:#333">ONLINE</h2><div style="width:30px"></div></div>
+    
+    <div class="p2p-box">
+      <div style="font-weight:900;">Status: <span id="online-status">Connecting...</span></div>
+    </div>
+
+    <div class="p2p-box">
+      <div style="font-weight:900; margin-bottom:5px;">Join a Room</div>
+      <input id="online-join-code" type="text" placeholder="Enter Code" style="background:#eee">
+      <div style="display:flex; gap:10px; justify-content:center;">
+        <button class="menu-btn btn-party" style="width:120px; margin:0; transform:none;" onclick="netJoin()">JOIN</button>
+        <button class="menu-btn btn-league" style="width:120px; margin:0; transform:none;" onclick="netHost()">HOST</button>
+      </div>
+    </div>
+
+    <div id="online-host-panel" class="p2p-box" style="display:none; border-color:var(--sticker-pink);">
+      <div style="font-weight:900;">Share Code: <span id="online-my-code" style="background:#ffeb3b; padding:2px 8px;">...</span></div>
+      <div style="margin:10px 0;">Waiting for players...</div>
+      <button class="menu-btn btn-start" id="net-deal-btn" onclick="netDeal()" disabled style="width:100%">DEAL CARDS!</button>
     </div>
   </div>
 
-  <div id="host-panel" style="display:none; text-align:center;">
-    <h3>Code: <span id="my-code" style="background:#ffeb3b; padding:5px;">---</span></h3>
-    <p>Waiting for players...</p>
-    <button class="menu-btn btn-pink" id="net-deal-btn" onclick="netDeal()" disabled>DEAL!</button>
-  </div>
-  
-  <button onclick="showScreen('menu-screen')" style="margin-top:10px; border:none; background:none; font-weight:bold; cursor:pointer">↩ BACK</button>
-</div>
-
-<div id="pass-device-screen" class="screen">
-  <h1 style="color:white; font-size:3rem;">PASS THE DEVICE</h1>
-  <h2 style="color:var(--sticker-yellow)">To: <span id="next-player-name">...</span></h2>
-  <p style="color:#ccc">(No peeking!)</p>
-  <button class="menu-btn btn-pink" onclick="revealTurn()">I'M READY</button>
-</div>
-
-<div id="game-screen" class="screen">
-  <div id="status-feed">Game Started</div>
-  <div id="game-info-bar">
-    <div id="turn-status" style="color:white; font-weight:bold; text-shadow:1px 1px 0 black;"></div>
-    <div id="attack-status" style="color:var(--sticker-yellow); font-weight:bold; text-shadow:1px 1px 0 black;"></div>
+  <div id="pass-device-screen" class="screen">
+    <div style="font-size:2.5rem; color:white; font-weight:900; margin-bottom:20px;">Pass to <span id="next-player-name" style="color:var(--sticker-yellow)">...</span></div>
+    <button class="pass-btn" onclick="startTurn()">I'm Ready!</button>
   </div>
 
-  <div id="cpu-area"></div>
-
-  <div id="center-area">
-    <div id="draw-pile" class="card back" onclick="uiAction('pickup')"></div>
-    <div id="discard-pile"></div>
+  <div id="game-screen" class="screen">
+    <div id="status-feed">Cards are in play!</div>
+    <div id="game-info-bar"><div id="turn-status"></div><div id="attack-status"></div><button class="help-btn" onclick="openHelp()">?</button></div>
+    <div id="cpu-area"></div>
+    <div id="center-area">
+      <div id="draw-pile" class="card back" onclick="humanPickup()"></div>
+      <div id="discard-pile"></div>
+    </div>
+    <div id="game-hud">
+      <button class="hud-btn" id="btn-play" onclick="humanPlay()">PLAY</button>
+      <button class="hud-btn" id="btn-pickup" onclick="humanPickup()">DRAW</button>
+      <button class="hud-btn" id="btn-last" onclick="humanDeclareLast()">LAST!</button>
+      <button class="hud-btn" id="btn-sort" onclick="toggleSort()">SORT</button>
+    </div>
+    <div id="player-area"><div id="player-hand" class="hand"></div></div>
   </div>
 
-  <div id="game-hud">
-    <button class="hud-btn" id="btn-play" onclick="uiAction('play')">PLAY</button>
-    <button class="hud-btn" id="btn-pickup" onclick="uiAction('pickup')">DRAW</button>
-    <button class="hud-btn" id="btn-last" onclick="uiAction('last')">LAST!</button>
+  <div id="match-result-modal"><h1 id="result-title" style="font-size:4rem; color:var(--sticker-yellow); text-shadow:4px 4px 0 #000;"></h1><p id="result-desc" style="font-size:1.5rem"></p><button class="menu-btn btn-start" onclick="exitGame()">Back to Menu</button></div>
+  <div id="suit-modal">
+    <h2>Pick a Suit!</h2>
+    <div style="display:flex;"><button class="suit-btn" onclick="resolveAce('H')" style="color:#b71c1c">♥</button><button class="suit-btn" onclick="resolveAce('D')" style="color:#b71c1c">♦</button><button class="suit-btn" onclick="resolveAce('C')">♣</button><button class="suit-btn" onclick="resolveAce('S')">♠</button></div>
   </div>
+  <div id="help-modal" onclick="closeHelp()"><div style="background:white; color:#333; padding:20px; border-radius:15px; border:3px solid black;"><h2>CHEAT SHEET</h2><p><b>2</b>: Draw 2</p><p><b>8</b>: Skip</p><p><b>J</b>: Black=Draw 5 / Red=Block</p><p><b>Q</b>: Reverse</p><p><b>K</b>: Go Again</p><p><b>A</b>: Wild</p><button class="menu-btn btn-league" onclick="closeHelp()">OK</button></div></div>
 
-  <div id="player-area"><div id="player-hand" style="position:relative; width:100%; height:100%; display:flex; justify-content:center; align-items:flex-end;"></div></div>
-</div>
+  <script>
+    // --- 1. CORE & AUDIO ---
+    const AudioEngine = {
+      ctx: null, init: function() { if(!this.ctx) this.ctx=new(window.AudioContext||window.webkitAudioContext)(); },
+      playTone: function(f,t,d,v) { this.init(); if(this.ctx.state==="suspended")this.ctx.resume(); const o=this.ctx.createOscillator(); const g=this.ctx.createGain(); o.type=t; o.frequency.value=f; g.gain.value=v||0.1; o.connect(g); g.connect(this.ctx.destination); o.start(); o.stop(this.ctx.currentTime+d); },
+      playCardSnap: function(){ this.playTone(600,"triangle",0.1,0.15); },
+      playError: function(){ this.playTone(150,"sawtooth",0.3,0.2); },
+      playCall: function(){ this.playTone(800,"square",0.1,0.1); },
+      playWin: function(){ [400,500,600,800].forEach((f,i)=>setTimeout(()=>this.playTone(f,"square",0.3,0.1), i*100)); }
+    };
 
-<div id="suit-modal">
-  <h2>PICK A SUIT</h2>
-  <div style="display:flex;">
-    <button class="suit-btn" onclick="uiAction('suit','H')" style="color:#d32f2f">♥</button>
-    <button class="suit-btn" onclick="uiAction('suit','D')" style="color:#d32f2f">♦</button>
-    <button class="suit-btn" onclick="uiAction('suit','C')">♣</button>
-    <button class="suit-btn" onclick="uiAction('suit','S')">♠</button>
-  </div>
-</div>
+    // --- 2. GAME DATA ---
+    const BOTS = [{name:"Bully Bob",wins:0,losses:0,pts:0},{name:"Teacher",wins:0,losses:0,pts:0},{name:"Nerd Ned",wins:0,losses:0,pts:0}];
+    const CARD_BACKS = ["classic","blueberry","graph","graffiti"];
+    let leagueData = { player: { name:"", wins:0, losses:0, pts:0, winStreak:0, selectedBack:"classic", unlockedBacks:["classic"] }, bots: JSON.parse(JSON.stringify(BOTS)) };
+    
+    // --- 3. STATE ---
+    let gameMode = "offline"; // offline | online
+    let ws = null;
+    let myId = null; // Online ID
+    let gameState = null; // Holds the active game state (synced from server OR local)
+    let selectionOrder = [];
+    let lobbyPlayers = [];
+    let isPassAndPlay = false;
+    let sortByRank = false;
 
-<div id="match-result-modal">
-  <h1 id="result-title" style="font-size:3rem; color:var(--sticker-yellow); text-shadow:3px 3px 0 #000;"></h1>
-  <button class="menu-btn btn-pink" onclick="location.reload()">MENU</button>
-</div>
-
-<script>
-// ==========================================
-// 1. ENGINE (Local Logic)
-// ==========================================
-const SUITS = ["♠", "♥", "♦", "♣"];
-const RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
-const POWER_RANKS = new Set(["A", "2", "8", "J", "Q", "K"]);
-
-let gameMode = "local"; // 'local' or 'online'
-let localState = null;
-let ws = null;
-let myId = null; 
-let selection = [];
-
-// --- Local Helpers ---
-function createDeck() {
-  let d = []; for(let s of SUITS) for(let r of RANKS) d.push({suit:s, rank:r});
-  return d.sort(() => Math.random() - 0.5);
-}
-
-function initLocalGame(players) {
-  const deck = createDeck();
-  const discard = [];
-  const pObjs = players.map(p => ({ 
-    id: Math.random().toString(), name: p.name, isBot: p.isBot, hand: [], lastDeclared: false 
-  }));
-  
-  // Deal
-  for(let i=0; i<7; i++) pObjs.forEach(p => p.hand.push(deck.pop()));
-  
-  // Start Card
-  while(true) {
-    let c = deck.pop();
-    if(!POWER_RANKS.has(c.rank)) { discard.push(c); break; }
-    deck.unshift(c);
-  }
-  
-  localState = {
-    deck, discard, players: pObjs, turnIndex: 0, direction: 1, 
-    activeSuit: discard[0].suit, pendingDraw2:0, pendingDrawJ:0, pendingSkip:0,
-    awaitingSuit: false, winner: null
-  };
-  
-  checkBotTurn();
-  updateUI();
-}
-
-function localPlay(idxArr) {
-  const st = localState;
-  const p = st.players[st.turnIndex];
-  const handCards = idxArr.map(i => p.hand[i]);
-  const card = handCards[0]; // Validation simplified for brevity
-  
-  // Remove cards
-  idxArr.sort((a,b)=>b-a).forEach(i => p.hand.splice(i,1));
-  
-  // Effects
-  handCards.forEach((c, i) => {
-    st.discard.push(c);
-    const isLast = i === handCards.length-1;
-    if(c.rank === '2') st.pendingDraw2 += 2;
-    if(c.rank === '8') st.pendingSkip++;
-    if(c.rank === 'J') st.pendingDrawJ += (c.suit==='♠'||c.suit==='♣') ? 5 : 0; // Simplified
-    if(c.rank === 'Q') st.direction *= -1;
-    if(c.rank === 'A' && isLast) st.awaitingSuit = true;
-    if(c.rank !== 'A' && isLast) st.activeSuit = c.suit;
-  });
-
-  if(p.hand.length === 0) st.winner = p.name;
-  
-  if(!st.awaitingSuit) advanceTurn();
-}
-
-function localDraw() {
-  const st = localState;
-  const p = st.players[st.turnIndex];
-  const count = st.pendingDraw2 || st.pendingDrawJ || 1;
-  for(let i=0; i<count; i++) {
-    if(st.deck.length===0) st.deck = st.discard.splice(0, st.discard.length-1).sort(()=>Math.random()-0.5);
-    if(st.deck.length) p.hand.push(st.deck.pop());
-  }
-  st.pendingDraw2 = 0; st.pendingDrawJ = 0; st.pendingSkip = 0;
-  advanceTurn();
-}
-
-function advanceTurn() {
-  const st = localState;
-  st.players[st.turnIndex].lastDeclared = false;
-  const num = st.players.length;
-  st.turnIndex = (st.turnIndex + st.direction + num) % num;
-  checkBotTurn();
-  
-  // Pass Device Check
-  const nextP = st.players[st.turnIndex];
-  if(!nextP.isBot && st.players.filter(x=>!x.isBot).length > 1) {
-    showPassScreen(nextP.name);
-  }
-}
-
-function checkBotTurn() {
-  const st = localState;
-  const p = st.players[st.turnIndex];
-  if(p.isBot && !st.winner) {
-    setTimeout(() => {
-      // Very dumb bot: try to play first valid card or draw
-      const top = st.discard[st.discard.length-1];
-      const validIdx = p.hand.findIndex(c => c.suit === st.activeSuit || c.rank === top.rank || c.rank === 'A');
-      if(validIdx >= 0) {
-        if(p.hand.length===2) p.lastDeclared=true; // Bot calls last
-        localPlay([validIdx]);
-      } else {
-        localDraw();
+    // --- 4. INIT ---
+    function loadData() {
+      const s = localStorage.getItem("oldskool_bj_v2");
+      if(s) try { leagueData = JSON.parse(s); } catch(e){}
+      if(leagueData.player.name) {
+        document.getElementById("menu-username").innerText = leagueData.player.name;
+        showScreen("menu-screen");
       }
-      updateUI();
-    }, 1500);
-  }
-}
-
-// ==========================================
-// 2. NETWORK (Server Bridge)
-// ==========================================
-function connectNet() {
-  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  ws = new WebSocket(`${proto}://${location.host}`);
-  ws.onopen = () => document.getElementById('conn-status').innerText = "Connected";
-  ws.onmessage = (e) => {
-    const msg = JSON.parse(e.data);
-    if(msg.type === 'GAME_STATE') { localState = msg.state; updateUI(); }
-    if(msg.type === 'ROOM_JOINED') {
-      myId = msg.playerId;
-      document.getElementById('my-code').innerText = msg.code;
-      if(msg.isHost) document.getElementById('host-panel').style.display='block';
+      applyCardBack();
+      updateMenuBadges();
     }
-    if(msg.type === 'PLAYER_UPDATE') {
-      document.getElementById('conn-status').innerText = `Players: ${msg.names.join(", ")}`;
-      if(msg.names.length > 1) document.getElementById('net-deal-btn').disabled = false;
+    function saveData() { localStorage.setItem("oldskool_bj_v2", JSON.stringify(leagueData)); updateMenuBadges(); }
+    function updateMenuBadges() { document.getElementById("menu-streak").innerText = leagueData.player.winStreak; document.getElementById("menu-back").innerText = leagueData.player.selectedBack; }
+    function applyCardBack() { document.body.setAttribute("data-cardback", leagueData.player.selectedBack); }
+    function cycleCardBack() {
+      const cur = leagueData.player.selectedBack;
+      const idx = leagueData.player.unlockedBacks.indexOf(cur);
+      leagueData.player.selectedBack = leagueData.player.unlockedBacks[(idx+1)%leagueData.player.unlockedBacks.length];
+      saveData(); applyCardBack();
     }
-    if(msg.type === 'TOAST') showToast(msg.msg);
-  };
-}
 
-// ==========================================
-// 3. UI CONTROLLER (Unified)
-// ==========================================
-let lobbyList = [];
+    function signUp() {
+      const n = document.getElementById("username-input").value.trim();
+      if(!n) return showToast("Enter Name");
+      leagueData.player.name = n; saveData();
+      document.getElementById("menu-username").innerText = n;
+      showScreen("menu-screen");
+    }
 
-function showScreen(id) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
-}
-
-function signUp() {
-  const name = document.getElementById('username-input').value || "Player";
-  localStorage.setItem('username', name);
-  document.getElementById('menu-username').innerText = name;
-  showScreen('menu-screen');
-}
-
-// Local Lobby
-function goToLobby() { 
-  gameMode = 'local'; 
-  lobbyList = [{name: localStorage.getItem('username'), isBot: false}];
-  renderLobby();
-  showScreen('lobby-screen'); 
-}
-function addBot() { if(lobbyList.length<4) lobbyList.push({name: "Bot "+(lobbyList.length), isBot: true}); renderLobby(); }
-function addHuman() { if(lobbyList.length<4) lobbyList.push({name: "Player "+(lobbyList.length+1), isBot: false}); renderLobby(); }
-function renderLobby() {
-  const div = document.getElementById('local-list'); div.innerHTML = "";
-  lobbyList.forEach(p => div.innerHTML += `<div class="lobby-item"><span>${p.name}</span><small>${p.isBot?'BOT':'HUMAN'}</small></div>`);
-}
-function startLocalGame() { initLocalGame(lobbyList); showScreen('game-screen'); }
-
-// Online Lobby
-function goToOnline() { gameMode = 'online'; connectNet(); showScreen('online-screen'); }
-function netHost() { ws.send(JSON.stringify({type:'CREATE_ROOM', name: localStorage.getItem('username')})); }
-function netJoin() { ws.send(JSON.stringify({type:'JOIN_ROOM', code: document.getElementById('join-code').value, name: localStorage.getItem('username')})); }
-function netDeal() { ws.send(JSON.stringify({type:'START_GAME'})); }
-
-// Game Actions
-function uiAction(action, arg) {
-  if(gameMode === 'local') {
-    // Local Logic Direct Call
-    const st = localState;
-    if(action === 'pickup') localDraw();
-    if(action === 'play') { localPlay(selection); selection = []; }
-    if(action === 'last') st.players[st.turnIndex].lastDeclared = true;
-    if(action === 'suit') { st.activeSuit = arg==='H'?'♥':arg==='D'?'♦':arg==='C'?'♣':'♠'; st.awaitingSuit=false; advanceTurn(); }
-    updateUI();
-  } else {
-    // Online Send
-    if(action === 'pickup') ws.send(JSON.stringify({type:'ACTION_PICKUP'}));
-    if(action === 'play') { ws.send(JSON.stringify({type:'ACTION_PLAY', indices: selection})); selection = []; }
-    if(action === 'last') ws.send(JSON.stringify({type:'ACTION_LAST'}));
-    if(action === 'suit') ws.send(JSON.stringify({type:'ACTION_SUIT', suitChar: arg}));
-  }
-  document.getElementById('suit-modal').style.display = 'none';
-}
-
-function toggleSelect(i) {
-  const idx = selection.indexOf(i);
-  if(idx > -1) selection.splice(idx,1); else selection.push(i);
-  updateUI();
-}
-
-function showPassScreen(name) {
-  document.getElementById('pass-device-screen').classList.add('active');
-  document.getElementById('next-player-name').innerText = name;
-}
-function revealTurn() {
-  document.getElementById('pass-device-screen').classList.remove('active');
-}
-
-// RENDERER (Works for both Local and Online state objects)
-function updateUI() {
-  const st = localState;
-  if(!st) return;
-
-  // 1. Identify "Me" (Local: current turn player / Online: myId)
-  let meIndex = st.turnIndex;
-  let me = st.players[meIndex];
-
-  // If online, find my actual object
-  if(gameMode === 'online') {
-    me = st.players.find(p => p.id === myId);
-    if(!me) return; // Spectator?
-  } else {
-    // In pass and play, we render the screen FOR the current player
-    // unless it's a bot, then we just spectate
-  }
-
-  const activeP = st.players[st.turnIndex];
-  const isMyTurn = (gameMode==='local' && !activeP.isBot) || (gameMode==='online' && activeP.id === myId);
-
-  document.getElementById('turn-status').innerText = isMyTurn ? "YOUR TURN" : `${activeP.name}'s TURN`;
-  document.getElementById('attack-status').innerText = st.pendingDraw2 ? `DRAW +${st.pendingDraw2}` : (st.pendingSkip ? "SKIPPED!" : "");
-  
-  // Hand
-  const handDiv = document.getElementById('player-hand');
-  handDiv.innerHTML = "";
-  
-  // If local, show current player hand. If online, show MY hand.
-  const cardsToShow = (gameMode === 'local') ? activeP.hand : me.hand;
-  
-  // Only show cards if it's a human (local) or me (online)
-  if((gameMode === 'local' && !activeP.isBot) || gameMode === 'online') {
-      const center = (cardsToShow.length-1)/2;
-      cardsToShow.forEach((c, i) => {
-        const el = document.createElement('div');
-        el.className = `card ${['♥','♦'].includes(c.suit)?'red':''}`;
-        if(selection.includes(i)) el.classList.add('selected');
-        el.innerHTML = `<div class="card-corner">${c.rank}<br>${c.suit}</div><div class="center-suit">${c.suit}</div><div class="card-bottom">${c.rank}<br>${c.suit}</div>`;
-        
-        // Fan
-        const dist = i - center;
-        el.style.setProperty('--fan-rot', (dist * 5) + 'deg');
-        el.style.setProperty('--fan-y', (Math.abs(dist)*5) + 'px');
-        el.style.zIndex = i;
-        
-        el.onclick = () => { if(isMyTurn) toggleSelect(i); };
-        handDiv.appendChild(el);
+    // --- 5. NAVIGATION ---
+    function showScreen(id) { document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); document.getElementById(id).classList.add('active'); AudioEngine.init(); }
+    function showToast(m) { const t=document.getElementById("toast-notification"); t.innerText=m; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),2000); }
+    function openHelp() { document.getElementById("help-modal").style.display="flex"; }
+    function closeHelp() { document.getElementById("help-modal").style.display="none"; }
+    
+    function goToLeague() { showScreen("dashboard-screen"); renderStandings(); }
+    function renderStandings() {
+      const t = document.getElementById("standings-body"); t.innerHTML="";
+      let all = [leagueData.player, ...leagueData.bots].sort((a,b)=>b.pts-a.pts);
+      all.forEach((p,i) => {
+        t.innerHTML += `<tr style="${p===leagueData.player?'background:#fff9c4':''}"><td>#${i+1}</td><td>${p.name}</td><td>${p.wins}-${p.losses}</td><td>${p.pts}</td></tr>`;
       });
-  }
+    }
 
-  // Discard
-  const dp = document.getElementById('discard-pile'); dp.innerHTML = "";
-  if(st.discard.length) {
-    const top = st.discard[st.discard.length-1];
-    dp.innerHTML = `<div class="card ${['♥','♦'].includes(top.suit)?'red':''}"><div class="card-corner">${top.rank}<br>${top.suit}</div><div class="center-suit">${top.suit}</div></div>`;
-    if(st.activeSuit) dp.innerHTML += `<div style="position:absolute; bottom:-10px; right:-10px; background:white; width:30px; height:30px; border-radius:50%; border:2px solid black; text-align:center; line-height:30px; color:${['♥','♦'].includes(st.activeSuit)?'red':'black'}">${st.activeSuit}</div>`;
-  }
+    function goToPartyLobby() { lobbyPlayers=[{name:leagueData.player.name, isBot:false}]; renderLobby(); showScreen("lobby-screen"); }
+    function addLobbyBot() { if(lobbyPlayers.length<4) lobbyPlayers.push({name:"Bot "+lobbyPlayers.length, isBot:true}); renderLobby(); }
+    function addLobbyHuman() { if(lobbyPlayers.length<4) lobbyPlayers.push({name:"Friend "+lobbyPlayers.length, isBot:false}); renderLobby(); }
+    function renderLobby() { 
+      const l=document.getElementById("lobby-list"); l.innerHTML="";
+      lobbyPlayers.forEach((p,i)=>l.innerHTML+=`<div class="lobby-item"><span>${p.name}</span><small>${p.isBot?'BOT':'HUMAN'}</small></div>`);
+    }
 
-  // Buttons
-  document.getElementById('btn-play').disabled = !isMyTurn || selection.length===0;
-  document.getElementById('btn-pickup').disabled = !isMyTurn;
-  const btnLast = document.getElementById('btn-last');
-  if((gameMode==='local'?activeP:me).lastDeclared) { btnLast.classList.add('called'); btnLast.innerText="CALLED"; } else { btnLast.classList.remove('called'); btnLast.innerText="LAST!"; }
+    // --- 6. LOCAL GAME ENGINE (League & Party) ---
+    const SUITS=["♠","♥","♦","♣"]; const RANKS=["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
+    
+    function createDeck(){ let d=[]; for(let s of SUITS)for(let r of RANKS)d.push({suit:s,rank:r}); return d.sort(()=>Math.random()-0.5); }
+    
+    function startLeagueMatch() { gameMode="offline"; initLocalGame([{name:leagueData.player.name, isBot:false}, leagueData.bots[Math.floor(Math.random()*leagueData.bots.length)]], true); }
+    function startPartyGame() { gameMode="offline"; initLocalGame(lobbyPlayers, false); }
+    
+    function initLocalGame(players, isLeague) {
+      const deck = createDeck();
+      const pObjs = players.map(p=>({id:Math.random(), name:p.name, isBot:p.isBot, hand:[], lastDeclared:false}));
+      for(let i=0; i<7; i++) pObjs.forEach(p=>p.hand.push(deck.pop()));
+      
+      let discard=[deck.pop()];
+      while(['2','8','J','Q','K','A'].includes(discard[0].rank)) { deck.unshift(discard[0]); discard=[deck.pop()]; }
 
-  // Opponents
-  const cpuDiv = document.getElementById('cpu-area'); cpuDiv.innerHTML = "";
-  st.players.forEach(p => {
-    if(p.id === (gameMode==='local'?activeP.id : me.id)) return; // Don't show myself in opponent bar
-    cpuDiv.innerHTML += `<div class="opponent-wrapper ${p.id===activeP.id?'active-turn':''}"><div class="opponent-name">${p.name}</div><div style="font-size:0.8rem">🂠 ${p.cardCount || p.hand.length}</div></div>`;
-  });
+      gameState = {
+        deck, discard, players: pObjs, turnIndex:0, direction:1, activeSuit:discard[0].suit,
+        pendingDraw2:0, pendingDrawJ:0, pendingSkip:0, awaitingSuit:false, winner:null, isLeague: isLeague
+      };
+      
+      isPassAndPlay = !isLeague && pObjs.filter(p=>!p.isBot).length > 1;
+      selectionOrder = [];
+      showScreen("game-screen");
+      updateGameUI();
+      localGameLoop();
+    }
 
-  // Modal
-  if(st.winner) {
-    document.getElementById('match-result-modal').style.display='flex';
-    document.getElementById('result-title').innerText = `${st.winner} WINS!`;
-  }
-  if(st.awaitingSuit && isMyTurn) document.getElementById('suit-modal').style.display='flex';
-}
+    function localGameLoop() {
+      if(!gameState || gameState.winner) return;
+      const p = gameState.players[gameState.turnIndex];
+      
+      if(isPassAndPlay && !p.isBot && document.getElementById("game-screen").classList.contains("active")) {
+         // Show pass screen if it's a new human turn
+         showScreen("pass-device-screen");
+         document.getElementById("next-player-name").innerText = p.name;
+         return; 
+      }
 
-function showToast(m) { const t=document.getElementById('toast'); t.innerText=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2000); }
-</script>
+      if(p.isBot) setTimeout(localBotTurn, 1000);
+      updateGameUI();
+    }
+    
+    function startTurn() { showScreen("game-screen"); updateGameUI(); }
+
+    function localBotTurn() {
+       // Simple bot
+       const st = gameState;
+       const p = st.players[st.turnIndex];
+       if(st.winner) return;
+       
+       // Try play
+       const top = st.discard[st.discard.length-1];
+       const idx = p.hand.findIndex(c => c.rank===top.rank || c.suit===st.activeSuit || c.rank==='A');
+       
+       if(idx >= 0) {
+         if(p.hand.length===2) p.lastDeclared=true; 
+         attemptPlayLocal([idx]);
+       } else {
+         attemptPickupLocal();
+       }
+    }
+
+    // --- 7. ONLINE ENGINE (WebSocket) ---
+    function goToOnline() { showScreen("online-screen"); connectNet(); }
+    
+    function connectNet() {
+       if(ws) return;
+       const proto = location.protocol==='https:'?'wss':'ws';
+       ws = new WebSocket(`${proto}://${location.host}`);
+       ws.onopen = () => document.getElementById("online-status").innerText = "Connected";
+       ws.onclose = () => document.getElementById("online-status").innerText = "Disconnected";
+       ws.onmessage = (e) => handleNetMsg(JSON.parse(e.data));
+    }
+    
+    function disconnectAndExit() {
+       if(ws) ws.close(); ws=null; showScreen("menu-screen");
+    }
+
+    function netHost() { ws.send(JSON.stringify({type:'CREATE_ROOM', name:leagueData.player.name})); }
+    function netJoin() { 
+       const c = document.getElementById("online-join-code").value.trim().toUpperCase();
+       if(!c) return showToast("Enter Code");
+       ws.send(JSON.stringify({type:'JOIN_ROOM', code:c, name:leagueData.player.name})); 
+    }
+    function netDeal() { ws.send(JSON.stringify({type:'START_GAME'})); }
+
+    function handleNetMsg(msg) {
+       if(msg.type==='ROOM_JOINED') {
+          myId = msg.playerId;
+          document.getElementById("online-my-code").innerText = msg.code;
+          if(msg.isHost) document.getElementById("online-host-panel").style.display="block";
+          else document.getElementById("online-status").innerText = "Joined. Waiting...";
+          gameMode = "online";
+       }
+       if(msg.type==='PLAYER_UPDATE') {
+          document.getElementById("online-status").innerText = `Players: ${msg.names.join(", ")}`;
+          if(msg.names.length>1) document.getElementById("net-deal-btn").disabled=false;
+       }
+       if(msg.type==='GAME_STATE') {
+          // MAP SERVER STATE TO LOCAL FORMAT
+          // Server sends: { players:[{id,name,hand...}], ... }
+          // We use this directly for rendering
+          gameState = msg.state;
+          // IMPORTANT: Check if we are "me" to populate my hand visually
+          const me = gameState.players.find(p=>p.id===myId);
+          if(me && me.hand.length > 0) AudioEngine.playCardSnap();
+          updateGameUI();
+       }
+       if(msg.type==='TOAST') { showToast(msg.msg); AudioEngine.playError(); shakeHand(); }
+    }
+
+    // --- 8. SHARED ACTIONS & VALIDATION ---
+    function isMyTurn() {
+      if(!gameState) return false;
+      const p = gameState.players[gameState.turnIndex];
+      if(gameMode==='offline') return !p.isBot;
+      return p.id === myId;
+    }
+
+    // PRE-VALIDATION to fix "Any card down" issue
+    function isValidLocalMove(indices) {
+       if(indices.length===0) return false;
+       const p = gameMode==='offline' ? gameState.players[gameState.turnIndex] : gameState.players.find(x=>x.id===myId);
+       const cards = indices.map(i=>p.hand[i]);
+       const top = gameState.discard[gameState.discard.length-1];
+       const suit = gameState.activeSuit;
+       
+       // 1. Check match
+       const c1 = cards[0];
+       const matches = (c1.rank === top.rank) || (c1.suit === suit) || (c1.rank === 'A');
+       if(!matches) return false;
+       
+       // 2. Check combo (must be same rank or run)
+       // Simplified: only same rank for multi-play to match generic rules
+       if(cards.length > 1) {
+          const allSame = cards.every(c => c.rank === c1.rank);
+          if(!allSame) return false; 
+       }
+       return true;
+    }
+
+    function humanPlay() {
+      if(!isMyTurn() || selectionOrder.length===0) return;
+      
+      // FIX: Check validity locally FIRST
+      if(!isValidLocalMove(selectionOrder)) {
+         showToast("Invalid Move!");
+         AudioEngine.playError();
+         shakeHand();
+         return;
+      }
+      
+      if(gameMode==='offline') attemptPlayLocal(selectionOrder);
+      else {
+         ws.send(JSON.stringify({type:'ACTION_PLAY', indices:selectionOrder}));
+         selectionOrder=[]; // clear immediately for visual feedback
+      }
+    }
+    
+    function humanPickup() {
+       if(!isMyTurn()) return;
+       if(gameMode==='offline') attemptPickupLocal();
+       else ws.send(JSON.stringify({type:'ACTION_PICKUP'}));
+    }
+    
+    function humanDeclareLast() {
+       if(gameMode==='offline') { gameState.players[gameState.turnIndex].lastDeclared=true; updateGameUI(); }
+       else ws.send(JSON.stringify({type:'ACTION_LAST'}));
+       AudioEngine.playCall();
+    }
+    
+    function resolveAce(s) {
+       if(gameMode==='offline') { gameState.activeSuit=(s==='H'?'♥':s==='D'?'♦':s==='C'?'♣':'♠'); gameState.awaitingSuit=false; nextTurnLocal(); }
+       else ws.send(JSON.stringify({type:'ACTION_SUIT', suitChar:s}));
+       document.getElementById("suit-modal").style.display="none";
+    }
+
+    // --- 9. LOCAL LOGIC IMPLEMENTATION ---
+    function attemptPlayLocal(indices) {
+       // Logic condensed for brevity but functionally complete
+       const st = gameState;
+       const p = st.players[st.turnIndex];
+       const cards = indices.map(i=>p.hand[i]);
+       
+       // Sort indices desc to remove
+       indices.sort((a,b)=>b-a).forEach(i=>p.hand.splice(i,1));
+       
+       const isSet = cards.length>1; 
+       cards.forEach((c,i)=>{
+          st.discard.push(c);
+          const isLast = i===cards.length-1;
+          if(c.rank==='2') st.pendingDraw2 += 2;
+          if(c.rank==='8') st.pendingSkip++;
+          if(c.rank==='Q') st.direction *= -1;
+          if(c.rank==='J') st.pendingDrawJ += (['♠','♣'].includes(c.suit)?5:0); // Red blocks (simplification: red J adds 0)
+          if(c.rank==='A' && isLast) st.awaitingSuit = true;
+          if(c.rank!=='A' && isLast) st.activeSuit = c.suit;
+       });
+       
+       AudioEngine.playCardSnap();
+       selectionOrder=[];
+       
+       if(p.hand.length===0) {
+          st.winner = p.name;
+          finishGameLocal(p);
+          return;
+       }
+       
+       if(st.awaitingSuit) {
+          if(!p.isBot) document.getElementById("suit-modal").style.display="flex";
+          else { st.activeSuit=['♠','♥','♦','♣'][Math.floor(Math.random()*4)]; st.awaitingSuit=false; nextTurnLocal(); }
+       } else {
+          nextTurnLocal();
+       }
+    }
+    
+    function attemptPickupLocal() {
+       const st = gameState;
+       const p = st.players[st.turnIndex];
+       const pen = st.pendingDraw2 || st.pendingDrawJ || 1;
+       
+       for(let i=0; i<pen; i++) {
+          if(!st.deck.length) st.deck = st.discard.splice(0,st.discard.length-1).sort(()=>Math.random()-0.5);
+          if(st.deck.length) p.hand.push(st.deck.pop());
+       }
+       st.pendingDraw2=0; st.pendingDrawJ=0; st.pendingSkip=0;
+       nextTurnLocal();
+    }
+    
+    function nextTurnLocal() {
+       const st = gameState;
+       st.players[st.turnIndex].lastDeclared=false;
+       st.turnIndex = (st.turnIndex + st.direction + st.players.length) % st.players.length;
+       updateGameUI();
+       localGameLoop();
+    }
+    
+    function finishGameLocal(winner) {
+       AudioEngine.playWin();
+       document.getElementById("result-title").innerText = winner.name + " WINS!";
+       document.getElementById("match-result-modal").style.display="flex";
+       if(gameState.isLeague && !winner.isBot) {
+          leagueData.player.wins++; leagueData.player.pts+=10; leagueData.player.winStreak++;
+          saveData();
+       } else if(gameState.isLeague) {
+          leagueData.player.losses++; leagueData.player.winStreak=0;
+          saveData();
+       }
+    }
+
+    // --- 10. RENDERER ---
+    function updateGameUI() {
+       if(!gameState) return;
+       showScreen("game-screen");
+       
+       // Who am I?
+       let me = (gameMode==='offline') ? gameState.players[gameState.turnIndex] : gameState.players.find(p=>p.id===myId);
+       // In pass-and-play, we render from the perspective of the current player (if human)
+       if(gameMode==='offline' && !me.isBot) { /* already set me */ }
+       // In online, 'me' is fixed by myId.
+
+       const activeP = gameState.players[gameState.turnIndex];
+       const isMe = (gameMode==='offline' && !activeP.isBot) || (gameMode==='online' && activeP.id===myId);
+       
+       document.getElementById("turn-status").innerText = isMe ? "YOUR TURN" : `${activeP.name}'s Turn`;
+       document.getElementById("status-feed").innerText = isMe ? "Your Move..." : "Waiting...";
+       
+       let atk = "";
+       if(gameState.pendingDraw2) atk=`Draw +${gameState.pendingDraw2}`;
+       if(gameState.pendingDrawJ) atk=`Draw +${gameState.pendingDrawJ}`;
+       if(gameState.pendingSkip) atk=`Skip!`;
+       document.getElementById("attack-status").innerText = atk;
+
+       // Discard
+       const dp = document.getElementById("discard-pile"); dp.innerHTML="";
+       if(gameState.discard.length) {
+          const top = gameState.discard[gameState.discard.length-1];
+          dp.appendChild(createCard(top, -1, false));
+          // Suit bubble
+          if(gameState.activeSuit) {
+             const b=document.createElement("div"); b.innerText=gameState.activeSuit;
+             b.style.cssText=`position:absolute; bottom:-10px; right:-10px; background:white; width:30px; height:30px; border-radius:50%; border:2px solid black; text-align:center; line-height:30px; color:${['♥','♦'].includes(gameState.activeSuit)?'red':'black'}`;
+             dp.appendChild(b);
+          }
+       }
+
+       // Hand
+       const handDiv = document.getElementById("player-hand"); handDiv.innerHTML="";
+       // In offline mode, if it's bot turn, show backs? Or just show active player hand?
+       // Pass & Play: Show active player hand.
+       // Online: Show 'me' hand.
+       const handToShow = (gameMode==='offline') ? activeP.hand : me.hand;
+       
+       // If it's online and I'm a spectator (game started, I joined late?), hand might be empty/null
+       if(handToShow) {
+         const center = (handToShow.length-1)/2;
+         handToShow.forEach((c,i) => {
+            const el = createCard(c, i, true);
+            const dist = i-center;
+            el.style.setProperty("--fan-rot", (dist*4)+"deg");
+            el.style.setProperty("--fan-y", (Math.abs(dist)*4)+"px");
+            el.style.zIndex=i;
+            handDiv.appendChild(el);
+         });
+       }
+
+       // Opponents
+       const cpuDiv = document.getElementById("cpu-area"); cpuDiv.innerHTML="";
+       gameState.players.forEach(p => {
+          // Don't show me in opponent bar
+          if(gameMode==='online' && p.id===myId) return;
+          if(gameMode==='offline' && p===activeP) return; 
+
+          const w=document.createElement("div"); w.className=`opponent-wrapper ${p===activeP?'active-turn':''}`;
+          w.innerHTML=`<div class="opponent-name">${p.name}</div>`;
+          const h=document.createElement("div"); h.style.display="flex"; h.style.transform="scale(0.6)";
+          const cnt=Math.min(p.cardCount || p.hand.length, 5);
+          for(let k=0;k<cnt;k++) h.innerHTML+=`<div class="card back" style="margin-right:-45px"></div>`;
+          w.appendChild(h);
+          cpuDiv.appendChild(w);
+       });
+
+       // Buttons
+       document.getElementById("btn-play").disabled = !isMe || selectionOrder.length===0;
+       document.getElementById("btn-pickup").disabled = !isMe;
+       const btnLast = document.getElementById("btn-last");
+       if((gameMode==='offline'?activeP:me).lastDeclared) { btnLast.innerText="CALLED"; btnLast.classList.add("called"); }
+       else { btnLast.innerText="LAST!"; btnLast.classList.remove("called"); }
+       
+       // Modal
+       if(gameState.winner) {
+          document.getElementById("result-title").innerText = gameState.winner + " WINS!";
+          document.getElementById("match-result-modal").style.display="flex";
+          AudioEngine.playWin();
+       }
+       if(gameState.awaitingSuit && isMe) document.getElementById("suit-modal").style.display="flex";
+    }
+
+    function createCard(c, i, clickable) {
+       const el = document.createElement("div");
+       el.className = `card ${['♥','♦'].includes(c.suit)?'red':''}`;
+       if(selectionOrder.includes(i)) {
+          el.classList.add("selected");
+          el.innerHTML += `<div class="selection-badge">${selectionOrder.indexOf(i)+1}</div>`;
+       }
+       el.innerHTML += `<div class="card-corner">${c.rank}<br>${c.suit}</div><div class="center-suit">${c.suit}</div><div class="card-bottom">${c.rank}<br>${c.suit}</div>`;
+       if(clickable) el.onclick = () => {
+          if(!isMyTurn()) return;
+          const idx = selectionOrder.indexOf(i);
+          if(idx>-1) selectionOrder.splice(idx,1); else selectionOrder.push(i);
+          AudioEngine.playTone(300,"sine",0.05,0.05);
+          updateGameUI();
+       };
+       return el;
+    }
+
+    function shakeHand() {
+       const h = document.getElementById("player-hand");
+       for(let c of h.children) { c.classList.add("shake"); setTimeout(()=>c.classList.remove("shake"),400); }
+    }
+    
+    function toggleSort() { 
+       sortByRank=!sortByRank;
+       // Sort logic would go here, updating local hand array or display order
+       showToast("Sorted!");
+    }
+    function exitGame() { location.reload(); }
+
+    loadData();
+  </script>
 </body>
 </html>
