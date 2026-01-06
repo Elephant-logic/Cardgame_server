@@ -260,6 +260,8 @@
 
     // --- LOGIC (LOCAL) ---
     const SUITS=["♠","♥","♦","♣"]; const RANKS=["A","2","3","4","5","6","7","8","9","10","J","Q","K"];
+    const POWER_RANKS = new Set(["A","2","8","J","Q","K"]);
+
     function createDeck(){ let d=[]; for(let s of SUITS)for(let r of RANKS)d.push({suit:s,rank:r}); return d.sort(()=>Math.random()-0.5); }
     function getTop(){ return gameState.discard[gameState.discard.length-1]; }
     function canStart(c, top, suit) { return c.rank === "A" || c.suit === suit || c.rank === top.rank; }
@@ -272,9 +274,15 @@
       const pObjs = players.map(p=>({id:Math.random(), name:p.name, isBot:p.isBot, hand:[], lastDeclared:false}));
       for(let i=0; i<7; i++) pObjs.forEach(p=>p.hand.push(deck.pop()));
       let discard=[deck.pop()];
-      while(['2','8','J','Q','K','A'].includes(discard[0].rank)) { deck.unshift(discard[0]); discard=[deck.pop()]; }
+      // Start card can't be power card
+      while(POWER_RANKS.has(discard[0].rank)) { deck.unshift(discard[0]); discard=[deck.pop()]; }
 
-      gameState = { deck, discard, players: pObjs, turnIndex:0, direction:1, activeSuit:discard[0].suit, pendingDraw2:0, pendingDrawJ:0, pendingSkip:0, awaitingSuit:false, winner:null, isLeague: isLeague };
+      gameState = { 
+        deck, discard, players: pObjs, turnIndex:0, direction:1, activeSuit:discard[0].suit, 
+        pendingDraw2:0, pendingDrawJ:0, pendingSkip:0, awaitingSuit:false, extraTurn:false,
+        winner:null, isLeague: isLeague 
+      };
+      
       isPassAndPlay = !isLeague && pObjs.filter(p=>!p.isBot).length > 1;
       selectionOrder = []; showScreen("game-screen"); updateGameUI(); localGameLoop();
     }
@@ -286,7 +294,6 @@
          showScreen("pass-device-screen"); document.getElementById("next-player-name").innerText = p.name; return; 
       }
       if(p.isBot) {
-         // FLUSH FIX: Status updates, but we don't swap hands yet.
          document.getElementById("status-feed").innerText = `${p.name} thinking...`;
          document.getElementById("turn-status").innerText = `${p.name}'s TURN`;
          setTimeout(cpuTurn, 1000);
@@ -309,12 +316,17 @@
       }
       if(gameState.pendingDrawJ) {
          let idx = p.hand.findIndex(c=>c.rank==='J' && ['♥','♦'].includes(c.suit)); // Red Jack to block
+         if(idx===-1) idx = p.hand.findIndex(c=>c.rank==='J'); // Or any Jack to stack (if rule allows, mostly black)
+         
          if(idx>-1) attemptPlayLocal([idx]); else attemptPickupLocal();
          return;
       }
       if(gameState.pendingSkip) {
-         let idx = p.hand.findIndex(c=>c.rank==='8');
-         if(idx>-1) attemptPlayLocal([idx]); else { gameState.pendingSkip=0; nextTurnLocal(); }
+         // Skip logic is handled in nextTurn, but if we are here, we are playing?
+         // Actually, if pendingSkip>0, we shouldn't be here unless we can counter.
+         // Standard rules: Skip means miss turn. Bot shouldn't act.
+         // We'll just call pickup which will skip us.
+         attemptPickupLocal();
          return;
       }
 
@@ -407,8 +419,10 @@
 
     function humanPlay() {
       if(!isMyTurn() || selectionOrder.length===0) return;
-      if(!isValidLocalMove(selectionOrder)) { showToast("Invalid Move!"); AudioEngine.playError(); shakeHand(); return; }
-      if(gameMode==='offline') attemptPlayLocal(selectionOrder);
+      if(gameMode==='offline') {
+         if(!isValidLocalMove(selectionOrder)) { showToast("Invalid Move!"); AudioEngine.playError(); shakeHand(); return; }
+         attemptPlayLocal(selectionOrder);
+      }
       else { ws.send(JSON.stringify({type:'ACTION_PLAY', indices:selectionOrder})); selectionOrder=[]; }
     }
     
@@ -430,36 +444,90 @@
        document.getElementById("suit-modal").style.display="none";
     }
 
-    // --- LOCAL LOGIC IMPL ---
+    // --- LOCAL LOGIC IMPL (OLD SKOOL RULES) ---
     function attemptPlayLocal(indices) {
        const st = gameState; const p = st.players[st.turnIndex]; const cards = indices.map(i=>p.hand[i]);
+       
+       // DEFENSE CHECK
+       if(st.pendingDraw2 > 0 && cards[0].rank !== '2') { showToast("Must play a 2!"); return; }
+       if(st.pendingDrawJ > 0 && cards[0].rank !== 'J') { showToast("Must play a Jack!"); return; }
+       if(st.pendingSkip > 0 && cards[0].rank !== '8') { showToast("Skipped! Pick up."); return; }
+
        indices.sort((a,b)=>b-a).forEach(i=>p.hand.splice(i,1));
        cards.forEach((c,i)=>{
           st.discard.push(c);
           const isLast = i===cards.length-1;
+          
+          // RULES
           if(c.rank==='2') st.pendingDraw2 += 2;
           if(c.rank==='8') st.pendingSkip++;
           if(c.rank==='Q') st.direction *= -1;
-          if(c.rank==='J') st.pendingDrawJ += (['♠','♣'].includes(c.suit)?5:0); 
+          if(c.rank==='K') st.extraTurn = true; // KING GO AGAIN
+          if(c.rank==='J') {
+             if(['♥','♦'].includes(c.suit)) st.pendingDrawJ = 0; // RED JACK BLOCKS
+             else st.pendingDrawJ += 5; // BLACK JACK ADDS
+          }
           if(c.rank==='A' && isLast) st.awaitingSuit = true;
           if(c.rank!=='A' && isLast) st.activeSuit = c.suit;
        });
+       
        AudioEngine.playCardSnap(); selectionOrder=[];
-       if(p.hand.length===0) { st.winner = p.name; finishGameLocal(p); return; }
+       
+       if(p.hand.length===0) { 
+          // Dirty finish check?
+          const last = cards[cards.length-1];
+          if(POWER_RANKS.has(last.rank)) {
+             p.hand.push(...drawLocal(2));
+             p.lastDeclared = false;
+             st.extraTurn = false; st.awaitingSuit = false;
+             showToast("Can't finish on power card!");
+             nextTurnLocal();
+             return;
+          }
+          st.winner = p.name; finishGameLocal(p); return; 
+       }
+       
        if(st.awaitingSuit) {
           if(!p.isBot) document.getElementById("suit-modal").style.display="flex";
           else { st.activeSuit=['♠','♥','♦','♣'][Math.floor(Math.random()*4)]; st.awaitingSuit=false; nextTurnLocal(); }
-       } else nextTurnLocal();
+       } else if(st.extraTurn) {
+          st.extraTurn = false; // Player goes again, so we don't call nextTurnLocal, just loop
+          showToast("Go Again!");
+          localGameLoop();
+       } else {
+          nextTurnLocal();
+       }
     }
     
     function attemptPickupLocal() {
        const st = gameState; const p = st.players[st.turnIndex];
-       const pen = st.pendingDraw2 || st.pendingDrawJ || 1;
-       for(let i=0; i<pen; i++) {
-          if(!st.deck.length) st.deck = st.discard.splice(0,st.discard.length-1).sort(()=>Math.random()-0.5);
-          if(st.deck.length) p.hand.push(st.deck.pop());
+       
+       // Handling Skip: If skipped, you miss turn (count=0 but turn advances)
+       if(st.pendingSkip > 0) {
+          st.pendingSkip = 0;
+          showToast("Missed Turn!");
+          nextTurnLocal();
+          return;
        }
-       st.pendingDraw2=0; st.pendingDrawJ=0; st.pendingSkip=0; nextTurnLocal();
+
+       const pen = st.pendingDraw2 || st.pendingDrawJ || 1;
+       p.hand.push(...drawLocal(pen));
+       
+       st.pendingDraw2=0; st.pendingDrawJ=0; 
+       nextTurnLocal();
+    }
+    
+    function drawLocal(n) {
+       const st = gameState; let arr=[];
+       for(let i=0; i<n; i++) {
+          if(!st.deck.length) {
+             let top = st.discard.pop();
+             st.deck = st.discard.sort(()=>Math.random()-0.5);
+             st.discard = [top];
+          }
+          if(st.deck.length) arr.push(st.deck.pop());
+       }
+       return arr;
     }
     
     function nextTurnLocal() {
@@ -506,7 +574,7 @@
        }
 
        const handDiv = document.getElementById("player-hand"); handDiv.innerHTML="";
-       const handToShow = (gameMode==='offline') ? me.hand : me.hand; // Just me.hand
+       const handToShow = (gameMode==='offline') ? me.hand : me.hand; 
        if(handToShow) {
          const center = (handToShow.length-1)/2;
          handToShow.forEach((c,i) => {
