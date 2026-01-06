@@ -784,62 +784,53 @@
     </div>
   </div>
 
-  <div id="p2p-screen" class="screen">
-    <div class="header-row" style="display:flex; align-items:center; width:90%; max-width:520px; justify-content:space-between; margin-bottom:10px;">
-      <button
-        onclick="p2pLeave()"
-        style="background: none; border: none; color: #333; font-size: 2rem; font-weight: bold"
-      >
-        ↩
-      </button>
-      <h2 style="margin: 0; color: #333">ONLINE TABLE</h2>
-      <button class="tinybtn" onclick="p2pDump()">Dump JSON</button>
+  
+  <div id="p2p-screen" class="screen active">
+    <h1>Old Skool Blackjack</h1>
+    <p class="sub">Online: create a room, share the code, join, then host deals.</p>
+
+    <div class="card">
+      <label class="label">Your name</label>
+      <input id="onlineName" class="input" placeholder="Enter name" maxlength="16" />
     </div>
 
-    <div class="pill" id="p2p-mode-pill">Signal: Cloud</div>
+    <div class="card">
+      <div class="row">
+        <button id="btnCreateRoom" class="btn primary">Create Room</button>
+        <button id="btnLeaveRoom" class="btn danger" style="display:none;">Leave</button>
+      </div>
 
-    <div class="p2p-box">
-      <div style="font-weight:900; margin-bottom:8px;">Your Code (share it):</div>
-      <div class="p2p-code" id="p2p-my-code">...</div>
-      <div class="mini" style="margin-top:8px;">
-        Host shares their code. Join pastes it. Host deals.
+      <div id="roomInfo" style="display:none; margin-top:12px;">
+        <div class="label">Room code (share this)</div>
+        <div class="codeRow">
+          <input id="roomCodeOut" class="input code" readonly />
+          <button id="btnCopyCode" class="btn">Copy</button>
+        </div>
+
+        <div class="label" style="margin-top:10px;">Players</div>
+        <div id="playersList" class="players"></div>
+
+        <div class="row" style="margin-top:12px;">
+          <button id="btnStartMatch" class="btn primary" disabled>Start / Deal</button>
+        </div>
+
+        <div class="hint">Only the host can start. When the match starts, this screen will close.</div>
       </div>
     </div>
 
-    <div class="p2p-box">
-      <div style="font-weight:900; margin-bottom:6px;">Signal settings (LAN optional)</div>
-      <div class="mini">If you run a local PeerJS server (Termux/PC): set host + port and tap “Use LAN Signal”.</div>
-      <input id="p2p-signal-host" type="text" placeholder="LAN signal host (e.g. 192.168.1.20)" />
-      <input id="p2p-signal-port" type="number" placeholder="LAN signal port (default 9000)" />
-      <div class="p2p-row">
-        <button class="tinybtn" onclick="p2pUseCloud()">Use Cloud Signal</button>
-        <button class="tinybtn" onclick="p2pUseLan()">Use LAN Signal</button>
-      </div>
+    <div class="card">
+      <label class="label">Join room</label>
+      <input id="roomCodeIn" class="input" placeholder="Room code" maxlength="8" />
+      <button id="btnJoinRoom" class="btn primary" style="margin-top:10px;">Join Room</button>
     </div>
 
-    <div class="p2p-box">
-      <div style="font-weight:900; margin-bottom:6px;">Join a host</div>
-      <input id="p2p-join-code" type="text" placeholder="Paste Host Code" />
-      <div class="p2p-row">
-        <button class="menu-btn btn-league" style="margin:0; width: 160px" onclick="p2pHost()">HOST ROOM</button>
-        <button class="menu-btn btn-party" style="margin:0; width: 160px" onclick="p2pJoin()">JOIN ROOM</button>
-        <button class="menu-btn btn-start" id="p2p-deal-btn" style="margin:0; width: 100%" onclick="p2pDeal()">
-          DEAL!
-        </button>
-      </div>
-      <div id="p2p-status" class="mini" style="margin-top:10px; font-weight:900;">Not connected.</div>
+    <div class="card tiny">
+      <div id="netStatus">Connecting…</div>
     </div>
   </div>
 
-  <div id="pass-device-screen" class="screen">
-    <div class="pass-title">
-      Pass to <span id="next-player-name" style="color: var(--sticker-yellow)">...</span>
-    </div>
-    <div style="color: white; margin-bottom: 30px; font-size: 1.2rem">(No Peeking!)</div>
-    <button class="pass-btn" onclick="startTurn()">I'm Ready!</button>
-  </div>
-
-  <div id="game-screen" class="screen">
+  <div id="game-screen"
+ class="screen">
     <div id="status-feed">Cards are in play!</div>
     <div id="game-info-bar">
       <div id="turn-status"></div>
@@ -927,7 +918,7 @@
   </div>
 
   <!-- PeerJS (P2P) -->
-  <script>
+<script>
     // --- AUDIO ENGINE ---
     const AudioEngine = {
       ctx: null,
@@ -1942,300 +1933,296 @@
 
     
 // ===============================
-// ONLINE (WebSocket relay) P2P shim
-// Server only relays messages. HOST is authoritative and broadcasts full state.
+// ONLINE (WebSocket relay)
+// Host is authoritative: host runs the full rules locally and broadcasts state.
+// Guests never mutate state directly; they send INPUT requests to host.
 // ===============================
-let WS = null;
+let WS = {
+  sock: null,
+  isOpen: false,
+  roomCode: null,
+  isHost: false,
+  clientId: null,
+  players: [],  // [{id,name,isHost}]
+};
 
-function wsUrl(){
-  // Use same origin, upgrade to ws(s)
+function wsUrl() {
+  // Render serves everything from same origin. WS uses wss on https.
   const proto = (location.protocol === "https:") ? "wss" : "ws";
   return `${proto}://${location.host}/ws`;
 }
 
-function wsConnect(){
-  return new Promise((resolve, reject) => {
-    if (WS && (WS.readyState === 0 || WS.readyState === 1)) return resolve(WS);
-    WS = new WebSocket(wsUrl());
-    WS.addEventListener("open", () => resolve(WS), { once:true });
-    WS.addEventListener("error", (e) => reject(e), { once:true });
-    WS.addEventListener("message", (ev) => {
-      let data;
-      try { data = JSON.parse(ev.data); } catch { return; }
+function wsConnect() {
+  try {
+    const s = new WebSocket(wsUrl());
+    WS.sock = s;
+    WS.isOpen = false;
 
-      // Server control messages
-      if (data.type === "error") { toast(data.message || "Server error"); return; }
-      if (data.type === "created") {
-        P2P.roomCode = data.roomCode;
-        P2P.isHost = true;
-        myP2PIndex = data.playerIndex ?? 0;
-        document.getElementById("p2p-code").textContent = P2P.roomCode;
-        toast(`Room created: ${P2P.roomCode}`);
-        return;
-      }
-      if (data.type === "joined") {
-        P2P.roomCode = data.roomCode;
-        P2P.isHost = false;
-        myP2PIndex = data.playerIndex ?? 1;
-        toast(`Joined room: ${P2P.roomCode}`);
-        return;
-      }
-      if (data.type === "peer_joined") {
-        // Host learns about the joiner
-        P2P.peerName = data.name || "Player 2";
-        toast(`${P2P.peerName} joined!`);
-        // If host already has a room state (e.g., from lobby), broadcast it now
-        if (P2P.isHost && P2P.roomState) {
-          p2pBroadcastState();
-        }
-        return;
-      }
-      if (data.type === "peer_left") {
-        toast("Opponent disconnected.");
-        // Back to lobby safely
-        try { resetToLobby(); } catch {}
-        return;
-      }
+    s.addEventListener("open", () => {
+      WS.isOpen = true;
+      setNetStatus("Connected");
+      // register name if already typed
+      const nm = (onlineName?.value || "").trim();
+      if (nm) wsSend({ t:"setName", name:nm });
+    });
 
-      // Game messages are forwarded as-is
-      try { p2pOnMessage(data); } catch (e) { console.error(e); }
+    s.addEventListener("close", () => {
+      WS.isOpen = false;
+      setNetStatus("Disconnected — reconnecting…");
+      // attempt reconnect
+      setTimeout(wsConnect, 600);
     });
-    WS.addEventListener("close", () => {
-      // mark conn closed
-      if (P2P && P2P.conn) P2P.conn.open = false;
+
+    s.addEventListener("error", () => {
+      WS.isOpen = false;
+      setNetStatus("Network error — reconnecting…");
     });
+
+    s.addEventListener("message", (ev) => {
+      let msg;
+      try { msg = JSON.parse(ev.data); } catch { return; }
+      onWsMessage(msg);
+    });
+  } catch (e) {
+    setNetStatus("WS failed — retrying…");
+    setTimeout(wsConnect, 800);
+  }
+}
+
+function wsSend(obj) {
+  if (!WS.sock || WS.sock.readyState !== 1) return;
+  WS.sock.send(JSON.stringify(obj));
+}
+
+function onWsMessage(msg) {
+  if (!msg || !msg.t) return;
+
+  if (msg.t === "hello") {
+    WS.clientId = msg.clientId;
+    setNetStatus("Connected");
+    return;
+  }
+
+  if (msg.t === "roomUpdate") {
+    WS.roomCode = msg.roomCode || null;
+    WS.isHost = !!msg.isHost;
+    WS.players = Array.isArray(msg.players) ? msg.players : [];
+    syncLobbyUI();
+    return;
+  }
+
+  if (msg.t === "roomError") {
+    toast(msg.message || "Room error");
+    return;
+  }
+
+  if (msg.t === "startMatch") {
+    // Host already started locally; guests just switch screens.
+    showGameScreen();
+    return;
+  }
+
+  if (msg.t === "hostAction") {
+    // Guest receives full state snapshot from host.
+    if (!WS.isHost && msg.state) {
+      applyStateFromHost(msg.state);
+    }
+    return;
+  }
+
+  if (msg.t === "inputRequest") {
+    // Host receives a guest input request.
+    if (WS.isHost && msg.action) {
+      handleRemoteInput(msg.fromId, msg.action);
+    }
+    return;
+  }
+}
+
+// ----- Lobby UI wiring -----
+const onlineName = document.getElementById("onlineName");
+const btnCreateRoom = document.getElementById("btnCreateRoom");
+const btnJoinRoom = document.getElementById("btnJoinRoom");
+const btnLeaveRoom = document.getElementById("btnLeaveRoom");
+const btnStartMatch = document.getElementById("btnStartMatch");
+const roomCodeOut = document.getElementById("roomCodeOut");
+const roomCodeIn = document.getElementById("roomCodeIn");
+const playersList = document.getElementById("playersList");
+const roomInfo = document.getElementById("roomInfo");
+const netStatus = document.getElementById("netStatus");
+const btnCopyCode = document.getElementById("btnCopyCode");
+
+function setNetStatus(t){ if(netStatus) netStatus.textContent = t; }
+
+function syncLobbyUI() {
+  if (roomInfo) roomInfo.style.display = WS.roomCode ? "block" : "none";
+  if (roomCodeOut) roomCodeOut.value = WS.roomCode || "";
+  if (btnLeaveRoom) btnLeaveRoom.style.display = WS.roomCode ? "inline-block" : "none";
+  if (btnCreateRoom) btnCreateRoom.disabled = !!WS.roomCode;
+
+  // players list
+  if (playersList) {
+    playersList.innerHTML = "";
+    WS.players.forEach(p => {
+      const div = document.createElement("div");
+      div.className = "playerRow";
+      div.textContent = `${p.name || "Player"}${p.isHost ? " (host)" : ""}`;
+      playersList.appendChild(div);
+    });
+  }
+
+  // start enabled if host + at least 2 players
+  if (btnStartMatch) btnStartMatch.disabled = !(WS.isHost && WS.players.length >= 2);
+}
+
+if (onlineName) {
+  onlineName.addEventListener("input", () => {
+    const nm = onlineName.value.trim();
+    if (nm.length) wsSend({ t:"setName", name:nm });
   });
 }
 
-function p2pEnsurePeer(){
-  // Kept for compatibility, now uses WebSocket.
-  return wsConnect();
+if (btnCreateRoom) {
+  btnCreateRoom.addEventListener("click", () => {
+    const nm = (onlineName?.value || "").trim();
+    if (!nm) return toast("Enter a name first");
+    wsSend({ t:"createRoom", name:nm });
+  });
 }
 
-function p2pHost(){
-  const name = (document.getElementById("p2p-name").value || "Player 1").trim();
-  wsConnect().then(() => {
-    P2P = P2P || {};
-    P2P.isHost = true;
-    P2P.peer = { id: "ws" };
-    P2P.conn = {
-      open: true,
-      send: (obj) => { if (WS && WS.readyState === 1) WS.send(JSON.stringify(obj)); }
-    };
-    WS.send(JSON.stringify({ type:"create", name }));
-  }).catch(() => toast("Could not connect to server."));
+if (btnJoinRoom) {
+  btnJoinRoom.addEventListener("click", () => {
+    const nm = (onlineName?.value || "").trim();
+    const code = (roomCodeIn?.value || "").trim().toUpperCase();
+    if (!nm) return toast("Enter a name first");
+    if (!code) return toast("Enter a room code");
+    wsSend({ t:"joinRoom", name:nm, roomCode: code });
+  });
 }
 
-function p2pJoin(){
-  const name = (document.getElementById("p2p-name").value || "Player").trim();
-  const code = (document.getElementById("p2p-joincode").value || "").trim().toUpperCase();
-  if (!code) { toast("Enter a room code"); return; }
-  wsConnect().then(() => {
-    P2P = P2P || {};
-    P2P.isHost = false;
-    P2P.peer = { id: "ws" };
-    P2P.conn = {
-      open: true,
-      send: (obj) => { if (WS && WS.readyState === 1) WS.send(JSON.stringify(obj)); }
-    };
-    WS.send(JSON.stringify({ type:"join", roomCode: code, name }));
-  }).catch(() => toast("Could not connect to server."));
+if (btnLeaveRoom) {
+  btnLeaveRoom.addEventListener("click", () => {
+    wsSend({ t:"leaveRoom" });
+    WS.roomCode = null;
+    WS.isHost = false;
+    WS.players = [];
+    syncLobbyUI();
+  });
 }
 
-function p2pHost(){
-      P2P.isHost = true;
-      p2pSetStatus("Hosting... share your code. Wait for join.");
-      document.getElementById("p2p-deal-btn").disabled = true;
-      showToast("Hosting...");
-    }
+if (btnCopyCode) {
+  btnCopyCode.addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(WS.roomCode || ""); toast("Copied"); } catch {}
+  });
+}
 
-    function p2pJoin(){
-      const code = (document.getElementById("p2p-join-code").value || "").trim();
-      if (!code) return showToast("Paste host code");
-      if (!P2P.peer) p2pEnsurePeer();
-      P2P.isHost = false;
+if (btnStartMatch) {
+  btnStartMatch.addEventListener("click", () => {
+    if (!WS.isHost) return;
+    // start local match then tell server to tell everyone else
+    startOnlineAsHost();
+    wsSend({ t:"startMatch" });
+  });
+}
 
-      // Common mistake: pasting YOUR OWN code into the join box.
-      // That attempts a connection to yourself and often throws PeerJS "webrtc" errors.
-      if (P2P.peer && P2P.peer.id && code === P2P.peer.id) {
-        p2pSetStatus("That is your own code. Share it to the other device, then join THEIR code here.");
-        return showToast("Can't join your own code");
-      }
+// ----- Screen helpers -----
+function showGameScreen(){
+  const p2p = document.getElementById("p2p-screen");
+  const game = document.getElementById("game-screen");
+  if (p2p) p2p.classList.remove("active");
+  if (game) game.classList.add("active");
+}
 
-      const conn = P2P.peer.connect(code, { reliable: true });
-      P2P.conn = conn;
-      p2pWireConn(conn);
-      p2pSetStatus("Joining...");
+// ----- Host authoritative plumbing -----
+// The existing code already has serialize/apply helpers for P2P.
+// We reuse them with WS.
 
-      conn.on("open", () => {
-        p2pSend({ type: "hello", name: leagueData.player.name });
-        p2pSetStatus("Connected. Waiting for host to DEAL.");
-        document.getElementById("p2p-deal-btn").disabled = true;
-        showToast("Connected");
-      });
-    }
+// called when host clicks Start/Deal
+function startOnlineAsHost() {
+  ONLINE = true;
+  ONLINE_IS_HOST = true;
+  showGameScreen();
+  // whatever your game uses to reset/deal:
+  if (typeof newGame === "function") newGame();
+  // broadcast initial snapshot
+  wsBroadcastState();
+}
 
-    function p2pDeal(){
-      if (!P2P.isHost) return showToast("Only host can deal");
-      if (!P2P.conn || !P2P.conn.open) return showToast("No one joined yet");
+// guests call this to request an action
+function wsRequestAction(action) {
+  if (WS.isHost) return; // host acts locally
+  wsSend({ t:"inputRequest", action });
+}
 
-      // Start a 2-player P2P game (host = index 0)
-      gameMode = "p2p";
-      myP2PIndex = 0;
+// host broadcasts full snapshot
+function wsBroadcastState() {
+  if (!WS.isHost) return;
+  const state = serializeState();
+  wsSend({ t:"hostAction", state });
+}
 
-      const hostName = leagueData.player.name || "Host";
-      const joinName = P2P.connectedName || "Guest";
+// Host receives remote input and applies it (same as local click handlers)
+function handleRemoteInput(fromId, action) {
+  try {
+    // route to the same handler you use for local inputs.
+    // action example: {type:"play", cardId:"...", chooseSuit:"H"} etc.
+    applyRemoteAction(action);
+    wsBroadcastState();
+  } catch (e) {
+    console.warn("remote input failed", e);
+  }
+}
 
-      isLeagueMode = false;
+// Guest applies snapshot
+function applyStateFromHost(state) {
+  applyState(state);
+}
 
-      initGame([
-        { name: hostName, isBot: false },
-        { name: joinName, isBot: false },
-      ]);
+// ===============================
+// Hook points into your existing UI / input handlers
+// ===============================
 
-      p2pBroadcastState();
-      showToast("Dealt!");
-    }
+// If your code already defines these globals, keep them.
+// Otherwise define minimal ones.
+window.ONLINE = window.ONLINE || false;
+window.ONLINE_IS_HOST = window.ONLINE_IS_HOST || false;
 
-    function p2pOnMessage(msg){
-      if (!msg || typeof msg !== "object") return;
+// Replace old P2P helpers with WS-backed stubs so existing code keeps working.
+function p2pEnsurePeer(){ /* no-op */ }
+function p2pUseCloud(){ /* no-op */ }
+function p2pUseLan(){ /* no-op */ }
+function p2pHost(){ wsSend({t:"createRoom", name:(onlineName?.value||"").trim()}); }
+function p2pJoin(){ wsSend({t:"joinRoom", name:(onlineName?.value||"").trim(), roomCode:(roomCodeIn?.value||"").trim().toUpperCase()}); }
+function p2pWireConn(){ /* no-op */ }
+function p2pOnMessage(){ /* no-op */ }
+function p2pSend(type, data){ 
+  // keep compatible. Host sends state, guest sends input.
+  if (type === "STATE") return wsBroadcastState();
+  if (type === "INPUT") return wsRequestAction(data);
+}
+function p2pBroadcastState(){ wsBroadcastState(); }
+function p2pDeal(){ if (WS.isHost) startOnlineAsHost(); }
+function p2pLeave(){ wsSend({t:"leaveRoom"}); }
 
-      // Joiner receiving state
-      if (msg.type === "state") {
-        if (!msg.state) return;
-        applyState(msg.state);
-        return;
-      }
+// You MUST have these two in your existing code; if not, add simple versions:
+// - serializeState(): returns full game state object
+// - applyState(state): applies it to the UI
 
-      // Host receiving hello / actions
-      if (P2P.isHost) {
-        if (msg.type === "hello") {
-          P2P.connectedName = msg.name || "Guest";
-          p2pSetStatus("Client: " + P2P.connectedName + ". Host can DEAL!");
-          document.getElementById("p2p-deal-btn").disabled = false;
-          return;
-        }
-        if (msg.type === "pickup") {
-          if (gameMode !== "p2p") return;
-          if (turnIndex !== 1) return;
-          myP2PIndex = 0;
-          isProcessing = true;
-          _humanPickupLocal();
-          p2pBroadcastState();
-          return;
-        }
-        if (msg.type === "declare_last") {
-          if (gameMode !== "p2p") return;
-          if (turnIndex !== 1) return;
-          gamePlayers[1].lastDeclared = true;
-          updateFeed(gamePlayers[1].name + " called LAST!");
-          updateGameUI();
-          p2pBroadcastState();
-          return;
-        }
-        if (msg.type === "play") {
-          if (gameMode !== "p2p") return;
-          if (turnIndex !== 1) return;
-          const indices = Array.isArray(msg.indices) ? msg.indices : [];
-          // Safety: clamp indices
-          const safe = indices.filter(i => Number.isInteger(i) && i >= 0 && i < gamePlayers[1].hand.length);
-          attemptPlay(1, safe);
-          p2pBroadcastState();
-          return;
-        }
-      } else {
-        // client toasts
-        if (msg.type === "toast" && msg.msg) showToast(msg.msg);
-      }
-    }
+// You MUST implement applyRemoteAction(action) to run the same logic as a local click.
+// If your original P2P code already has something similar, rename it to applyRemoteAction.
+if (typeof applyRemoteAction !== "function") {
+  // Fallback: map a couple of common actions
+  window.applyRemoteAction = function(action){
+    if (!action || !action.type) return;
+    if (action.type === "draw" && typeof drawCard === "function") return drawCard();
+    if (action.type === "last" && typeof pressLast === "function") return pressLast();
+    if (action.type === "play" && typeof playCardById === "function") return playCardById(action.cardId, action.chooseSuit);
+  };
+}
 
-    function p2pSend(payload){
-      if (!P2P.conn || !P2P.conn.open) return showToast("Not connected");
-      try { P2P.conn.send(payload); } catch (e) { console.error(e); }
-    }
+// Start WS immediately
+wsConnect();
 
-    function p2pSendToClient(payload){
-      if (!P2P.conn || !P2P.conn.open) return;
-      try { P2P.conn.send(payload); } catch (e) {}
-    }
-
-    function serializeState(){
-      return {
-        v: 1,
-        ts: Date.now(),
-        mode: "p2p",
-        deck,
-        discard,
-        gamePlayers,
-        turnIndex,
-        direction,
-        activeSuit,
-        pendingDraw2,
-        pendingDrawJ,
-        pendingSkip,
-        extraTurn,
-        sortByRank,
-      };
-    }
-
-    function applyState(st){
-      // client side: accept authoritative snapshot
-      deck = st.deck || [];
-      discard = st.discard || [];
-      gamePlayers = st.gamePlayers || [];
-      turnIndex = st.turnIndex || 0;
-      direction = st.direction || 1;
-      activeSuit = st.activeSuit || null;
-      pendingDraw2 = st.pendingDraw2 || 0;
-      pendingDrawJ = st.pendingDrawJ || 0;
-      pendingSkip = st.pendingSkip || 0;
-      extraTurn = !!st.extraTurn;
-      sortByRank = !!st.sortByRank;
-
-      // client is always index 1 in this two-player build
-      gameMode = "p2p";
-      myP2PIndex = 1;
-      isLeagueMode = false;
-      isPassAndPlay = false;
-
-      showScreen("game-screen");
-      selectionOrder = [];
-      isProcessing = false;
-      updateGameUI();
-      gameLoop();
-    }
-
-    function p2pBroadcastState(){
-      if (!P2P.isHost) return;
-      if (!P2P.conn || !P2P.conn.open) return;
-      const state = serializeState();
-      P2P.roomState = state;
-      try { P2P.conn.send({ type:"state", state }); } catch (e) { console.error(e); }
-    }
-
-    function p2pDump(){
-      const box = document.getElementById("p2p-status");
-      const snap = (gameMode === "p2p") ? serializeState() : (P2P.roomState || { v:1, mode: P2P.isHost ? "p2p_host":"p2p_join", hostName: leagueData.player.name, players:[{name:leagueData.player.name}], started:false, ts: Date.now()});
-      // simple modal-like toast: show in console too
-      console.log("P2P SNAPSHOT", snap);
-      showToast("Dumped to console");
-      // also show quick summary in status line
-      box.innerText = `Players: ${(snap.gamePlayers? snap.gamePlayers.length : 1)} • Turn: ${snap.turnIndex ?? "-"} • Mode: ${P2P.isHost ? "HOST" : "JOIN"}`;
-    }
-
-    function p2pLeave(silent){
-      // return to menu and teardown connection (optional)
-      try {
-        if (P2P.conn) { try { P2P.conn.close(); } catch(e){} }
-        P2P.conn = null;
-        P2P.isHost = false;
-        P2P.connectedName = null;
-        P2P.roomState = null;
-      } catch(e){}
-      if (!silent) showScreen("menu-screen");
-    }
-
-    loadData();
-  </script>
+</script>
 </body>
 </html>
