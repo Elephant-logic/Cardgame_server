@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Old Skool Blackjack — Switch Rules</title>
   <style>
-    /* --- STYLES (Restored from your index-5.html) --- */
+    /* --- STYLES (Unchanged) --- */
     :root {
       --chalk-green: #3a5f42; --chalk-white: #eeeeee; --paper-white: #fdfbf7;
       --line-blue: #a2d2ff; --sticker-yellow: #ffeb3b; --sticker-pink: #ff80ab;
@@ -286,7 +286,9 @@
          showScreen("pass-device-screen"); document.getElementById("next-player-name").innerText = p.name; return; 
       }
       if(p.isBot) {
+         // FLUSH FIX: Status updates, but we don't swap hands yet.
          document.getElementById("status-feed").innerText = `${p.name} thinking...`;
+         document.getElementById("turn-status").innerText = `${p.name}'s TURN`;
          setTimeout(cpuTurn, 1000);
       } else {
          document.getElementById("status-feed").innerText = "Your Turn";
@@ -479,7 +481,12 @@
        if(!gameState) return;
        showScreen("game-screen");
        
-       let me = (gameMode==='offline') ? gameState.players[gameState.turnIndex] : gameState.players.find(p=>p.id===myId);
+       // 1. Determine "Me" (who is at bottom?)
+       let me;
+       if(gameMode==='online') me = gameState.players.find(p => p.id === myId);
+       else if(isPassAndPlay) me = gameState.players[gameState.turnIndex];
+       else me = gameState.players[0]; // Solo/League always view from Player 0
+
        const activeP = gameState.players[gameState.turnIndex];
        const isMe = (gameMode==='offline' && !activeP.isBot) || (gameMode==='online' && activeP.id===myId);
        
@@ -499,7 +506,7 @@
        }
 
        const handDiv = document.getElementById("player-hand"); handDiv.innerHTML="";
-       const handToShow = (gameMode==='offline') ? activeP.hand : me.hand;
+       const handToShow = (gameMode==='offline') ? me.hand : me.hand; // Just me.hand
        if(handToShow) {
          const center = (handToShow.length-1)/2;
          handToShow.forEach((c,i) => {
@@ -511,8 +518,7 @@
 
        const cpuDiv = document.getElementById("cpu-area"); cpuDiv.innerHTML="";
        gameState.players.forEach(p => {
-          if(gameMode==='online' && p.id===myId) return;
-          if(gameMode==='offline' && p===activeP) return; 
+          if(p === me) return; // Don't show the person at bottom in the top strip
           const w=document.createElement("div"); w.className=`opponent-wrapper ${p===activeP?'active-turn':''}`;
           w.innerHTML=`<div class="opponent-name">${p.name}</div>`;
           const h=document.createElement("div"); h.style.display="flex"; h.style.transform="scale(0.6)";
