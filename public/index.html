@@ -750,9 +750,7 @@
       line-height: 1.25;
       max-height: 150px;
       background: rgba(255,255,255,0.85);
-    
-        color: #111;
-}
+    }
 
 #chat-title, #chat-wrap .chat-title { color:#111 !important; font-weight:900; text-shadow:none !important; }
 #chat-messages { color:#111 !important; }
@@ -1780,17 +1778,31 @@
       });
 
       if (isLeagueMode) {
-        if (winnerIdx === 0) {
+        const oppName = gamePlayers[1]?.name;
+        const oppEntry = (leagueData.bots || []).find(b => b.name === oppName);
+        const playerWon = (winnerIdx === 0);
+
+        if (playerWon) {
           leagueData.player.wins++;
           leagueData.player.pts += 3;
           leagueData.player.winStreak = (leagueData.player.winStreak || 0) + 1;
           leagueData.player.bestStreak = Math.max(leagueData.player.bestStreak || 0, leagueData.player.winStreak || 0);
+          if (oppEntry) {
+            oppEntry.losses = (oppEntry.losses || 0) + 1;
+            oppEntry.winStreak = 0;
+          }
           unlockBackIfNeeded();
           title.innerText = "WIN!";
           desc.innerText = "Nice one.";
         } else {
           leagueData.player.losses++;
           leagueData.player.winStreak = 0;
+          if (oppEntry) {
+            oppEntry.wins = (oppEntry.wins || 0) + 1;
+            oppEntry.pts = (oppEntry.pts || 0) + 3;
+            oppEntry.winStreak = (oppEntry.winStreak || 0) + 1;
+            oppEntry.bestStreak = Math.max(oppEntry.bestStreak || 0, oppEntry.winStreak || 0);
+          }
           title.innerText = "LOSE";
           desc.innerText = `${winner.name} got you`;
         }
@@ -2508,118 +2520,6 @@
       loadData();
       bindOnlineUI();
     });
-  
-// ---- Draggable chat window (mouse + touch) ----
-(function(){
-  const KEY = "osb_chat_pos_v1";
-  function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
-
-  function applySavedPos(wrap){
-    try{
-      const raw = localStorage.getItem(KEY);
-      if(!raw) return;
-      const pos = JSON.parse(raw);
-      if(!pos || typeof pos.x!=="number" || typeof pos.y!=="number") return;
-      wrap.style.left = pos.x + "px";
-      wrap.style.top  = pos.y + "px";
-      wrap.style.right = "auto";
-      wrap.style.bottom = "auto";
-    }catch(e){}
-  }
-
-  function savePos(wrap){
-    const rect = wrap.getBoundingClientRect();
-    localStorage.setItem(KEY, JSON.stringify({ x: Math.round(rect.left), y: Math.round(rect.top) }));
-  }
-
-  function init(){
-    const wrap = document.getElementById("chat-wrap");
-    const head = document.getElementById("chat-head");
-    if(!wrap || !head) return;
-
-    applySavedPos(wrap);
-
-    let dragging = false;
-    let startX=0, startY=0, baseLeft=0, baseTop=0, pointerId=null;
-
-    function startDrag(ev){
-      // don't drag when tapping buttons/inputs inside header
-      const t = ev.target;
-      if(t && (t.tagName==="BUTTON" || t.tagName==="INPUT" || t.closest("button") || t.closest("input"))) return;
-
-      const rect = wrap.getBoundingClientRect();
-      // if currently positioned with bottom, convert to top/left
-      wrap.style.left = rect.left + "px";
-      wrap.style.top  = rect.top + "px";
-      wrap.style.right = "auto";
-      wrap.style.bottom = "auto";
-
-      dragging = true;
-      wrap.classList.add("dragging");
-
-      pointerId = ev.pointerId;
-      try { head.setPointerCapture(pointerId); } catch(e){}
-
-      startX = ev.clientX;
-      startY = ev.clientY;
-      baseLeft = rect.left;
-      baseTop = rect.top;
-
-      ev.preventDefault();
-    }
-
-    function moveDrag(ev){
-      if(!dragging) return;
-      const dx = ev.clientX - startX;
-      const dy = ev.clientY - startY;
-
-      const w = wrap.offsetWidth;
-      const h = wrap.offsetHeight;
-      const pad = 6;
-
-      const maxX = window.innerWidth - w - pad;
-      const maxY = window.innerHeight - h - pad;
-
-      const x = clamp(baseLeft + dx, pad, maxX);
-      const y = clamp(baseTop + dy, pad, maxY);
-
-      wrap.style.left = x + "px";
-      wrap.style.top  = y + "px";
-      ev.preventDefault();
-    }
-
-    function endDrag(){
-      if(!dragging) return;
-      dragging = false;
-      wrap.classList.remove("dragging");
-      savePos(wrap);
-      pointerId = null;
-    }
-
-    head.addEventListener("pointerdown", startDrag);
-    window.addEventListener("pointermove", moveDrag, { passive:false });
-    window.addEventListener("pointerup", endDrag);
-    window.addEventListener("pointercancel", endDrag);
-
-    window.addEventListener("resize", () => {
-      // keep within screen after resize
-      const rect = wrap.getBoundingClientRect();
-      const w = wrap.offsetWidth;
-      const h = wrap.offsetHeight;
-      const pad = 6;
-      const x = clamp(rect.left, pad, window.innerWidth - w - pad);
-      const y = clamp(rect.top, pad, window.innerHeight - h - pad);
-      wrap.style.left = x + "px";
-      wrap.style.top  = y + "px";
-      wrap.style.right = "auto";
-      wrap.style.bottom = "auto";
-      savePos(wrap);
-    });
-  }
-
-  if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
-  else init();
-})();
-</script>
+  </script>
 </body>
 </html>
