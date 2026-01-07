@@ -7,68 +7,67 @@ const PORT = process.env.PORT || 10000;
 
 const app = express();
 app.use(express.static(path.join(__dirname, "public")));
-
-app.get("/health", (req, res) => res.json({ ok: true }));
+app.get("/health", (_req, res) => res.json({ ok: true }));
 
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 function makeCode(len = 6) {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
   let out = "";
-  for (let i = 0; i < len; i++) {
-    out += chars[Math.floor(Math.random() * chars.length)];
-  }
+  for (let i = 0; i < len; i++) out += chars[Math.floor(Math.random() * chars.length)];
   return out;
 }
 
-/*
- room = {
-   code,
-   host,          // ws id
-   clients: Map(ws -> { wsId, name, seat }),
-   state,
-   version
- }
-*/
+// code -> { code, hostId, clients: Map(ws -> { wsId, name, seat }), state, version }
 const rooms = new Map();
-let wsCounter = 1;
 
-function roomPlayers(room) {
-  const arr = [];
-  for (const [, info] of room.clients) {
-    arr.push({
-      name: info.name,
-      seat: info.seat,
-      isHost: room.host === info.wsId,
-    });
-  }
-  arr.sort((a, b) => a.seat - b.seat);
-  return arr;
+function send(ws, obj) {
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj));
 }
 
 function broadcast(room, obj) {
   const msg = JSON.stringify(obj);
   for (const ws of room.clients.keys()) {
-    if (ws.readyState === WebSocket.OPEN) {
-      ws.send(msg);
-    }
+    if (ws.readyState === WebSocket.OPEN) ws.send(msg);
   }
 }
 
-function send(ws, obj) {
-  if (ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify(obj));
+function roomPlayers(room) {
+  const arr = [];
+  for (const info of room.clients.values()) {
+    arr.push({ name: info.name, seat: info.seat, isHost: info.wsId === room.hostId });
   }
+  arr.sort((a, b) => a.seat - b.seat);
+  return arr;
 }
 
-function systemMessage(room, text) {
-  broadcast(room, {
-    type: "chat",
-    name: "SYSTEM",
-    text,
-    system: true,
-  });
+function hostSeat(room) {
+  for (const info of room.clients.values()) {
+    if (info.wsId === room.hostId) return info.seat;
+  }
+  return 0;
+}
+
+function wsById(room, wsId) {
+  for (const [ws, info] of room.clients.entries()) {
+    if (info.wsId === wsId) return ws;
+  }
+  return null;
+}
+
+function wsBySeat(room, seat) {
+  for (const [ws, info] of room.clients.entries()) {
+    if (info.seat === seat) return ws;
+  }
+  return null;
+}
+
+function smallestFreeSeat(room) {
+  const used = new Set([...room.clients.values()].map(v => v.seat));
+  let seat = 0;
+  while (used.has(seat)) seat++;
+  return seat;
 }
 
 function leaveRoom(ws, silent = false) {
@@ -80,22 +79,13 @@ function leaveRoom(ws, silent = false) {
   ws._seat = null;
 
   if (!room) return;
-
-  const info = room.clients.get(ws);
-  const leaverName = info?.name || "A player";
+  const leavingInfo = room.clients.get(ws);
   room.clients.delete(ws);
 
-  if (!silent && info) {
-    systemMessage(room, `${info.name} left the room`);
-  }
-
-  // Host left → promote lowest seat
-  if (room.host === ws._id) {
+  // If host left, pick new host = lowest seat remaining
+  if (leavingInfo && leavingInfo.wsId === room.hostId) {
     const remaining = [...room.clients.values()].sort((a, b) => a.seat - b.seat);
-    if (remaining.length) {
-      room.host = remaining[0].wsId;
-      systemMessage(room, `${remaining[0].name} is now host`);
-    }
+    if (remaining.length) room.hostId = remaining[0].wsId;
   }
 
   if (room.clients.size === 0) {
@@ -103,65 +93,53 @@ function leaveRoom(ws, silent = false) {
     return;
   }
 
-  const hostSeat =
-    [...room.clients.values()].find(v => v.wsId === room.host)?.seat ?? 0;
+  const players = roomPlayers(room);
+  const hSeat = hostSeat(room);
 
-  broadcast(room, {
-    type: "players",
-    hostSeat,
-    players: roomPlayers(room),
-  });
+  if (!silent) broadcast(room, { type: "toast", message: `${leavingInfo?.name || "A player"} left.` });
+  broadcast(room, { type: "players", hostSeat: hSeat, players });
 }
+
+let wsCounter = 1;
 
 wss.on("connection", (ws) => {
   ws._id = wsCounter++;
   ws._room = null;
   ws._seat = null;
 
+  send(ws, { type: "hello", wsId: ws._id });
+
   ws.on("message", (data) => {
     let msg;
-    try {
-      msg = JSON.parse(data.toString());
-    } catch {
-      return;
-    }
-
+    try { msg = JSON.parse(data.toString()); } catch { return; }
     if (!msg || !msg.type) return;
 
-    /* ================= CREATE ROOM ================= */
+    // --- LOBBY ---
     if (msg.type === "create_room") {
-      if (ws._room) leaveRoom(ws);
+      if (ws._room) leaveRoom(ws, true);
 
-      let code;
-      let requested = (msg.room || "").toUpperCase().trim();
+      let requested = (msg.room || "").toString().trim().toUpperCase();
+      if (!/^[A-Z0-9]{4,8}$/.test(requested)) requested = "";
 
-      if (/^[A-Z0-9]{4,8}$/.test(requested) && !rooms.has(requested)) {
-        code = requested;
-      } else {
-        do {
-          code = makeCode(6);
-        } while (rooms.has(code));
+      let code = requested && !rooms.has(requested) ? requested : null;
+      if (!code) {
+        do { code = makeCode(6); } while (rooms.has(code));
       }
 
       const room = {
         code,
-        host: ws._id,
+        hostId: ws._id,
         clients: new Map(),
         state: null,
         version: 0,
       };
-
       rooms.set(code, room);
 
-      const name = (msg.name || "Host").slice(0, 16);
+      const name = (msg.name || "Host").toString().slice(0, 16);
       ws._room = code;
       ws._seat = 0;
 
-      room.clients.set(ws, {
-        wsId: ws._id,
-        name,
-        seat: 0,
-      });
+      room.clients.set(ws, { wsId: ws._id, name, seat: 0 });
 
       send(ws, {
         type: "room_created",
@@ -171,148 +149,119 @@ wss.on("connection", (ws) => {
         players: roomPlayers(room),
       });
 
-      systemMessage(room, `${name} created the room`);
-
-      broadcast(room, {
-        type: "players",
-        hostSeat: 0,
-        players: roomPlayers(room),
-      });
+      broadcast(room, { type: "players", hostSeat: 0, players: roomPlayers(room) });
+      broadcast(room, { type: "update", message: "Room created. Waiting for players..." });
       return;
     }
 
-    /* ================= JOIN ROOM ================= */
     if (msg.type === "join_room") {
-      if (ws._room) leaveRoom(ws);
+      if (ws._room) leaveRoom(ws, true);
 
-      const code = (msg.room || "").toUpperCase().trim();
+      const code = (msg.room || "").toString().trim().toUpperCase();
       const room = rooms.get(code);
-      if (!room) {
-        send(ws, { type: "toast", message: "Room not found" });
-        return;
-      }
+      if (!room) return send(ws, { type: "toast", message: "Room not found." });
 
-      const usedSeats = new Set([...room.clients.values()].map(v => v.seat));
-      let seat = 0;
-      while (usedSeats.has(seat)) seat++;
-
-      const name = (msg.name || "Player").slice(0, 16);
+      const seat = smallestFreeSeat(room);
+      const name = (msg.name || "Player").toString().slice(0, 16);
 
       ws._room = code;
       ws._seat = seat;
 
-      room.clients.set(ws, {
-        wsId: ws._id,
-        name,
-        seat,
-      });
+      room.clients.set(ws, { wsId: ws._id, name, seat });
 
-      const hostSeat =
-        [...room.clients.values()].find(v => v.wsId === room.host)?.seat ?? 0;
+      const players = roomPlayers(room);
+      const hSeat = hostSeat(room);
 
-      send(ws, {
-        type: "joined",
-        room: code,
-        seat,
-        hostSeat,
-        players: roomPlayers(room),
-      });
+      send(ws, { type: "joined", room: code, seat, hostSeat: hSeat, players });
+      broadcast(room, { type: "players", hostSeat: hSeat, players });
 
-      systemMessage(room, `${name} joined the room`);
+      broadcast(room, { type: "toast", message: `${name} joined.` });
 
-      broadcast(room, {
-        type: "players",
-        hostSeat,
-        players: roomPlayers(room),
-      });
-
+      // Tell joining player what's going on
       if (room.state) {
-        send(ws, {
-          type: "state",
-          version: room.version,
-          snap: room.state,
-        });
+        send(ws, { type: "state", version: room.version, snap: room.state });
+        send(ws, { type: "update", message: "Synced game state. You're in!" });
+      } else {
+        send(ws, { type: "update", message: "Joined room. Waiting for host to start the game..." });
       }
       return;
     }
 
-    /* ================= LEAVE ================= */
     if (msg.type === "leave_room") {
       leaveRoom(ws);
       return;
     }
 
-    /* ================= MUST BE IN ROOM ================= */
-    const room = rooms.get(ws._room);
-    if (!room) return;
+    // From here on: must be in a room
+    const code = ws._room;
+    if (!code) return send(ws, { type: "toast", message: "Not in a room." });
 
-    /* ================= CHAT ================= */
-    if (msg.type === "chat") {
-      const info = room.clients.get(ws);
-      if (!info) return;
-
-      broadcast(room, {
-        type: "chat",
-        name: info.name,
-        text: (msg.text || "").slice(0, 200),
-      });
+    const room = rooms.get(code);
+    if (!room) {
+      ws._room = null;
+      ws._seat = null;
       return;
     }
 
-    /* ================= GAME STATE ================= */
+    // --- AUTHORITATIVE STATE (host only) ---
     if (msg.type === "state") {
-      if (ws._id !== room.host) return;
+      if (ws._id !== room.hostId) return;
 
-      room.version = Number(msg.version || room.version + 1);
+      const incomingVersion = Number(msg.version);
+      room.version = Number.isFinite(incomingVersion) ? incomingVersion : (room.version + 1);
       room.state = msg.snap;
 
-      broadcast(room, {
-        type: "state",
-        version: room.version,
-        snap: room.state,
-      });
+      broadcast(room, { type: "state", version: room.version, snap: room.state });
       return;
     }
 
-    /* ================= ACTION ================= */
-    
-    if (msg.type === "chat") {
-      const info = room.clients.get(ws);
-      const from = (info?.name || msg.from || "Player").toString().slice(0,16);
-      const text = (msg.message || msg.text || "").toString().trim().slice(0,200);
-      if (!text) return;
-      broadcast(room, { type: "chat", from, message: text, ts: Date.now() });
-      return;
-    }
-
-if (msg.type === "action") {
-      const hostWs = [...room.clients.keys()].find(w => w._id === room.host);
-      if (!hostWs) return;
+    // --- ACTIONS (clients -> host) ---
+    if (msg.type === "action") {
+      const hostWs = wsById(room, room.hostId);
+      if (!hostWs) return send(ws, { type: "toast", message: "Host disconnected." });
 
       const action = msg.action || {};
       action.seat = ws._seat;
 
-      send(hostWs, {
-        type: "to_host_action",
-        action,
+      send(hostWs, { type: "to_host_action", action });
+      return;
+    }
+
+    // --- ACE PROMPT (host -> specific seat) ---
+    // Optional: use if your client wants server-routed prompts
+    if (msg.type === "ace_prompt") {
+      if (ws._id !== room.hostId) return;
+
+      const seat = Number(msg.seat);
+      const target = wsBySeat(room, seat);
+      if (!target) return;
+
+      send(target, { type: "ace_prompt", seat });
+      return;
+    }
+
+    // --- CHAT (any -> room) ---
+    if (msg.type === "chat") {
+      const text = (msg.text || "").toString().slice(0, 200);
+      const emoji = (msg.emoji || "").toString().slice(0, 10);
+      if (!text && !emoji) return;
+
+      const sender = room.clients.get(ws)?.name || "Player";
+      broadcast(room, {
+        type: "chat",
+        from: sender,
+        seat: ws._seat,
+        text,
+        emoji,
+        ts: Date.now(),
       });
       return;
     }
+
+    // Unknown type -> ignore
   });
 
   ws.on("close", () => leaveRoom(ws, true));
 });
 
-server.listen(PORT, () =>
-  console.log("✅ Server running on port", PORT)
-);
-      // helpful status for the joining player
-      if (!room.state) {
-        send(ws, { type: "toast", message: "Joined room. Waiting for the host to start the game." });
-      } else {
-        send(ws, { type: "toast", message: "Joined room. Game is already in progress." });
-      }
-
-      systemMessage(room, `${name} created the room.`);
-      systemMessage(room, `$lastToastMsg joined.`);
-
+server.listen(PORT, () => console.log("Listening on", PORT));
