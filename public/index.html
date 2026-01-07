@@ -738,13 +738,12 @@
       font-size: 0.95rem;
       line-height: 1.25;
       max-height: 150px;
-      background: rgba(255,255,255,0.90);
-      color: #111;
+      background: rgba(255,255,255,0.85);
     }
-    .chat-line{ margin-bottom: 6px; color:#111; }
-    .chat-name{ font-weight: 1000; color:#000; }
-    .chat-sys{ opacity:0.8; font-style: italic; color:#222; }
-#chat-input-row{
+    .chat-line{ margin-bottom: 6px; }
+    .chat-name{ font-weight: 1000; }
+    .chat-sys{ opacity: 0.8; font-style: italic; }
+    #chat-input-row{
       display:flex;
       gap: 6px;
       padding: 8px;
@@ -1058,7 +1057,6 @@
 
     let lobbyPlayers = [];
     let isLeagueMode = false;
-    let currentLeagueOpponentName = null;
     let sortByRank = false;
 
     // --- ONLINE STATE ---
@@ -1259,10 +1257,7 @@
     function startLeagueMatch() {
       isLeagueMode = true;
       gameMode = "offline";
-      currentLeagueOpponentName = null;
-      gameMode = "offline";
       let opp = leagueData.bots[Math.floor(Math.random() * leagueData.bots.length)];
-      currentLeagueOpponentName = opp.name;
       initGame([
         { name: leagueData.player.name, isBot: false },
         { name: opp.name, isBot: true },
@@ -1272,7 +1267,6 @@
     // ✅ FIX: pass & play mode when 2+ humans
     function startPartyGame() {
       isLeagueMode = false;
-      gameMode = "pass_play";
       const humanCount = lobbyPlayers.filter(p => !p.isBot).length;
       gameMode = (humanCount >= 2) ? "pass_play" : "offline";
       initGame(lobbyPlayers);
@@ -1765,34 +1759,20 @@
       });
 
       if (isLeagueMode) {
-        // Update player + CPU league table
-        const botName = currentLeagueOpponentName || winner.name;
-        const bot = leagueData.bots.find(b => b.name === botName);
-
         if (winnerIdx === 0) {
           leagueData.player.wins++;
           leagueData.player.pts += 3;
           leagueData.player.winStreak = (leagueData.player.winStreak || 0) + 1;
           leagueData.player.bestStreak = Math.max(leagueData.player.bestStreak || 0, leagueData.player.winStreak || 0);
-
-          if (bot) bot.losses = (bot.losses || 0) + 1;
-
           unlockBackIfNeeded();
           title.innerText = "WIN!";
           desc.innerText = "Nice one.";
         } else {
           leagueData.player.losses++;
           leagueData.player.winStreak = 0;
-
-          if (bot) {
-            bot.wins = (bot.wins || 0) + 1;
-            bot.pts = (bot.pts || 0) + 3;
-          }
-
           title.innerText = "LOSE";
           desc.innerText = `${winner.name} got you`;
         }
-
         saveData();
       } else {
         title.innerText = `${winner.name} WINS!`;
