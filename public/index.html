@@ -814,7 +814,23 @@
     .chat-collapsed #chat-emojis{
       display:none;
     }
-  </style>
+  
+/* --- DRAGGABLE CHAT (FIX) --- */
+#chat-wrap{
+  position: fixed !important;
+  left: 12px;
+  top: 55%;
+  bottom: auto !important;
+  transform: translateY(-50%);
+  touch-action: none;
+}
+#chat-head{
+  cursor: grab;
+  touch-action: none;
+}
+#chat-head:active{ cursor: grabbing; }
+
+</style>
 </head>
 
 <body data-cardback="classic">
@@ -1101,7 +1117,6 @@
 
     let deck = [], discard = [], gamePlayers = [];
     let turnIndex = 0, direction = 1, activeSuit = null;
-    let turnCounter = 0; // increments each time turn advances (used for LAST rule timing)
     let pendingDraw2 = 0, pendingDrawJ = 0, pendingSkip = 0;
     let selectionOrder = [], isProcessing = false, acePending = false;
     let isPassAndPlay = false, extraTurn = false;
@@ -1302,7 +1317,6 @@
       turnIndex = 0;
       direction = 1;
       activeSuit = null;
-      turnCounter = 0;
       pendingDraw2 = 0;
       pendingDrawJ = 0;
       pendingSkip = 0;
@@ -1316,7 +1330,6 @@
         isBot: p.isBot,
         hand: [],
         lastDeclared: false,
-        lastDeclaredTurn: -1,
       }));
 
       // ✅ FIX: correct pass-play detection
@@ -1413,8 +1426,6 @@
     function nextTurn() {
       turnIndex = (turnIndex + direction + gamePlayers.length) % gamePlayers.length;
 
-      turnCounter++;
-
       if (gameMode === "pass_play" && isPassAndPlay && !gamePlayers[turnIndex].isBot) {
         setTimeout(triggerPassScreen, 800);
         return;
@@ -1469,7 +1480,6 @@
         pendingSkip = 0;
         updateFeed(`${p.name} missed turn!`);
         p.lastDeclared = false;
-      p.lastDeclaredTurn = -1;
         selectionOrder = [];
         updateGameUI();
         setTimeout(nextTurn, 600);
@@ -1488,7 +1498,6 @@
       p.hand.push(...draw(pen));
       AudioEngine.playCardSnap();
       p.lastDeclared = false;
-      p.lastDeclaredTurn = -1;
       sortHand(p.hand);
       selectionOrder = [];
       updateGameUI();
@@ -1500,7 +1509,6 @@
         if (turnIndex !== NET.mySeatIndex) return;
         if (NET.isHost) {
           gamePlayers[turnIndex].lastDeclared = true;
-          gamePlayers[turnIndex].lastDeclaredTurn = turnCounter;
           AudioEngine.playCall();
           document.getElementById("turn-status").innerText = "CALLED LAST!";
           updateControls();
@@ -1512,7 +1520,6 @@
       }
 
       gamePlayers[turnIndex].lastDeclared = true;
-      gamePlayers[turnIndex].lastDeclaredTurn = turnCounter;
       AudioEngine.playCall();
       document.getElementById("turn-status").innerText = "CALLED LAST!";
       updateControls();
@@ -1611,29 +1618,7 @@
 
       // --- RULE FIX: NO POWER CARD FINISH (includes King) + Draw 2 ---
       let triedToFinish = p.hand.length === 0;
-      
-      // --- RULE FIX: LAST must be called on a previous turn (not same turn as finishing) ---
-      if (triedToFinish) {
-        const declaredOk = p.lastDeclared && (p.lastDeclaredTurn < turnCounter);
-        if (!declaredOk) {
-          showToast("⚠️ Must call LAST on your previous turn! Draw 2");
-          updateFeed(`${p.name} tried to finish without LAST (previous turn). Drew 2`);
-          AudioEngine.playError();
-
-          extraTurn = false; // cancel any king chain
-          p.hand.push(...draw(2));
-          p.lastDeclared = false;
-          p.lastDeclaredTurn = -1;
-          selectionOrder = [];
-          updateGameUI();
-
-          isProcessing = false;
-          setTimeout(nextTurn, 900);
-          return;
-        }
-      }
-
-let finishedOnPower = triedToFinish && POWER_RANKS.has(lastCard.rank);
+      let finishedOnPower = triedToFinish && POWER_RANKS.has(lastCard.rank);
 
       if (finishedOnPower) {
         showToast("⚠️ No power-card finish! Draw 2");
@@ -1643,7 +1628,6 @@ let finishedOnPower = triedToFinish && POWER_RANKS.has(lastCard.rank);
         extraTurn = false;
         p.hand.push(...draw(2));
         p.lastDeclared = false;
-      p.lastDeclaredTurn = -1;
         sortHand(p.hand);
         selectionOrder = [];
         updateGameUI();
@@ -1882,8 +1866,6 @@ let finishedOnPower = triedToFinish && POWER_RANKS.has(lastCard.rank);
           let drawn = draw(pendingDraw2);
           p.hand.push(...drawn);
           pendingDraw2 = 0;
-          p.lastDeclared = false;
-          p.lastDeclaredTurn = -1;
           updateFeed(`${p.name} drew ${drawn.length} cards`);
           updateGameUI();
           setTimeout(nextTurn, 1500);
@@ -1897,8 +1879,6 @@ let finishedOnPower = triedToFinish && POWER_RANKS.has(lastCard.rank);
           let drawn = draw(pendingDrawJ);
           p.hand.push(...drawn);
           pendingDrawJ = 0;
-          p.lastDeclared = false;
-          p.lastDeclaredTurn = -1;
           updateFeed(`${p.name} drew ${drawn.length} cards`);
           updateGameUI();
           setTimeout(nextTurn, 1500);
@@ -1922,11 +1902,6 @@ let finishedOnPower = triedToFinish && POWER_RANKS.has(lastCard.rank);
         if (canStart(c, getTop(), activeSuit)) {
           let setIndices = [i];
           p.hand.forEach((x, xi) => { if (xi !== i && x.rank === c.rank) setIndices.push(xi); });
-          // If this move would finish the hand, only allow if LAST was called on a previous turn
-          const wouldFinish = (p.hand.length - setIndices.length) === 0;
-          const declaredOk = p.lastDeclared && (p.lastDeclaredTurn < turnCounter);
-          if (wouldFinish && !declaredOk) return;
-
           let score = setIndices.length * 10;
           if (c.rank === "K") score += 50;
           if (score > bestScore) { bestScore = score; bestMove = setIndices; }
@@ -1934,13 +1909,12 @@ let finishedOnPower = triedToFinish && POWER_RANKS.has(lastCard.rank);
       });
 
       if (bestMove) {
-        if (p.hand.length - bestMove.length === 1) { p.lastDeclared = true; p.lastDeclaredTurn = turnCounter; }
+        if (p.hand.length - bestMove.length === 1) p.lastDeclared = true;
         attemptPlay(turnIndex, bestMove);
       } else {
         let drawn = draw(1);
         p.hand.push(...drawn);
         p.lastDeclared = false;
-      p.lastDeclaredTurn = -1;
         updateFeed(`${p.name} drew a card`);
         updateGameUI();
         setTimeout(nextTurn, 1500);
@@ -2522,7 +2496,6 @@ let finishedOnPower = triedToFinish && POWER_RANKS.has(lastCard.rank);
 
         if (action.type === "declare_last") {
           gamePlayers[seat].lastDeclared = true;
-          gamePlayers[seat].lastDeclaredTurn = turnCounter;
           updateFeed(`${gamePlayers[seat].name} called LAST!`);
           netBroadcastState();
           return;
@@ -2549,6 +2522,107 @@ let finishedOnPower = triedToFinish && POWER_RANKS.has(lastCard.rank);
       loadData();
       bindOnlineUI();
     });
-  </script>
+  
+// ===============================
+// DRAGGABLE CHAT (mobile + desktop) — drag the header
+// Saves position in localStorage so it stays where you leave it.
+// ===============================
+(function enableChatDrag(){
+  const wrap = document.getElementById("chat-wrap");
+  const handle = document.getElementById("chat-head");
+  if (!wrap || !handle) return;
+
+  const KEY = "osb_chat_pos_v1";
+
+  function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
+
+  function applySaved(){
+    try{
+      const raw = localStorage.getItem(KEY);
+      if (!raw) return;
+      const pos = JSON.parse(raw);
+      if (typeof pos.left !== "number" || typeof pos.top !== "number") return;
+      wrap.style.transform = "none";
+      wrap.style.left = pos.left + "px";
+      wrap.style.top  = pos.top  + "px";
+    }catch(e){}
+  }
+
+  // Apply saved position once UI is ready
+  applySaved();
+
+  let dragging = false;
+  let startX=0, startY=0, startLeft=0, startTop=0;
+
+  function down(e){
+    // only left click / primary touch
+    if (e.button !== undefined && e.button !== 0) return;
+    dragging = true;
+
+    const r = wrap.getBoundingClientRect();
+    wrap.style.transform = "none"; // switch to explicit positioning
+    startLeft = r.left;
+    startTop  = r.top;
+    wrap.style.left = startLeft + "px";
+    wrap.style.top  = startTop  + "px";
+
+    startX = e.clientX;
+    startY = e.clientY;
+
+    try{ handle.setPointerCapture(e.pointerId); }catch(_){}
+    e.preventDefault();
+  }
+
+  function move(e){
+    if (!dragging) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const r = wrap.getBoundingClientRect();
+    const w = r.width;
+    const h = r.height;
+
+    let left = startLeft + dx;
+    let top  = startTop  + dy;
+
+    left = clamp(left, 6, vw - w - 6);
+    top  = clamp(top,  6, vh - h - 6);
+
+    wrap.style.left = left + "px";
+    wrap.style.top  = top  + "px";
+  }
+
+  function up(){
+    if (!dragging) return;
+    dragging = false;
+
+    // save
+    try{
+      const r = wrap.getBoundingClientRect();
+      localStorage.setItem(KEY, JSON.stringify({ left: r.left, top: r.top }));
+    }catch(e){}
+  }
+
+  handle.addEventListener("pointerdown", down);
+  window.addEventListener("pointermove", move);
+  window.addEventListener("pointerup", up);
+
+  // keep in bounds on resize/orientation change
+  window.addEventListener("resize", () => {
+    const r = wrap.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const left = clamp(r.left, 6, vw - r.width - 6);
+    const top  = clamp(r.top,  6, vh - r.height - 6);
+    wrap.style.transform = "none";
+    wrap.style.left = left + "px";
+    wrap.style.top  = top  + "px";
+    try{ localStorage.setItem(KEY, JSON.stringify({ left, top })); }catch(e){}
+  });
+})();
+
+</script>
 </body>
 </html>
