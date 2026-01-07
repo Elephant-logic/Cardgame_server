@@ -814,7 +814,10 @@
     .chat-collapsed #chat-emojis{
       display:none;
     }
-  </style>
+  /* Force readable chat text */
+#chat-messages, #chat-messages * { color: #111 !important; }
+#chat-head { user-select: none; }
+</style>
 </head>
 
 <body data-cardback="classic">
@@ -1778,35 +1781,64 @@
       });
 
       if (isLeagueMode) {
-        const oppName = gamePlayers[1]?.name;
-        const oppEntry = (leagueData.bots || []).find(b => b.name === oppName);
-        const playerWon = (winnerIdx === 0);
+        const winnerName = winner.name;
+        const loser = players[(winnerIdx === 0) ? 1 : 0];
+        const loserName = loser ? loser.name : null;
 
-        if (playerWon) {
-          leagueData.player.wins++;
-          leagueData.player.pts += 3;
+        leagueData.bots = leagueData.bots || [];
+        leagueData.matchHistory = leagueData.matchHistory || [];
+
+        const PTS_WIN = 3;
+
+        function ensureBot(name) {
+          if (!name) return null;
+          if (leagueData.player && leagueData.player.name === name) return leagueData.player;
+          let b = leagueData.bots.find(x => x.name === name);
+          if (!b) {
+            b = { name, wins: 0, losses: 0, pts: 0 };
+            leagueData.bots.push(b);
+          }
+          b.wins = b.wins || 0;
+          b.losses = b.losses || 0;
+          b.pts = b.pts || 0;
+          return b;
+        }
+
+        leagueData.player = leagueData.player || { name: players[0]?.name || "Player", wins: 0, losses: 0, pts: 0, winStreak: 0, bestStreak: 0 };
+        leagueData.player.name = leagueData.player.name || (players[0]?.name || "Player");
+        leagueData.player.wins = leagueData.player.wins || 0;
+        leagueData.player.losses = leagueData.player.losses || 0;
+        leagueData.player.pts = leagueData.player.pts || 0;
+        leagueData.player.winStreak = leagueData.player.winStreak || 0;
+        leagueData.player.bestStreak = leagueData.player.bestStreak || 0;
+
+        const winnerRec = (winnerName === leagueData.player.name) ? leagueData.player : ensureBot(winnerName);
+        const loserRec = (loserName === leagueData.player.name) ? leagueData.player : ensureBot(loserName);
+
+        if (winnerRec) { winnerRec.wins++; winnerRec.pts += PTS_WIN; }
+        if (loserRec) { loserRec.losses++; }
+
+        if (winnerName === leagueData.player.name) {
           leagueData.player.winStreak = (leagueData.player.winStreak || 0) + 1;
           leagueData.player.bestStreak = Math.max(leagueData.player.bestStreak || 0, leagueData.player.winStreak || 0);
-          if (oppEntry) {
-            oppEntry.losses = (oppEntry.losses || 0) + 1;
-            oppEntry.winStreak = 0;
-          }
           unlockBackIfNeeded();
           title.innerText = "WIN!";
           desc.innerText = "Nice one.";
         } else {
-          leagueData.player.losses++;
           leagueData.player.winStreak = 0;
-          if (oppEntry) {
-            oppEntry.wins = (oppEntry.wins || 0) + 1;
-            oppEntry.pts = (oppEntry.pts || 0) + 3;
-            oppEntry.winStreak = (oppEntry.winStreak || 0) + 1;
-            oppEntry.bestStreak = Math.max(oppEntry.bestStreak || 0, oppEntry.winStreak || 0);
-          }
           title.innerText = "LOSE";
-          desc.innerText = `${winner.name} got you`;
+          desc.innerText = `${winnerName} got you`;
         }
+
+        if (winnerName && loserName) {
+          leagueData.matchHistory.unshift({ winner: winnerName, loser: loserName, ts: Date.now() });
+          leagueData.matchHistory = leagueData.matchHistory.slice(0, 50);
+        }
+
+        leagueData.bots.sort((a,b)=> (b.pts - a.pts) || (b.wins - a.wins) || a.name.localeCompare(b.name));
+
         saveData();
+        renderLeagueTable();
       } else {
         title.innerText = `${winner.name} WINS!`;
         desc.innerText = "Table closed.";
@@ -2520,6 +2552,102 @@
       loadData();
       bindOnlineUI();
     });
-  </script>
+  
+// --- Draggable Chat (mobile + desktop) ---
+function enableChatDrag() {
+  const wrap = document.getElementById('chat-wrap');
+  const head = document.getElementById('chat-head');
+  if (!wrap || !head) return;
+
+  // restore
+  try {
+    const saved = JSON.parse(localStorage.getItem('osbj_chat_pos') || 'null');
+    if (saved && typeof saved.left === 'number' && typeof saved.top === 'number') {
+      wrap.style.left = saved.left + 'px';
+      wrap.style.top = saved.top + 'px';
+      wrap.style.right = 'auto';
+      wrap.style.bottom = 'auto';
+    }
+  } catch {}
+
+  let dragging = false;
+  let startX = 0, startY = 0, startLeft = 0, startTop = 0;
+
+  function clamp(val, min, max) { return Math.max(min, Math.min(max, val)); }
+
+  function onDown(e) {
+    const t = e.target;
+    // ignore clicks on buttons/inputs inside the header
+    if (t && (t.tagName === 'BUTTON' || t.tagName === 'INPUT' || t.closest('button') || t.closest('input'))) return;
+
+    dragging = true;
+    head.style.cursor = 'grabbing';
+    wrap.style.right = 'auto';
+    wrap.style.bottom = 'auto';
+
+    const rect = wrap.getBoundingClientRect();
+    startLeft = rect.left;
+    startTop = rect.top;
+
+    const pt = e.touches ? e.touches[0] : e;
+    startX = pt.clientX;
+    startY = pt.clientY;
+
+    e.preventDefault();
+  }
+
+  function onMove(e) {
+    if (!dragging) return;
+    const pt = e.touches ? e.touches[0] : e;
+    const dx = pt.clientX - startX;
+    const dy = pt.clientY - startY;
+
+    const maxLeft = window.innerWidth - wrap.offsetWidth;
+    const maxTop = window.innerHeight - wrap.offsetHeight;
+
+    const left = clamp(startLeft + dx, 0, Math.max(0, maxLeft));
+    const top = clamp(startTop + dy, 0, Math.max(0, maxTop));
+
+    wrap.style.left = left + 'px';
+    wrap.style.top = top + 'px';
+  }
+
+  function onUp() {
+    if (!dragging) return;
+    dragging = false;
+    head.style.cursor = 'grab';
+
+    const rect = wrap.getBoundingClientRect();
+    localStorage.setItem('osbj_chat_pos', JSON.stringify({ left: rect.left, top: rect.top }));
+  }
+
+  head.style.cursor = 'grab';
+  head.style.touchAction = 'none';
+
+  head.addEventListener('mousedown', onDown);
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('mouseup', onUp);
+
+  head.addEventListener('touchstart', onDown, { passive: false });
+  window.addEventListener('touchmove', onMove, { passive: false });
+  window.addEventListener('touchend', onUp);
+  window.addEventListener('touchcancel', onUp);
+
+  window.addEventListener('resize', () => {
+    const rect = wrap.getBoundingClientRect();
+    const maxLeft = window.innerWidth - wrap.offsetWidth;
+    const maxTop = window.innerHeight - wrap.offsetHeight;
+    const left = clamp(rect.left, 0, Math.max(0, maxLeft));
+    const top = clamp(rect.top, 0, Math.max(0, maxTop));
+    wrap.style.left = left + 'px';
+    wrap.style.top = top + 'px';
+    wrap.style.right = 'auto';
+    wrap.style.bottom = 'auto';
+    localStorage.setItem('osbj_chat_pos', JSON.stringify({ left, top }));
+  });
+}
+
+window.addEventListener('load', () => enableChatDrag());
+</script>
 </body>
 </html>
