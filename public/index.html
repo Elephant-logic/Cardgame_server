@@ -99,6 +99,14 @@
       background-size: 100% 25px;
       color: #333;
     }
+    /* Mobile: allow lobby/p2p content to scroll so buttons (Deal/Start) aren't cut off */
+    #lobby-screen, #p2p-screen {
+      justify-content: flex-start;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: calc(16px + env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom)) 16px;
+    }
+
 
     /* --- BRANDING / LOGO --- */
     .logo-wrap {
