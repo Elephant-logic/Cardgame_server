@@ -814,7 +814,10 @@
     .chat-collapsed #chat-emojis{
       display:none;
     }
-  </style>
+  /* Force readable chat text */
+#chat-messages, #chat-messages * { color: #111 !important; }
+#chat-head { user-select: none; }
+</style>
 </head>
 
 <body data-cardback="classic">
@@ -1295,7 +1298,6 @@
     // GAME SETUP
     // =========================
     function initGame(config) {
-      window.__matchOver = false;
       deck = createDeck();
       shuffle(deck);
       discard = [];
@@ -1333,9 +1335,10 @@
         deck.unshift(start);
       }
 
-      // sort my hand (or current in offline)
+      // sort hands for offline/pass-play only. In online mode the host is authoritative; clients must not
+      // reorder their hand array locally (sorting is cosmetic via display-order).
       const mySeat = (gameMode === "online") ? NET.mySeatIndex : 0;
-      if (gamePlayers[mySeat]) sortHand(gamePlayers[mySeat].hand);
+      if (gamePlayers[mySeat] && gameMode !== "online") sortHand(gamePlayers[mySeat].hand);
 
       updateFeed("Cards are in play!");
       clearChat();
@@ -1650,10 +1653,18 @@
         return;
       }
 
-      if (acePending && gameMode !== "online" && !p.isBot) {
-        document.getElementById("suit-modal").style.display = "flex";
-        isProcessing = false;
-        return;
+      if (acePending && !p.isBot) {
+        // Offline: current human picks suit.
+        // Online: only the HOST's local human can pick via modal.
+        const canOpen =
+          (gameMode !== "online") ||
+          (gameMode === "online" && NET.isHost && pidx === NET.mySeatIndex);
+
+        if (canOpen) {
+          document.getElementById("suit-modal").style.display = "flex";
+          isProcessing = false;
+          return;
+        }
       }
 
       setTimeout(nextTurn, 900);
@@ -1695,56 +1706,71 @@
     }
 
     function applyPower(c, pidx, isLast) {
-      let r = c.rank;
-      if (r === "A" && isLast) {
-        if (gameMode === "online" && NET && NET.isHost) {
-          // host: for remote seats, use NET.aceChoice if set, otherwise auto-pick
-          if (pidx === NET.mySeatIndex) {
-            if (gamePlayers[pidx].isBot) {
-              let counts = { "♠": 0, "♥": 0, "♦": 0, "♣": 0 };
-              gamePlayers[pidx].hand.forEach((x) => counts[x.suit]++);
-              activeSuit = Object.keys(counts).reduce((a, b) => (counts[a] > counts[b] ? a : b));
-              updateFeed(`Suit is ${activeSuit}`);
-            } else {
-              acePending = true;
-            }
-          } else {
-            if (NET.aceChoice) {
-              activeSuit = NET.aceChoice;
-              NET.aceChoice = null;
-              updateFeed(`Suit is ${activeSuit}`);
-            } else {
-              let counts = { "♠": 0, "♥": 0, "♦": 0, "♣": 0 };
-              gamePlayers[pidx].hand.forEach((x) => counts[x.suit]++);
-              activeSuit = Object.keys(counts).reduce((a, b) => (counts[a] > counts[b] ? a : b));
-              updateFeed(`Suit is ${activeSuit}`);
-            }
-          }
+  let r = c.rank;
+
+  // ACE (wild) — suit chosen only on the LAST ace played
+  if (r === "A" && isLast) {
+    // ONLINE (host authoritative):
+    // - Remote players should send `aceChoice` with their play action; host applies it.
+    // - Host's local human opens the suit modal.
+    // - Bots auto-pick their best suit.
+    if (gameMode === "online" && NET && NET.isHost) {
+      const isBot = !!gamePlayers[pidx]?.isBot;
+
+      if (isBot) {
+        let counts = { "♠": 0, "♥": 0, "♦": 0, "♣": 0 };
+        gamePlayers[pidx].hand.forEach((x) => counts[x.suit]++);
+        activeSuit = Object.keys(counts).reduce((a, b) => (counts[a] > counts[b] ? a : b));
+        updateFeed(`Suit is ${activeSuit}`);
+        return;
+      }
+
+      // remote human: use supplied choice if present, otherwise fallback auto-pick
+      if (pidx !== NET.mySeatIndex) {
+        if (NET.aceChoice) {
+          activeSuit = NET.aceChoice;
+          NET.aceChoice = null;
+          updateFeed(`Suit is ${activeSuit}`);
           return;
         }
-
-        // Offline: bots auto-pick, humans use the modal
-        if (gamePlayers[pidx].isBot) {
-          let counts = { "♠": 0, "♥": 0, "♦": 0, "♣": 0 };
-          gamePlayers[pidx].hand.forEach((x) => counts[x.suit]++);
-          activeSuit = Object.keys(counts).reduce((a, b) => (counts[a] > counts[b] ? a : b));
-          updateFeed(`Suit is ${activeSuit}`);
-        } else {
-          acePending = true;
-        }
-      } else if (r === "2") pendingDraw2 += 2;
-      else if (r === "8") pendingSkip++;
-      else if (r === "Q") { direction *= -1; updateFeed("Direction Reversed!"); }
-      else if (r === "K") extraTurn = true;
-      else if (r === "J") {
-        if (c.suit === "♥" || c.suit === "♦") {
-          if (pendingDrawJ > 0) pendingDrawJ = 0;
-          updateFeed("Attack Blocked!");
-        } else pendingDrawJ += 5;
+        let counts = { "♠": 0, "♥": 0, "♦": 0, "♣": 0 };
+        gamePlayers[pidx].hand.forEach((x) => counts[x.suit]++);
+        activeSuit = Object.keys(counts).reduce((a, b) => (counts[a] > counts[b] ? a : b));
+        updateFeed(`Suit is ${activeSuit}`);
+        return;
       }
+
+      // host's own human: open modal later (attemptPlay handles it)
+      acePending = true;
+      return;
     }
 
-    function shakeCards(indices) {
+    // OFFLINE/PASS-PLAY
+    if (gamePlayers[pidx].isBot) {
+      let counts = { "♠": 0, "♥": 0, "♦": 0, "♣": 0 };
+      gamePlayers[pidx].hand.forEach((x) => counts[x.suit]++);
+      activeSuit = Object.keys(counts).reduce((a, b) => (counts[a] > counts[b] ? a : b));
+      updateFeed(`Suit is ${activeSuit}`);
+    } else {
+      acePending = true;
+    }
+    return;
+  }
+
+  // OTHER POWERS
+  if (r === "2") pendingDraw2 += 2;
+  else if (r === "8") pendingSkip++;
+  else if (r === "Q") { direction *= -1; updateFeed("Direction Reversed!"); }
+  else if (r === "K") extraTurn = true;
+  else if (r === "J") {
+    if (c.suit === "♥" || c.suit === "♦") {
+      if (pendingDrawJ > 0) pendingDrawJ = 0;
+      updateFeed("Attack Blocked!");
+    } else pendingDrawJ += 5;
+  }
+}
+
+function shakeCards(indices) {
       let handDiv = document.getElementById("player-hand");
       indices.forEach((i) => {
         if (handDiv.children[i]) {
@@ -1755,75 +1781,95 @@
     }
 
     function endMatch(winnerIdx) {
-      // Prevent double-ending (can happen with fast clicks / network state)
-      if (window.__matchOver) return;
-      window.__matchOver = true;
+      AudioEngine.playWin();
+      let title = document.getElementById("result-title");
+      let desc = document.getElementById("result-desc");
+      let modal = document.getElementById("match-result-modal");
+      let winner = gamePlayers[winnerIdx];
 
-      // Resolve winner safely
-      let wIdx = (Number.isInteger(winnerIdx) ? winnerIdx : null);
-      if (wIdx === null && Array.isArray(gamePlayers)) {
-        const found = gamePlayers.findIndex(p => p && Array.isArray(p.hand) && p.hand.length === 0);
-        if (found !== -1) wIdx = found;
-      }
-      if (wIdx === null) wIdx = 0;
+      // ✅ store match history + party stats (ALWAYS)
+      leagueData.matchHistory = leagueData.matchHistory || [];
+      leagueData.matchHistory.unshift({
+        date: Date.now(),
+        mode: isLeagueMode ? "league" : (gameMode === "pass_play" ? "pass_play" : (gameMode === "online" ? "online" : "local")),
+        winner: winner.name,
+        players: gamePlayers.map(p => p.name),
+      });
+      leagueData.matchHistory = leagueData.matchHistory.slice(0, 20);
 
-      const winner = (Array.isArray(gamePlayers) && gamePlayers[wIdx]) ? gamePlayers[wIdx] : { name: "Player" };
-      const winnerName = (winner && winner.name) ? winner.name : "Player";
+      leagueData.partyStats = leagueData.partyStats || {};
+      gamePlayers.forEach((pl, idx) => {
+        leagueData.partyStats[pl.name] = leagueData.partyStats[pl.name] || { wins: 0, losses: 0 };
+        if (idx === winnerIdx) leagueData.partyStats[pl.name].wins++;
+        else leagueData.partyStats[pl.name].losses++;
+      });
 
-      // If online: host should have already pushed final state; everyone just shows modal locally
-      // (We still allow endMatch to run on any client safely.)
-      try { isProcessing = true; } catch {}
+      if (isLeagueMode) {
+        const winnerName = winner.name;
+        const loser = gamePlayers[(winnerIdx === 0) ? 1 : 0];
+        const loserName = loser ? loser.name : null;
 
-      const modal = document.getElementById("match-result-modal");
-      const title = document.getElementById("match-result-title");
-      const desc  = document.getElementById("match-result-desc");
-      const list  = document.getElementById("match-result-players");
+        leagueData.bots = leagueData.bots || [];
+        leagueData.matchHistory = leagueData.matchHistory || [];
 
-      if (list) {
-        list.innerHTML = "";
-        (gamePlayers || []).forEach((p, idx) => {
-          const li = document.createElement("li");
-          const nm = (p && p.name) ? p.name : ("Player " + (idx + 1));
-          const count = (p && Array.isArray(p.hand)) ? p.hand.length : 0;
-          li.textContent = `${idx === wIdx ? "🏆 " : ""}${nm} — ${count} card(s) left`;
-          list.appendChild(li);
-        });
-      }
+        const PTS_WIN = 3;
 
-      // Update local league / score data (localStorage)
-      try {
-        if (isLeagueMode && typeof loadData === "function" && typeof saveData === "function") {
-          const leagueData = loadData();
-          const me = leagueData && leagueData.player ? leagueData.player : null;
-          if (me) {
-            if (wIdx === 0) {
-              me.wins++;
-              me.pts = (me.pts || 0) + 3;
-              me.winStreak = (me.winStreak || 0) + 1;
-              me.bestStreak = Math.max(me.bestStreak || 0, me.winStreak || 0);
-              if (typeof unlockBackIfNeeded === "function") unlockBackIfNeeded();
-              if (title) title.innerText = "WIN!";
-              if (desc)  desc.innerText = "Nice one.";
-            } else {
-              me.losses++;
-              me.winStreak = 0;
-              if (title) title.innerText = "LOSE";
-              if (desc)  desc.innerText = `${winnerName} got you`;
-            }
-            saveData();
+        function ensureBot(name) {
+          if (!name) return null;
+          if (leagueData.player && leagueData.player.name === name) return leagueData.player;
+          let b = leagueData.bots.find(x => x.name === name);
+          if (!b) {
+            b = { name, wins: 0, losses: 0, pts: 0 };
+            leagueData.bots.push(b);
           }
-        } else {
-          if (title) title.innerText = `${winnerName} WINS!`;
-          if (desc)  desc.innerText = "Table closed.";
-          if (typeof saveData === "function") saveData();
+          b.wins = b.wins || 0;
+          b.losses = b.losses || 0;
+          b.pts = b.pts || 0;
+          return b;
         }
-      } catch (e) {
-        // Even if storage update fails, still show the modal
-        if (title) title.innerText = `${winnerName} WINS!`;
-        if (desc)  desc.innerText = "Table closed.";
+
+        leagueData.player = leagueData.player || { name: gamePlayers[0]?.name || "Player", wins: 0, losses: 0, pts: 0, winStreak: 0, bestStreak: 0 };
+        leagueData.player.name = leagueData.player.name || (gamePlayers[0]?.name || "Player");
+        leagueData.player.wins = leagueData.player.wins || 0;
+        leagueData.player.losses = leagueData.player.losses || 0;
+        leagueData.player.pts = leagueData.player.pts || 0;
+        leagueData.player.winStreak = leagueData.player.winStreak || 0;
+        leagueData.player.bestStreak = leagueData.player.bestStreak || 0;
+
+        const winnerRec = (winnerName === leagueData.player.name) ? leagueData.player : ensureBot(winnerName);
+        const loserRec = (loserName === leagueData.player.name) ? leagueData.player : ensureBot(loserName);
+
+        if (winnerRec) { winnerRec.wins++; winnerRec.pts += PTS_WIN; }
+        if (loserRec) { loserRec.losses++; }
+
+        if (winnerName === leagueData.player.name) {
+          leagueData.player.winStreak = (leagueData.player.winStreak || 0) + 1;
+          leagueData.player.bestStreak = Math.max(leagueData.player.bestStreak || 0, leagueData.player.winStreak || 0);
+          unlockBackIfNeeded();
+          title.innerText = "WIN!";
+          desc.innerText = "Nice one.";
+        } else {
+          leagueData.player.winStreak = 0;
+          title.innerText = "LOSE";
+          desc.innerText = `${winnerName} got you`;
+        }
+
+        if (winnerName && loserName) {
+          leagueData.matchHistory.unshift({ winner: winnerName, loser: loserName, ts: Date.now() });
+          leagueData.matchHistory = leagueData.matchHistory.slice(0, 50);
+        }
+
+        leagueData.bots.sort((a,b)=> (b.pts - a.pts) || (b.wins - a.wins) || a.name.localeCompare(b.name));
+
+        saveData();
+        renderLeagueTable();
+      } else {
+        title.innerText = `${winner.name} WINS!`;
+        desc.innerText = "Table closed.";
+        saveData();
       }
 
-      if (modal) modal.style.display = "flex";
+      modal.style.display = "flex";
     }
 
     function exitGame() {
@@ -1978,19 +2024,21 @@
         const maxAngle = 20;
         const degreesPerCard = 3;
 
-        bottomP.hand.forEach((c, i) => {
+        const displayOrder = getHandDisplayOrder(bottomP.hand);
+        displayOrder.forEach((realIdx, displayPos) => {
+          const c = bottomP.hand[realIdx];
           let isMyTurn = bottomP === activeP && (gameMode !== "online" || turnIndex === NET.mySeatIndex);
-          let cardDiv = createCardDiv(c, i, isMyTurn);
+          let cardDiv = createCardDiv(c, realIdx, isMyTurn);
 
           let centerIdx = (totalCards - 1) / 2;
-          let distFromCenter = i - centerIdx;
+          let distFromCenter = displayPos - centerIdx;
           let angle = distFromCenter * degreesPerCard;
           angle = Math.max(-maxAngle, Math.min(maxAngle, angle));
           let yOffset = Math.abs(distFromCenter) * 4;
 
           cardDiv.style.setProperty("--fan-rot", `${angle}deg`);
           cardDiv.style.setProperty("--fan-y", `${yOffset}px`);
-          cardDiv.style.zIndex = i + 1;
+          cardDiv.style.zIndex = displayPos + 1;
 
           ph.appendChild(cardDiv);
         });
@@ -2084,45 +2132,62 @@
     }
 
     // --- SORT ---
-    function toggleSort() {
-      if (gameMode === "online" && turnIndex !== NET.mySeatIndex) return;
+// IMPORTANT (online): do NOT mutate hand order on the client for display purposes.
+// We only change how we *render* the hand, and we always keep selectionOrder as REAL indices
+// into the authoritative hand array so host/client indices match.
+function toggleSort() {
+  if (gameMode === "online" && turnIndex !== NET.mySeatIndex) return;
+  sortByRank = !sortByRank;
+  updateSortUI();
+  renderHandUI();
+  updateControls();
+}
 
-      sortByRank = !sortByRank;
-      updateSortUI();
+function updateSortUI() {
+  const btn = document.getElementById("btn-sort");
+  if (!btn) return;
+  btn.innerText = sortByRank ? "RANK" : "SUIT";
+  btn.style.background = sortByRank ? "var(--sticker-pink)" : "white";
+}
 
-      let p = (gameMode === "online") ? gamePlayers[NET.mySeatIndex] : gamePlayers[turnIndex];
-      let selectedCards = selectionOrder.map((idx) => p.hand[idx]).filter(Boolean);
-
-      sortHand(p.hand);
-
-      selectionOrder = [];
-      p.hand.forEach((card, idx) => {
-        if (selectedCards.includes(card)) selectionOrder.push(idx);
-      });
-
-      renderHandUI();
-      updateControls();
+// Return a deterministic display order for a hand without mutating the hand array.
+// Tie-break by original index to keep ordering stable across clients/host.
+function getHandDisplayOrder(hand) {
+  const idxs = hand.map((_, i) => i);
+  idxs.sort((ia, ib) => {
+    const a = hand[ia], b = hand[ib];
+    if (!a || !b) return ia - ib;
+    if (sortByRank) {
+      const r = rankVal(a.rank) - rankVal(b.rank);
+      if (r !== 0) return r;
+      const s = SUITS.indexOf(a.suit) - SUITS.indexOf(b.suit);
+      if (s !== 0) return s;
+      return ia - ib;
+    } else {
+      const s = SUITS.indexOf(a.suit) - SUITS.indexOf(b.suit);
+      if (s !== 0) return s;
+      const r = rankVal(a.rank) - rankVal(b.rank);
+      if (r !== 0) return r;
+      return ia - ib;
     }
+  });
+  return idxs;
+}
 
-    function updateSortUI() {
-      const btn = document.getElementById("btn-sort");
-      btn.innerText = sortByRank ? "RANK" : "SUIT";
-      btn.style.background = sortByRank ? "var(--sticker-pink)" : "white";
+// Used by offline + host to keep hands tidy after draws (this DOES mutate).
+function sortHand(h) {
+  h.sort((a, b) => {
+    if (sortByRank) {
+      let r = rankVal(a.rank) - rankVal(b.rank);
+      if (r !== 0) return r;
+      return SUITS.indexOf(a.suit) - SUITS.indexOf(b.suit);
+    } else {
+      let s = SUITS.indexOf(a.suit) - SUITS.indexOf(b.suit);
+      if (s !== 0) return s;
+      return rankVal(a.rank) - rankVal(b.rank);
     }
-
-    function sortHand(h) {
-      h.sort((a, b) => {
-        if (sortByRank) {
-          let r = rankVal(a.rank) - rankVal(b.rank);
-          if (r !== 0) return r;
-          return SUITS.indexOf(a.suit) - SUITS.indexOf(b.suit);
-        } else {
-          let s = SUITS.indexOf(a.suit) - SUITS.indexOf(b.suit);
-          if (s !== 0) return s;
-          return rankVal(a.rank) - rankVal(b.rank);
-        }
-      });
-    }
+  });
+}
 
     // =========================
     // CHAT
@@ -2530,6 +2595,102 @@
       loadData();
       bindOnlineUI();
     });
-  </script>
+  
+// --- Draggable Chat (mobile + desktop) ---
+function enableChatDrag() {
+  const wrap = document.getElementById('chat-wrap');
+  const head = document.getElementById('chat-head');
+  if (!wrap || !head) return;
+
+  // restore
+  try {
+    const saved = JSON.parse(localStorage.getItem('osbj_chat_pos') || 'null');
+    if (saved && typeof saved.left === 'number' && typeof saved.top === 'number') {
+      wrap.style.left = saved.left + 'px';
+      wrap.style.top = saved.top + 'px';
+      wrap.style.right = 'auto';
+      wrap.style.bottom = 'auto';
+    }
+  } catch {}
+
+  let dragging = false;
+  let startX = 0, startY = 0, startLeft = 0, startTop = 0;
+
+  function clamp(val, min, max) { return Math.max(min, Math.min(max, val)); }
+
+  function onDown(e) {
+    const t = e.target;
+    // ignore clicks on buttons/inputs inside the header
+    if (t && (t.tagName === 'BUTTON' || t.tagName === 'INPUT' || t.closest('button') || t.closest('input'))) return;
+
+    dragging = true;
+    head.style.cursor = 'grabbing';
+    wrap.style.right = 'auto';
+    wrap.style.bottom = 'auto';
+
+    const rect = wrap.getBoundingClientRect();
+    startLeft = rect.left;
+    startTop = rect.top;
+
+    const pt = e.touches ? e.touches[0] : e;
+    startX = pt.clientX;
+    startY = pt.clientY;
+
+    e.preventDefault();
+  }
+
+  function onMove(e) {
+    if (!dragging) return;
+    const pt = e.touches ? e.touches[0] : e;
+    const dx = pt.clientX - startX;
+    const dy = pt.clientY - startY;
+
+    const maxLeft = window.innerWidth - wrap.offsetWidth;
+    const maxTop = window.innerHeight - wrap.offsetHeight;
+
+    const left = clamp(startLeft + dx, 0, Math.max(0, maxLeft));
+    const top = clamp(startTop + dy, 0, Math.max(0, maxTop));
+
+    wrap.style.left = left + 'px';
+    wrap.style.top = top + 'px';
+  }
+
+  function onUp() {
+    if (!dragging) return;
+    dragging = false;
+    head.style.cursor = 'grab';
+
+    const rect = wrap.getBoundingClientRect();
+    localStorage.setItem('osbj_chat_pos', JSON.stringify({ left: rect.left, top: rect.top }));
+  }
+
+  head.style.cursor = 'grab';
+  head.style.touchAction = 'none';
+
+  head.addEventListener('mousedown', onDown);
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('mouseup', onUp);
+
+  head.addEventListener('touchstart', onDown, { passive: false });
+  window.addEventListener('touchmove', onMove, { passive: false });
+  window.addEventListener('touchend', onUp);
+  window.addEventListener('touchcancel', onUp);
+
+  window.addEventListener('resize', () => {
+    const rect = wrap.getBoundingClientRect();
+    const maxLeft = window.innerWidth - wrap.offsetWidth;
+    const maxTop = window.innerHeight - wrap.offsetHeight;
+    const left = clamp(rect.left, 0, Math.max(0, maxLeft));
+    const top = clamp(rect.top, 0, Math.max(0, maxTop));
+    wrap.style.left = left + 'px';
+    wrap.style.top = top + 'px';
+    wrap.style.right = 'auto';
+    wrap.style.bottom = 'auto';
+    localStorage.setItem('osbj_chat_pos', JSON.stringify({ left, top }));
+  });
+}
+
+window.addEventListener('load', () => enableChatDrag());
+</script>
 </body>
 </html>
