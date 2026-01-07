@@ -708,9 +708,9 @@
        CHAT PANEL (in-game)
        =========================== */
     #chat-wrap{
-      position: fixed;
+      position: absolute;
       left: 10px;
-      top: 52vh;
+      bottom: calc(var(--card-h) + 72px);
       width: min(320px, calc(100% - 20px));
       z-index: 120;
       user-select: none;
@@ -733,8 +733,6 @@
       font-weight: 1000;
       background: var(--sticker-yellow);
       border-bottom: 3px solid #111;
-      touch-action: none;
-      cursor: grab;
     }
     #chat-toggle{
       border: 2px solid #111;
@@ -2561,60 +2559,57 @@ function enableChatDrag() {
   const head = document.getElementById('chat-head');
   if (!wrap || !head) return;
 
-  const KEY = 'osbj_chat_pos';
-
-  function clamp(n, min, max){ return Math.max(min, Math.min(max, n)); }
-
-  function applyPos(left, top) {
-    const pad = 6;
-    const maxLeft = window.innerWidth - wrap.offsetWidth - pad;
-    const maxTop  = window.innerHeight - wrap.offsetHeight - pad;
-
-    wrap.style.left = clamp(left, pad, Math.max(pad, maxLeft)) + 'px';
-    wrap.style.top  = clamp(top,  pad, Math.max(pad, maxTop)) + 'px';
-    wrap.style.right = 'auto';
-    wrap.style.bottom = 'auto';
-  }
-
-  // Restore saved position
+  // restore
   try {
-    const saved = JSON.parse(localStorage.getItem(KEY) || 'null');
+    const saved = JSON.parse(localStorage.getItem('osbj_chat_pos') || 'null');
     if (saved && typeof saved.left === 'number' && typeof saved.top === 'number') {
-      applyPos(saved.left, saved.top);
+      wrap.style.left = saved.left + 'px';
+      wrap.style.top = saved.top + 'px';
+      wrap.style.right = 'auto';
+      wrap.style.bottom = 'auto';
     }
   } catch {}
 
   let dragging = false;
-  let startX = 0, startY = 0;
-  let startLeft = 0, startTop = 0;
+  let startX = 0, startY = 0, startLeft = 0, startTop = 0;
 
-  head.style.cursor = 'grab';
-  head.style.touchAction = 'none';
+  function clamp(val, min, max) { return Math.max(min, Math.min(max, val)); }
 
   function onDown(e) {
-    // Drag only from header background (not buttons/inputs)
-    if (e.target.closest('button, input, textarea, .chat-controls')) return;
+    const t = e.target;
+    // ignore clicks on buttons/inputs inside the header
+    if (t && (t.tagName === 'BUTTON' || t.tagName === 'INPUT' || t.closest('button') || t.closest('input'))) return;
 
     dragging = true;
     head.style.cursor = 'grabbing';
+    wrap.style.right = 'auto';
+    wrap.style.bottom = 'auto';
 
     const rect = wrap.getBoundingClientRect();
     startLeft = rect.left;
-    startTop  = rect.top;
-    startX = e.clientX;
-    startY = e.clientY;
+    startTop = rect.top;
 
-    if (e.cancelable) e.preventDefault();
-    try { head.setPointerCapture(e.pointerId); } catch {}
+    const pt = e.touches ? e.touches[0] : e;
+    startX = pt.clientX;
+    startY = pt.clientY;
+
+    e.preventDefault();
   }
 
   function onMove(e) {
     if (!dragging) return;
-    if (e.cancelable) e.preventDefault();
+    const pt = e.touches ? e.touches[0] : e;
+    const dx = pt.clientX - startX;
+    const dy = pt.clientY - startY;
 
-    const dx = e.clientX - startX;
-    const dy = e.clientY - startY;
-    applyPos(startLeft + dx, startTop + dy);
+    const maxLeft = window.innerWidth - wrap.offsetWidth;
+    const maxTop = window.innerHeight - wrap.offsetHeight;
+
+    const left = clamp(startLeft + dx, 0, Math.max(0, maxLeft));
+    const top = clamp(startTop + dy, 0, Math.max(0, maxTop));
+
+    wrap.style.left = left + 'px';
+    wrap.style.top = top + 'px';
   }
 
   function onUp() {
@@ -2623,18 +2618,36 @@ function enableChatDrag() {
     head.style.cursor = 'grab';
 
     const rect = wrap.getBoundingClientRect();
-    try { localStorage.setItem(KEY, JSON.stringify({ left: rect.left, top: rect.top })); } catch {}
+    localStorage.setItem('osbj_chat_pos', JSON.stringify({ left: rect.left, top: rect.top }));
   }
 
-  head.addEventListener('pointerdown', onDown, { passive: false });
-  window.addEventListener('pointermove', onMove, { passive: false });
-  window.addEventListener('pointerup', onUp, { passive: true });
+  head.style.cursor = 'grab';
+  head.style.touchAction = 'none';
 
-  // Keep it on-screen on rotate/resize
+  head.addEventListener('mousedown', onDown);
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('mouseup', onUp);
+
+  head.addEventListener('touchstart', onDown, { passive: false });
+  window.addEventListener('touchmove', onMove, { passive: false });
+  window.addEventListener('touchend', onUp);
+  window.addEventListener('touchcancel', onUp);
+
   window.addEventListener('resize', () => {
     const rect = wrap.getBoundingClientRect();
-    applyPos(rect.left, rect.top);
-  }, { passive: true });
+    const maxLeft = window.innerWidth - wrap.offsetWidth;
+    const maxTop = window.innerHeight - wrap.offsetHeight;
+    const left = clamp(rect.left, 0, Math.max(0, maxLeft));
+    const top = clamp(rect.top, 0, Math.max(0, maxTop));
+    wrap.style.left = left + 'px';
+    wrap.style.top = top + 'px';
+    wrap.style.right = 'auto';
+    wrap.style.bottom = 'auto';
+    localStorage.setItem('osbj_chat_pos', JSON.stringify({ left, top }));
+  });
 }
 
 window.addEventListener('load', () => enableChatDrag());
+</script>
+</body>
+</html>
