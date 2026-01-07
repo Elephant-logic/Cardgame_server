@@ -1782,7 +1782,7 @@
 
       if (isLeagueMode) {
         const winnerName = winner.name;
-        const loser = players[(winnerIdx === 0) ? 1 : 0];
+        const loser = gamePlayers[(winnerIdx === 0) ? 1 : 0];
         const loserName = loser ? loser.name : null;
 
         leagueData.bots = leagueData.bots || [];
@@ -1804,8 +1804,8 @@
           return b;
         }
 
-        leagueData.player = leagueData.player || { name: players[0]?.name || "Player", wins: 0, losses: 0, pts: 0, winStreak: 0, bestStreak: 0 };
-        leagueData.player.name = leagueData.player.name || (players[0]?.name || "Player");
+        leagueData.player = leagueData.player || { name: gamePlayers[0]?.name || "Player", wins: 0, losses: 0, pts: 0, winStreak: 0, bestStreak: 0 };
+        leagueData.player.name = leagueData.player.name || (gamePlayers[0]?.name || "Player");
         leagueData.player.wins = leagueData.player.wins || 0;
         leagueData.player.losses = leagueData.player.losses || 0;
         leagueData.player.pts = leagueData.player.pts || 0;
@@ -1838,7 +1838,7 @@
         leagueData.bots.sort((a,b)=> (b.pts - a.pts) || (b.wins - a.wins) || a.name.localeCompare(b.name));
 
         saveData();
-        renderLeagueTable();
+        renderStandings();
       } else {
         title.innerText = `${winner.name} WINS!`;
         desc.innerText = "Table closed.";
