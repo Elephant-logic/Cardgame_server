@@ -49,7 +49,9 @@ function logStats() {
   );
 }
 
-// HTTP /stats endpoint so you can check from browser
+// --- HTTP STATS/ROOM ROUTES --------------------------------------
+
+// Raw JSON stats (you already tested this)
 app.get("/stats", (req, res) => {
   res.json({
     uptimeSeconds: Math.round(process.uptime()),
@@ -59,6 +61,150 @@ app.get("/stats", (req, res) => {
     messagesPerMinute,
     memoryMB: getMemoryMB()
   });
+});
+
+// List of rooms + players (for you, not public UI)
+app.get("/rooms", (req, res) => {
+  const allRooms = [];
+  for (const [code, room] of rooms.entries()) {
+    const players = [];
+    for (const [ws, info] of room.clients.entries()) {
+      players.push({
+        name: info.name,
+        seat: info.seat,
+        isHost: room.hostId === info.id,
+        connected: ws.readyState === WebSocket.OPEN
+      });
+    }
+    players.sort((a, b) => a.seat - b.seat);
+    allRooms.push({
+      code,
+      playerCount: players.length,
+      players
+    });
+  }
+  res.json({
+    uptimeSeconds: Math.round(process.uptime()),
+    rooms: allRooms.length,
+    data: allRooms
+  });
+});
+
+// Simple live dashboard page (HTML) polling /stats + /rooms
+app.get("/stats/live", (req, res) => {
+  res.type("html").send(`
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Old Skool Blackjack – Live Stats</title>
+  <style>
+    body {
+      background:#050608;
+      color:#eee;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin:0;
+      padding:16px;
+    }
+    h1 { margin-top:0; font-size:20px; }
+    pre {
+      background:#111;
+      padding:12px;
+      border-radius:8px;
+      overflow:auto;
+      max-height:45vh;
+      font-size:12px;
+    }
+    .grid {
+      display:grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap:16px;
+    }
+    .card {
+      background:#111;
+      border-radius:10px;
+      padding:12px;
+      box-shadow:0 0 0 1px rgba(255,255,255,0.05);
+    }
+    .pill {
+      display:inline-block;
+      padding:2px 8px;
+      border-radius:999px;
+      font-size:11px;
+      background:#222;
+      margin-right:4px;
+    }
+    .ok { color:#7CFC00; }
+    .warn { color:#ffd54f; }
+    .bad { color:#ff5252; }
+  </style>
+</head>
+<body>
+  <h1>Old Skool Blackjack – Live Server Stats</h1>
+  <div class="grid">
+    <div class="card">
+      <h2>Stats</h2>
+      <div id="summary">Loading…</div>
+      <pre id="statsPre"></pre>
+    </div>
+    <div class="card">
+      <h2>Rooms</h2>
+      <pre id="roomsPre">Loading…</pre>
+    </div>
+  </div>
+  <script>
+    async function fetchJson(path) {
+      try {
+        const res = await fetch(path + "?t=" + Date.now());
+        if (!res.ok) throw new Error(res.status);
+        return await res.json();
+      } catch (e) {
+        console.error("Fetch error", path, e);
+        return null;
+      }
+    }
+
+    function fmt(num) { return typeof num === "number" ? num.toString() : "-"; }
+
+    async function tick() {
+      const [stats, rooms] = await Promise.all([
+        fetchJson("/stats"),
+        fetchJson("/rooms")
+      ]);
+
+      const summaryEl = document.getElementById("summary");
+      const statsPre = document.getElementById("statsPre");
+      const roomsPre = document.getElementById("roomsPre");
+
+      if (stats) {
+        const cls =
+          stats.activeSockets > 40 ? "bad" :
+          stats.activeSockets > 15 ? "warn" : "ok";
+
+        summaryEl.innerHTML =
+          '<span class="pill ' + cls + '">Sockets: ' + fmt(stats.activeSockets) + '</span>' +
+          '<span class="pill">Rooms: ' + fmt(stats.rooms) + '</span>' +
+          '<span class="pill">MPM: ' + fmt(stats.messagesPerMinute) + '</span>' +
+          '<span class="pill">Uptime: ' + fmt(stats.uptimeSeconds) + 's</span>';
+
+        statsPre.textContent = JSON.stringify(stats, null, 2);
+      } else {
+        summaryEl.textContent = "Error fetching /stats";
+      }
+
+      if (rooms) {
+        roomsPre.textContent = JSON.stringify(rooms, null, 2);
+      } else {
+        roomsPre.textContent = "Error fetching /rooms";
+      }
+    }
+
+    tick();
+    setInterval(tick, 2000);
+  </script>
+</body>
+</html>
+  `);
 });
 
 // --- WEBSOCKET SETUP ---------------------------------------------
@@ -215,7 +361,6 @@ wss.on("connection", (ws) => {
     const hostWs = [...room.clients.keys()].find((w) => w._id === room.hostId);
     if (!hostWs) return send(ws, { type: "toast", message: "Host disconnected." });
 
-    // Preserve existing client contract: msg.type === "action"
     if (msg.type === "action") {
       const action = msg.action || {};
       action.seat = ws._seat;
