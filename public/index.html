@@ -708,9 +708,11 @@
        CHAT PANEL (in-game)
        =========================== */
     #chat-wrap{
-      position: absolute;
+      /* Draggable floating chat (position saved in localStorage) */
+      position: fixed;
       left: 10px;
-      bottom: calc(var(--card-h) + 72px);
+      top: 90px;
+      bottom: auto;
       width: min(320px, calc(100% - 20px));
       z-index: 120;
       user-select: none;
@@ -733,7 +735,10 @@
       font-weight: 1000;
       background: var(--sticker-yellow);
       border-bottom: 3px solid #111;
+      cursor: grab;
+      touch-action: none;
     }
+    #chat-wrap.dragging #chat-head{ cursor: grabbing; }
     #chat-toggle{
       border: 2px solid #111;
       background: #fff;
@@ -1104,7 +1109,6 @@
     let pendingDraw2 = 0, pendingDrawJ = 0, pendingSkip = 0;
     let selectionOrder = [], isProcessing = false, acePending = false;
     let isPassAndPlay = false, extraTurn = false;
-    let turnSerial = 0; // increments each time turn passes to next player
 
     // gameMode: offline | pass_play | online
     let gameMode = "offline";
@@ -1192,6 +1196,13 @@
       document.querySelectorAll(".screen").forEach((s) => s.classList.remove("active"));
       document.getElementById(id).classList.add("active");
       AudioEngine.init();
+
+      // Ensure draggable chat is wired when entering the game screen
+      if (id === "game-screen") {
+        setTimeout(() => {
+          try { initChatDrag(); } catch (e) {}
+        }, 0);
+      }
     }
 
     function showToast(msg) {
@@ -1309,14 +1320,12 @@
       isProcessing = false;
       extraTurn = false;
       acePending = false;
-      turnSerial = 0;
 
       gamePlayers = config.map((p) => ({
         name: p.name,
         isBot: p.isBot,
         hand: [],
         lastDeclared: false,
-        lastDeclaredTurn: -999,
       }));
 
       // ✅ FIX: correct pass-play detection
@@ -1411,7 +1420,6 @@
     }
 
     function nextTurn() {
-      turnSerial++;
       turnIndex = (turnIndex + direction + gamePlayers.length) % gamePlayers.length;
 
       if (gameMode === "pass_play" && isPassAndPlay && !gamePlayers[turnIndex].isBot) {
@@ -1468,7 +1476,6 @@
         pendingSkip = 0;
         updateFeed(`${p.name} missed turn!`);
         p.lastDeclared = false;
-        p.lastDeclaredTurn = -999;
         selectionOrder = [];
         updateGameUI();
         setTimeout(nextTurn, 600);
@@ -1487,7 +1494,6 @@
       p.hand.push(...draw(pen));
       AudioEngine.playCardSnap();
       p.lastDeclared = false;
-      p.lastDeclaredTurn = -999;
       sortHand(p.hand);
       selectionOrder = [];
       updateGameUI();
@@ -1499,9 +1505,7 @@
         if (turnIndex !== NET.mySeatIndex) return;
         if (NET.isHost) {
           gamePlayers[turnIndex].lastDeclared = true;
-          gamePlayers[turnIndex].lastDeclaredTurn = turnSerial;
-      gamePlayers[turnIndex].lastDeclaredTurn = turnSerial;
-      AudioEngine.playCall();
+          AudioEngine.playCall();
           document.getElementById("turn-status").innerText = "CALLED LAST!";
           updateControls();
           netBroadcastState();
@@ -1524,13 +1528,6 @@
       let p = gamePlayers[turnIndex];
 
       let remaining = p.hand.length - selectionOrder.length;
-
-      // STRICT LAST RULE: you must call LAST on a previous turn to finish
-      if (remaining === 0 && p.lastDeclared && p.lastDeclaredTurn === turnSerial) {
-        showToast("⚠️ Call LAST the turn before finishing!");
-        AudioEngine.playError();
-        return;
-      }
       if (remaining === 1 && !p.lastDeclared) {
         showToast("⚠️ Call LAST before playing!");
         AudioEngine.playError();
@@ -1617,26 +1614,8 @@
 
       // --- RULE FIX: NO POWER CARD FINISH (includes King) + Draw 2 ---
       let triedToFinish = p.hand.length === 0;
-
-      // STRICT LAST RULE (applies to bots + online too)
-      if (triedToFinish && (!p.lastDeclared || p.lastDeclaredTurn === turnSerial)) {
-        showToast("⚠️ Must call LAST the turn before finishing! Draw 2");
-        updateFeed(`${p.name} tried to finish without LAST from previous turn. Drew 2`);
-        AudioEngine.playError();
-
-        extraTurn = false;
-        p.hand.push(...draw(2));
-        p.lastDeclared = false;
-        p.lastDeclaredTurn = -999;
-        sortHand(p.hand);
-        selectionOrder = [];
-        updateGameUI();
-        isProcessing = false;
-        setTimeout(nextTurn, 900);
-        return;
-      }
-
       let finishedOnPower = triedToFinish && POWER_RANKS.has(lastCard.rank);
+
       if (finishedOnPower) {
         showToast("⚠️ No power-card finish! Draw 2");
         updateFeed(`${p.name} can't finish on a power card! Drew 2`);
@@ -2211,6 +2190,86 @@
         }
       }
     });
+
+    // Draggable chat bubble (move by grabbing the yellow header)
+    const CHAT_POS_KEY = "oldskool_chat_pos_v1";
+    function clamp(n, min, max){ return Math.max(min, Math.min(max, n)); }
+    function initChatDrag(){
+      const wrap = document.getElementById("chat-wrap");
+      const head = document.getElementById("chat-head");
+      if (!wrap || !head) return;
+
+      if (wrap.dataset.dragBound === "1") return;
+      wrap.dataset.dragBound = "1";
+
+      // restore last position
+      try {
+        const saved = JSON.parse(localStorage.getItem(CHAT_POS_KEY) || "null");
+        if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) {
+          wrap.style.left = saved.x + "px";
+          wrap.style.top = saved.y + "px";
+          wrap.style.bottom = "auto";
+        }
+      } catch(_){}
+
+      let dragging = false;
+      let startX = 0, startY = 0, origX = 0, origY = 0;
+
+      const getXY = () => {
+        const r = wrap.getBoundingClientRect();
+        return { x: r.left, y: r.top, w: r.width, h: r.height };
+      };
+
+      const savePos = () => {
+        const r = wrap.getBoundingClientRect();
+        localStorage.setItem(CHAT_POS_KEY, JSON.stringify({ x: Math.round(r.left), y: Math.round(r.top) }));
+      };
+
+      const moveTo = (x, y) => {
+        const r = wrap.getBoundingClientRect();
+        const maxX = window.innerWidth - r.width - 6;
+        const maxY = window.innerHeight - r.height - 6;
+        wrap.style.left = clamp(x, 6, maxX) + "px";
+        wrap.style.top  = clamp(y, 6, maxY) + "px";
+        wrap.style.bottom = "auto";
+      };
+
+      // Use Pointer Events so it works on mobile + desktop
+      head.addEventListener("pointerdown", (e) => {
+        // Don't start drag if they're interacting with inputs/buttons
+        const t = e.target;
+        if (t && (t.tagName === "BUTTON" || t.tagName === "INPUT" || t.closest("button") || t.closest("input"))) return;
+        e.preventDefault();
+        dragging = true;
+        wrap.classList.add("dragging");
+        const r = getXY();
+        startX = e.clientX;
+        startY = e.clientY;
+        origX = r.x;
+        origY = r.y;
+        try { head.setPointerCapture(e.pointerId); } catch(_){}
+      });
+
+      head.addEventListener("pointermove", (e) => {
+        if (!dragging) return;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        moveTo(origX + dx, origY + dy);
+      });
+
+      const endDrag = () => {
+        if (!dragging) return;
+        dragging = false;
+        wrap.classList.remove("dragging");
+        savePos();
+      };
+      head.addEventListener("pointerup", endDrag);
+      head.addEventListener("pointercancel", endDrag);
+      window.addEventListener("resize", () => {
+        const r = getXY();
+        moveTo(r.x, r.y);
+      });
+    }
 
     // ===============================
     // ONLINE (WebSocket Relay + Authoritative Host)
