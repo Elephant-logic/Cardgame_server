@@ -1081,7 +1081,9 @@
 
     let lobbyPlayers = [];
     let isLeagueMode = false;
-    let sortByRank = false;
+    
+    let leagueOpponentIdx = null;
+let sortByRank = false;
 
     // --- ONLINE STATE ---
     const NET = {
@@ -1326,6 +1328,7 @@
         isBot: p.isBot,
         hand: [],
         lastDeclared: false,
+        lastCalled: false,
       }));
 
       // ✅ FIX: correct pass-play detection
@@ -1362,6 +1365,8 @@
 
     function triggerPassScreen() {
       let p = gamePlayers[turnIndex];
+      // lastCalled is only for THIS turn (prevents call+finish same go)
+      p.lastCalled = false;
       document.getElementById("next-player-name").innerText = p.name;
       showScreen("pass-device-screen");
     }
@@ -1476,6 +1481,7 @@
         pendingSkip = 0;
         updateFeed(`${p.name} missed turn!`);
         p.lastDeclared = false;
+      p.lastCalled = false;
         selectionOrder = [];
         updateGameUI();
         setTimeout(nextTurn, 600);
@@ -1494,6 +1500,7 @@
       p.hand.push(...draw(pen));
       AudioEngine.playCardSnap();
       p.lastDeclared = false;
+      p.lastCalled = false;
       sortHand(p.hand);
       selectionOrder = [];
       updateGameUI();
@@ -1504,7 +1511,7 @@
       if (gameMode === "online") {
         if (turnIndex !== NET.mySeatIndex) return;
         if (NET.isHost) {
-          gamePlayers[turnIndex].lastDeclared = true;
+          gamePlayers[turnIndex].lastCalled = true;
           AudioEngine.playCall();
           document.getElementById("turn-status").innerText = "CALLED LAST!";
           updateControls();
@@ -1515,7 +1522,7 @@
         return;
       }
 
-      gamePlayers[turnIndex].lastDeclared = true;
+      gamePlayers[turnIndex].lastCalled = true;
       AudioEngine.playCall();
       document.getElementById("turn-status").innerText = "CALLED LAST!";
       updateControls();
@@ -1526,20 +1533,7 @@
       if (gameMode === "online" && turnIndex !== NET.mySeatIndex) return;
 
       let p = gamePlayers[turnIndex];
-
-      let remaining = p.hand.length - selectionOrder.length;
-      if (remaining === 1 && !p.lastDeclared) {
-        showToast("⚠️ Call LAST before playing!");
-        AudioEngine.playError();
-        return;
-      }
-      if (remaining === 0 && !p.lastDeclared) {
-        showToast("⚠️ Call LAST before finishing!");
-        AudioEngine.playError();
-        return;
-      }
-
-      // Client-side: if joiner plays an Ace, open suit modal BEFORE sending action
+// Client-side: if joiner plays an Ace, open suit modal BEFORE sending action
       if (gameMode === "online" && !NET.isHost) {
         let cards = selectionOrder.map((i) => p.hand[i]);
         let lastCard = cards[cards.length - 1];
@@ -1624,6 +1618,7 @@
         extraTurn = false;
         p.hand.push(...draw(2));
         p.lastDeclared = false;
+      p.lastCalled = false;
         sortHand(p.hand);
         selectionOrder = [];
         updateGameUI();
@@ -1638,6 +1633,32 @@
         isProcessing = false;
         setTimeout(nextTurn, 900);
         return;
+      }
+
+      // --- RULE: Must have called LAST on the PREVIOUS turn to finish ---
+      // lastDeclared becomes true only if you ended your last turn on 1 card AND you pressed LAST that turn.
+      // So you CANNOT press LAST and go out in the same move.
+      if (p.hand.length === 0 && !p.lastDeclared) {
+        showToast("⚠️ Can't go out without LAST (previous turn). Draw 2");
+        updateFeed(`${p.name} tried to go out without LAST and drew 2`);
+        AudioEngine.playError();
+
+        extraTurn = false;
+        p.hand.push(...draw(2));
+        p.lastDeclared = false;
+        p.lastCalled = false;
+        sortHand(p.hand);
+        selectionOrder = [];
+        updateGameUI();
+        isProcessing = false;
+        setTimeout(nextTurn, 900);
+        return;
+      }
+
+      // Lock LAST for next turn ONLY if you end THIS turn on 1 card and you pressed LAST this turn.
+      if (!extraTurn) {
+        p.lastDeclared = (p.lastCalled && p.hand.length === 1);
+        p.lastCalled = false;
       }
 
       selectionOrder = [];
@@ -1790,8 +1811,15 @@
       });
 
       if (isLeagueMode) {
+        // Update league table for BOTH sides (player + the bot opponent)
+        if (leagueOpponentIdx == null) {
+          leagueOpponentIdx = leagueData.bots.findIndex(b => b.name === (gamePlayers[1]?.name || ""));
+        }
         if (winnerIdx === 0) {
           leagueData.player.wins++;
+          if (leagueOpponentIdx != null && leagueOpponentIdx >= 0) {
+            leagueData.bots[leagueOpponentIdx].losses++;
+          }
           leagueData.player.pts += 3;
           leagueData.player.winStreak = (leagueData.player.winStreak || 0) + 1;
           leagueData.player.bestStreak = Math.max(leagueData.player.bestStreak || 0, leagueData.player.winStreak || 0);
@@ -1800,6 +1828,10 @@
           desc.innerText = "Nice one.";
         } else {
           leagueData.player.losses++;
+          if (leagueOpponentIdx != null && leagueOpponentIdx >= 0) {
+            leagueData.bots[leagueOpponentIdx].wins++;
+            leagueData.bots[leagueOpponentIdx].pts = (leagueData.bots[leagueOpponentIdx].pts || 0) + 3;
+          }
           leagueData.player.winStreak = 0;
           title.innerText = "LOSE";
           desc.innerText = `${winner.name} got you`;
@@ -1905,12 +1937,13 @@
       });
 
       if (bestMove) {
-        if (p.hand.length - bestMove.length === 1) p.lastDeclared = true;
+        if (p.hand.length - bestMove.length === 1) p.lastCalled = true;
         attemptPlay(turnIndex, bestMove);
       } else {
         let drawn = draw(1);
         p.hand.push(...drawn);
         p.lastDeclared = false;
+      p.lastCalled = false;
         updateFeed(`${p.name} drew a card`);
         updateGameUI();
         setTimeout(nextTurn, 1500);
@@ -2056,7 +2089,7 @@
       }
 
       let btnLast = document.getElementById("btn-last");
-      if (p.lastDeclared) {
+      if (p.lastDeclared || p.lastCalled) {
         btnLast.classList.add("called");
         btnLast.innerText = "CALLED";
       } else {
@@ -2571,7 +2604,7 @@
         }
 
         if (action.type === "declare_last") {
-          gamePlayers[seat].lastDeclared = true;
+          gamePlayers[seat].lastCalled = true;
           updateFeed(`${gamePlayers[seat].name} called LAST!`);
           netBroadcastState();
           return;
