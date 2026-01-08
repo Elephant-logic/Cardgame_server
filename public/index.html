@@ -613,21 +613,6 @@
       transform: translate(-50%, -50%) scale(1);
       animation: popIn 0.3s forwards;
     }
-    /* LAST CALLED WARNING BADGE */
-    .last-badge{
-      display:inline-block;
-      margin-left:8px;
-      padding: 2px 8px;
-      border-radius: 999px;
-      background: #ffeb3b;
-      color: #111;
-      border: 2px solid #111;
-      font-weight: 1000;
-      font-size: 0.75rem;
-      box-shadow: 3px 3px 0 rgba(0,0,0,0.12);
-      transform: translateY(-1px);
-    }
-
 
     /* ==================================================
        ONLINE LOBBY (Server Hosted) — SKOOL THEME ONLY
@@ -1529,8 +1514,6 @@ let sortByRank = false;
           gamePlayers[turnIndex].lastCalled = true;
           AudioEngine.playCall();
           document.getElementById("turn-status").innerText = "CALLED LAST!";
-          updateFeed(`${gamePlayers[turnIndex].name} called LAST!`);
-          showToast("⚠ LAST CALLED!");
           updateControls();
           netBroadcastState();
         } else {
@@ -1542,8 +1525,6 @@ let sortByRank = false;
       gamePlayers[turnIndex].lastCalled = true;
       AudioEngine.playCall();
       document.getElementById("turn-status").innerText = "CALLED LAST!";
-      updateFeed(`${gamePlayers[turnIndex].name} called LAST!`);
-      showToast("⚠ LAST CALLED!");
       updateControls();
     }
 
@@ -1674,19 +1655,13 @@ let sortByRank = false;
         return;
       }
 
-      // LAST WARNING + LOCK
-      // If you pressed LAST and this move leaves you on 1 card, you are now "LAST declared".
-      // This must work even if KING gives you an immediate extra go (because your NEXT move could be the winning move).
-      const wasLastDeclared = !!p.lastDeclared;
-      if (p.lastCalled && p.hand.length === 1) {
-        p.lastDeclared = true;
-        if (!wasLastDeclared) {
-          updateFeed(`⚠ ${p.name} CALLED LAST!`);
-          showToast(`⚠ ${p.name} CALLED LAST!`);
-        }
+      // LAST rule: calling LAST arms your permission for a future finish.
+// You cannot press LAST and go out in the same move because the finish check (above) only accepts lastDeclared
+// which is set on a *previous* turn. We therefore arm lastDeclared at end-of-turn (and keep it until used or you draw).
+      if (!extraTurn) {
+        if (p.lastCalled) p.lastDeclared = true;
+        p.lastCalled = false;
       }
-      // clear the button-press flag after the move
-      p.lastCalled = false;
 
       selectionOrder = [];
 
@@ -2049,13 +2024,7 @@ let sortByRank = false;
         wrap.className = "opponent-wrapper " + (p === activeP ? "active-turn" : "inactive");
         let nameDiv = document.createElement("div");
         nameDiv.className = "opponent-name";
-        nameDiv.innerText = `${p.name} (${p.hand.length})`;
-        if (p.lastDeclared) {
-          const b = document.createElement("span");
-          b.className = "last-badge";
-          b.innerText = "LAST!";
-          nameDiv.appendChild(b);
-        }
+        nameDiv.innerText = `${p.name} (${p.hand.length})${(p.lastDeclared || p.lastCalled) ? "  ⚠ LAST!" : ""}`;
         wrap.appendChild(nameDiv);
         let handDiv = document.createElement("div");
         handDiv.style.display = "flex";
@@ -2638,8 +2607,7 @@ let sortByRank = false;
 
         if (action.type === "declare_last") {
           gamePlayers[seat].lastCalled = true;
-          updateFeed(`⚠ ${gamePlayers[seat].name} CALLED LAST!`);
-          showToast(`⚠ ${gamePlayers[seat].name} CALLED LAST!`);
+          updateFeed(`${gamePlayers[seat].name} called LAST!`);
           netBroadcastState();
           return;
         }
