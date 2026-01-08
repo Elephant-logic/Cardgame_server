@@ -613,6 +613,21 @@
       transform: translate(-50%, -50%) scale(1);
       animation: popIn 0.3s forwards;
     }
+    /* LAST CALLED WARNING BADGE */
+    .last-badge{
+      display:inline-block;
+      margin-left:8px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #ffeb3b;
+      color: #111;
+      border: 2px solid #111;
+      font-weight: 1000;
+      font-size: 0.75rem;
+      box-shadow: 3px 3px 0 rgba(0,0,0,0.12);
+      transform: translateY(-1px);
+    }
+
 
     /* ==================================================
        ONLINE LOBBY (Server Hosted) — SKOOL THEME ONLY
@@ -1322,9 +1337,6 @@ let sortByRank = false;
       isProcessing = false;
       extraTurn = false;
       acePending = false;
-      gameOver = false;
-      gameOverWinnerIdx = -1;
-      turnSerial = 0;
 
       gamePlayers = config.map((p) => ({
         name: p.name,
@@ -1332,7 +1344,6 @@ let sortByRank = false;
         hand: [],
         lastDeclared: false,
         lastCalled: false,
-        lastCalledTurn: -1,
       }));
 
       // ✅ FIX: correct pass-play detection
@@ -1371,7 +1382,6 @@ let sortByRank = false;
       let p = gamePlayers[turnIndex];
       // lastCalled is only for THIS turn (prevents call+finish same go)
       p.lastCalled = false;
-      p.lastCalledTurn = -1;
       document.getElementById("next-player-name").innerText = p.name;
       showScreen("pass-device-screen");
     }
@@ -1432,8 +1442,6 @@ let sortByRank = false;
     function nextTurn() {
       turnIndex = (turnIndex + direction + gamePlayers.length) % gamePlayers.length;
 
-      turnSerial++;
-
       if (gameMode === "pass_play" && isPassAndPlay && !gamePlayers[turnIndex].isBot) {
         setTimeout(triggerPassScreen, 800);
         return;
@@ -1489,7 +1497,6 @@ let sortByRank = false;
         updateFeed(`${p.name} missed turn!`);
         p.lastDeclared = false;
       p.lastCalled = false;
-      p.lastCalledTurn = -1;
         selectionOrder = [];
         updateGameUI();
         setTimeout(nextTurn, 600);
@@ -1509,7 +1516,6 @@ let sortByRank = false;
       AudioEngine.playCardSnap();
       p.lastDeclared = false;
       p.lastCalled = false;
-      p.lastCalledTurn = -1;
       sortHand(p.hand);
       selectionOrder = [];
       updateGameUI();
@@ -1521,9 +1527,10 @@ let sortByRank = false;
         if (turnIndex !== NET.mySeatIndex) return;
         if (NET.isHost) {
           gamePlayers[turnIndex].lastCalled = true;
-          gamePlayers[turnIndex].lastCalledTurn = turnSerial;
           AudioEngine.playCall();
           document.getElementById("turn-status").innerText = "CALLED LAST!";
+          updateFeed(`${gamePlayers[turnIndex].name} called LAST!`);
+          showToast("⚠ LAST CALLED!");
           updateControls();
           netBroadcastState();
         } else {
@@ -1533,9 +1540,10 @@ let sortByRank = false;
       }
 
       gamePlayers[turnIndex].lastCalled = true;
-          gamePlayers[turnIndex].lastCalledTurn = turnSerial;
       AudioEngine.playCall();
       document.getElementById("turn-status").innerText = "CALLED LAST!";
+      updateFeed(`${gamePlayers[turnIndex].name} called LAST!`);
+      showToast("⚠ LAST CALLED!");
       updateControls();
     }
 
@@ -1615,24 +1623,7 @@ let sortByRank = false;
       updateFeed(`${p.name} played ${cards.length} card(s)`);
 
       let lastCard = cards[cards.length - 1];
-      // If an Ace was played online, the host must set the suit.
-      if (lastCard.rank === "A") {
-        if (gameMode === "online" && NET.isHost) {
-          if (NET.aceChoice) {
-            activeSuit = NET.aceChoice;
-            NET.aceChoice = null;
-            updateFeed(`Suit is ${activeSuit}`);
-          } else {
-            acePending = true;
-            document.getElementById("suit-modal").style.display = "flex";
-            updateGameUI();
-            isProcessing = false;
-            return;
-          }
-        }
-      } else {
-        activeSuit = lastCard.suit;
-      }
+      if (lastCard.rank !== "A") activeSuit = lastCard.suit;
 
       // --- RULE FIX: NO POWER CARD FINISH (includes King) + Draw 2 ---
       let triedToFinish = p.hand.length === 0;
@@ -1647,7 +1638,6 @@ let sortByRank = false;
         p.hand.push(...draw(2));
         p.lastDeclared = false;
       p.lastCalled = false;
-      p.lastCalledTurn = -1;
         sortHand(p.hand);
         selectionOrder = [];
         updateGameUI();
@@ -1676,7 +1666,6 @@ let sortByRank = false;
         p.hand.push(...draw(2));
         p.lastDeclared = false;
         p.lastCalled = false;
-      p.lastCalledTurn = -1;
         sortHand(p.hand);
         selectionOrder = [];
         updateGameUI();
@@ -1685,12 +1674,19 @@ let sortByRank = false;
         return;
       }
 
-      // Lock LAST for next turn ONLY if you end THIS turn on 1 card and you pressed LAST this turn.
-      if (!extraTurn) {
-        p.lastDeclared = (p.lastCalled && p.hand.length === 1);
-        p.lastCalled = false;
-      p.lastCalledTurn = -1;
+      // LAST WARNING + LOCK
+      // If you pressed LAST and this move leaves you on 1 card, you are now "LAST declared".
+      // This must work even if KING gives you an immediate extra go (because your NEXT move could be the winning move).
+      const wasLastDeclared = !!p.lastDeclared;
+      if (p.lastCalled && p.hand.length === 1) {
+        p.lastDeclared = true;
+        if (!wasLastDeclared) {
+          updateFeed(`⚠ ${p.name} CALLED LAST!`);
+          showToast(`⚠ ${p.name} CALLED LAST!`);
+        }
       }
+      // clear the button-press flag after the move
+      p.lastCalled = false;
 
       selectionOrder = [];
 
@@ -1824,9 +1820,6 @@ let sortByRank = false;
       let modal = document.getElementById("match-result-modal");
       let winner = gamePlayers[winnerIdx];
 
-      gameOver = true;
-      gameOverWinnerIdx = winnerIdx;
-
       // ✅ store match history + party stats (ALWAYS)
       leagueData.matchHistory = leagueData.matchHistory || [];
       leagueData.matchHistory.unshift({
@@ -1878,7 +1871,6 @@ let sortByRank = false;
       }
 
       modal.style.display = "flex";
-      if (gameMode === "online" && NET.isHost) netBroadcastState();
     }
 
     function exitGame() {
@@ -1979,7 +1971,6 @@ let sortByRank = false;
         p.hand.push(...drawn);
         p.lastDeclared = false;
       p.lastCalled = false;
-      p.lastCalledTurn = -1;
         updateFeed(`${p.name} drew a card`);
         updateGameUI();
         setTimeout(nextTurn, 1500);
@@ -2059,6 +2050,12 @@ let sortByRank = false;
         let nameDiv = document.createElement("div");
         nameDiv.className = "opponent-name";
         nameDiv.innerText = `${p.name} (${p.hand.length})`;
+        if (p.lastDeclared) {
+          const b = document.createElement("span");
+          b.className = "last-badge";
+          b.innerText = "LAST!";
+          nameDiv.appendChild(b);
+        }
         wrap.appendChild(nameDiv);
         let handDiv = document.createElement("div");
         handDiv.style.display = "flex";
@@ -2110,7 +2107,7 @@ let sortByRank = false;
 
     function updateControls() {
       let btnPlay = document.getElementById("btn-play");
-      btnPlay.disabled = (selectionOrder.length === 0 || (gameMode === "online" && turnIndex !== NET.mySeatIndex)) || gameOver;
+      btnPlay.disabled = selectionOrder.length === 0 || (gameMode === "online" && turnIndex !== NET.mySeatIndex);
 
       let p = (gameMode === "online") ? gamePlayers[NET.mySeatIndex] : gamePlayers[turnIndex];
       let effectiveHandLen = (gameMode === "online") ? gamePlayers[NET.mySeatIndex].hand.length : gamePlayers[turnIndex].hand.length;
@@ -2134,9 +2131,8 @@ let sortByRank = false;
       }
 
       const canAct = !(gameMode === "online" && turnIndex !== NET.mySeatIndex);
-      document.getElementById("btn-pickup").disabled = !canAct || gameOver;
-      const canCallLast = canAct && !gameOver && effectiveHandLen > 1 && !p.lastDeclared;
-      btnLast.disabled = !canCallLast;
+      document.getElementById("btn-pickup").disabled = !canAct;
+      btnLast.disabled = !canAct;
       document.getElementById("btn-sort").disabled = !canAct;
       document.getElementById("player-area").style.opacity = canAct ? "1" : "0.65";
     }
@@ -2584,8 +2580,6 @@ let sortByRank = false;
         extraTurn,
         feedMsg: lastFeedMsg || "",
         toastMsg: lastToastMsg || "",
-        gameOver: !!gameOver,
-        winnerIdx: gameOverWinnerIdx,
       };
     }
 
@@ -2604,24 +2598,11 @@ let sortByRank = false;
       pendingSkip = snap.pendingSkip || 0;
       extraTurn = !!snap.extraTurn;
 
-      gameOver = !!snap.gameOver;
-      gameOverWinnerIdx = (typeof snap.winnerIdx === "number") ? snap.winnerIdx : -1;
-
       selectionOrder = [];
       isProcessing = false;
 
       showScreen("game-screen");
       updateGameUI();
-
-      if (gameOver && gameOverWinnerIdx >= 0) {
-        const modal = document.getElementById("match-result-modal");
-        const title = document.getElementById("result-title");
-        const desc = document.getElementById("result-desc");
-        const winner = gamePlayers[gameOverWinnerIdx];
-        if (title) title.innerText = `${winner?.name || "Player"} WINS!`;
-        if (desc) desc.innerText = "Table closed.";
-        if (modal) modal.style.display = "flex";
-      }
 
       if (snap.feedMsg) {
         lastFeedMsg = snap.feedMsg;
@@ -2657,8 +2638,8 @@ let sortByRank = false;
 
         if (action.type === "declare_last") {
           gamePlayers[seat].lastCalled = true;
-          gamePlayers[seat].lastCalledTurn = turnSerial;
-          updateFeed(`${gamePlayers[seat].name} called LAST!`);
+          updateFeed(`⚠ ${gamePlayers[seat].name} CALLED LAST!`);
+          showToast(`⚠ ${gamePlayers[seat].name} CALLED LAST!`);
           netBroadcastState();
           return;
         }
