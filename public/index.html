@@ -1655,12 +1655,18 @@ let sortByRank = false;
         return;
       }
 
-      // LAST rule: calling LAST arms your permission for a future finish.
-// You cannot press LAST and go out in the same move because the finish check (above) only accepts lastDeclared
-// which is set on a *previous* turn. We therefore arm lastDeclared at end-of-turn (and keep it until used or you draw).
-      if (!extraTurn) {
+      // LAST rules (your rules):
+      // - Pressing LAST does NOT count for finishing on the same go.
+      // - LAST becomes "declared" only when your go ends.
+      // - A KING creates an immediate *new go* (play again), so it also ends the current go.
+      // So: if you CALL LAST, then play a KING, you are allowed to go out on the bonus go.
+      if (extraTurn) {
+        // KING splits the turn into two "goes" — activate the LAST token for the bonus go
         if (p.lastCalled) p.lastDeclared = true;
-        p.lastCalled = false;
+      } else {
+        // Normal end-of-go: activate LAST token for your next go
+        if (p.lastCalled) p.lastDeclared = true;
+        p.lastCalled = false; // only lasts for this go (prevents call+finish same go)
       }
 
       selectionOrder = [];
@@ -2024,7 +2030,7 @@ let sortByRank = false;
         wrap.className = "opponent-wrapper " + (p === activeP ? "active-turn" : "inactive");
         let nameDiv = document.createElement("div");
         nameDiv.className = "opponent-name";
-        nameDiv.innerText = `${p.name} (${p.hand.length})${(p.lastDeclared || p.lastCalled) ? "  ⚠ LAST!" : ""}`;
+        nameDiv.innerText = `${p.name} (${p.hand.length})`;
         wrap.appendChild(nameDiv);
         let handDiv = document.createElement("div");
         handDiv.style.display = "flex";
