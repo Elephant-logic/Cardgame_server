@@ -6,8 +6,62 @@ const WebSocket = require("ws");
 const PORT = process.env.PORT || 10000;
 
 const app = express();
+
+// Serve static client
 app.use(express.static(path.join(__dirname, "public")));
+
 app.get("/health", (req, res) => res.json({ ok: true }));
+
+// --- STATS STATE --------------------------------------------------
+
+const rooms = new Map(); // code -> { code, hostId, clients: Map(ws -> {id,name,seat}), state, version }
+
+let totalConnections = 0;        // how many ws connections have ever been opened
+let messagesThisMinute = 0;      // reset every 60s
+let messagesPerMinute = 0;       // last complete minute count
+
+// roll messages-per-minute every 60s
+setInterval(() => {
+  messagesPerMinute = messagesThisMinute;
+  messagesThisMinute = 0;
+}, 60 * 1000);
+
+// Small helper to grab memory stats safely
+function getMemoryMB() {
+  const mu = process.memoryUsage();
+  const toMB = (v) => Math.round((v / 1024 / 1024) * 10) / 10;
+  return {
+    rss: toMB(mu.rss),
+    heapTotal: toMB(mu.heapTotal),
+    heapUsed: toMB(mu.heapUsed),
+    external: toMB(mu.external || 0)
+  };
+}
+
+// Simple stats logger for your Render logs
+function logStats() {
+  console.log(
+    `[STATS] uptime=${Math.round(process.uptime())}s ` +
+    `rooms=${rooms.size} ` +
+    `activeSockets=${wss.clients.size} ` +
+    `totalConnections=${totalConnections} ` +
+    `mpm=${messagesPerMinute}`
+  );
+}
+
+// HTTP /stats endpoint so you can check from browser
+app.get("/stats", (req, res) => {
+  res.json({
+    uptimeSeconds: Math.round(process.uptime()),
+    rooms: rooms.size,
+    totalConnections,
+    activeSockets: wss.clients.size,
+    messagesPerMinute,
+    memoryMB: getMemoryMB()
+  });
+});
+
+// --- WEBSOCKET SETUP ---------------------------------------------
 
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
@@ -18,8 +72,6 @@ function makeCode(len = 6) {
   for (let i = 0; i < len; i++) out += chars[Math.floor(Math.random() * chars.length)];
   return out;
 }
-
-const rooms = new Map(); // code -> { code, hostId, clients: Map(ws -> {id,name,seat}), state, version }
 
 function roomPlayers(room) {
   const arr = [];
@@ -53,9 +105,18 @@ wss.on("connection", (ws) => {
   ws._room = null;
   ws._seat = null;
 
+  totalConnections++;
+  logStats();
+
   ws.on("message", (data) => {
+    messagesThisMinute++;
+
     let msg;
-    try { msg = JSON.parse(data.toString()); } catch { return; }
+    try {
+      msg = JSON.parse(data.toString());
+    } catch {
+      return;
+    }
     if (!msg || !msg.type) return;
 
     // Create room
@@ -66,7 +127,11 @@ wss.on("connection", (ws) => {
       let requested = (msg.room || "").toString().trim().toUpperCase();
       if (!/^[A-Z0-9]{4,8}$/.test(requested)) requested = "";
       if (requested && !rooms.has(requested)) code = requested;
-      else { do { code = makeCode(6); } while (rooms.has(code)); }
+      else {
+        do {
+          code = makeCode(6);
+        } while (rooms.has(code));
+      }
 
       const room = { code, hostId: ws._id, clients: new Map(), state: null, version: 0 };
       rooms.set(code, room);
@@ -79,6 +144,8 @@ wss.on("connection", (ws) => {
       send(ws, { type: "room_created", room: code, seat: 0, hostSeat: 0, players: roomPlayers(room) });
       broadcast(room, { type: "players", hostSeat: 0, players: roomPlayers(room) });
       broadcast(room, { type: "toast", message: `${name} created room ${code}` });
+
+      logStats();
       return;
     }
 
@@ -90,7 +157,7 @@ wss.on("connection", (ws) => {
       const room = rooms.get(code);
       if (!room) return send(ws, { type: "toast", message: "Room not found." });
 
-      const used = new Set([...room.clients.values()].map(v => v.seat));
+      const used = new Set([...room.clients.values()].map((v) => v.seat));
       let seat = 0;
       while (used.has(seat)) seat++;
 
@@ -99,18 +166,23 @@ wss.on("connection", (ws) => {
       ws._seat = seat;
       room.clients.set(ws, { id: ws._id, name, seat });
 
-      const hostSeat = [...room.clients.values()].find(v => v.id === room.hostId)?.seat ?? 0;
+      const hostSeat = [...room.clients.values()].find((v) => v.id === room.hostId)?.seat ?? 0;
 
       send(ws, { type: "joined", room: code, seat, hostSeat, players: roomPlayers(room) });
       broadcast(room, { type: "players", hostSeat, players: roomPlayers(room) });
       broadcast(room, { type: "toast", message: `${name} joined room ${code}` });
 
-      if (room.state) send(ws, { type: "state", version: room.version, snap: room.state });
+      if (room.state) {
+        send(ws, { type: "state", version: room.version, snap: room.state });
+      }
+
+      logStats();
       return;
     }
 
     if (msg.type === "leave_room") {
       leaveRoom(ws, false);
+      logStats();
       return;
     }
 
@@ -125,7 +197,7 @@ wss.on("connection", (ws) => {
     // Host authoritative state
     if (msg.type === "state") {
       if (ws._id !== room.hostId) return;
-      room.version = Number.isFinite(msg.version) ? msg.version : (room.version + 1);
+      room.version = Number.isFinite(msg.version) ? msg.version : room.version + 1;
       room.state = msg.snap;
       broadcast(room, { type: "state", version: room.version, snap: room.state });
       return;
@@ -140,7 +212,7 @@ wss.on("connection", (ws) => {
     }
 
     // Anything else -> forward to host as an action
-    const hostWs = [...room.clients.keys()].find(w => w._id === room.hostId);
+    const hostWs = [...room.clients.keys()].find((w) => w._id === room.hostId);
     if (!hostWs) return send(ws, { type: "toast", message: "Host disconnected." });
 
     // Preserve existing client contract: msg.type === "action"
@@ -155,7 +227,10 @@ wss.on("connection", (ws) => {
     send(hostWs, { type: "to_host_misc", fromSeat: ws._seat, msg });
   });
 
-  ws.on("close", () => leaveRoom(ws, true));
+  ws.on("close", () => {
+    leaveRoom(ws, true);
+    logStats();
+  });
 });
 
 function leaveRoom(ws, silent = false) {
@@ -181,7 +256,7 @@ function leaveRoom(ws, silent = false) {
     room.hostId = remaining[0].id;
   }
 
-  const hostSeat = [...room.clients.values()].find(v => v.id === room.hostId)?.seat ?? 0;
+  const hostSeat = [...room.clients.values()].find((v) => v.id === room.hostId)?.seat ?? 0;
   broadcast(room, { type: "players", hostSeat, players: roomPlayers(room) });
 
   if (!silent && info?.name) {
@@ -189,4 +264,7 @@ function leaveRoom(ws, silent = false) {
   }
 }
 
-server.listen(PORT, () => console.log("Listening on", PORT));
+server.listen(PORT, () => {
+  console.log("Listening on", PORT);
+  logStats();
+});
