@@ -708,11 +708,9 @@
        CHAT PANEL (in-game)
        =========================== */
     #chat-wrap{
-      /* Draggable floating chat (position saved in localStorage) */
-      position: fixed;
+      position: absolute;
       left: 10px;
-      top: 90px;
-      bottom: auto;
+      bottom: calc(var(--card-h) + 72px);
       width: min(320px, calc(100% - 20px));
       z-index: 120;
       user-select: none;
@@ -735,10 +733,7 @@
       font-weight: 1000;
       background: var(--sticker-yellow);
       border-bottom: 3px solid #111;
-      cursor: grab;
-      touch-action: none;
     }
-    #chat-wrap.dragging #chat-head{ cursor: grabbing; }
     #chat-toggle{
       border: 2px solid #111;
       background: #fff;
@@ -819,7 +814,23 @@
     .chat-collapsed #chat-emojis{
       display:none;
     }
-  </style>
+  
+/* --- DRAGGABLE CHAT (FIX) --- */
+#chat-wrap{
+  position: fixed !important;
+  left: 12px;
+  top: 55%;
+  bottom: auto !important;
+  transform: translateY(-50%);
+  touch-action: none;
+}
+#chat-head{
+  cursor: grab;
+  touch-action: none;
+}
+#chat-head:active{ cursor: grabbing; }
+
+</style>
 </head>
 
 <body data-cardback="classic">
@@ -1081,9 +1092,7 @@
 
     let lobbyPlayers = [];
     let isLeagueMode = false;
-    
-    let leagueOpponentIdx = null;
-let sortByRank = false;
+    let sortByRank = false;
 
     // --- ONLINE STATE ---
     const NET = {
@@ -1198,13 +1207,6 @@ let sortByRank = false;
       document.querySelectorAll(".screen").forEach((s) => s.classList.remove("active"));
       document.getElementById(id).classList.add("active");
       AudioEngine.init();
-
-      // Ensure draggable chat is wired when entering the game screen
-      if (id === "game-screen") {
-        setTimeout(() => {
-          try { initChatDrag(); } catch (e) {}
-        }, 0);
-      }
     }
 
     function showToast(msg) {
@@ -1328,7 +1330,6 @@ let sortByRank = false;
         isBot: p.isBot,
         hand: [],
         lastDeclared: false,
-        lastCalled: false,
       }));
 
       // ✅ FIX: correct pass-play detection
@@ -1365,8 +1366,6 @@ let sortByRank = false;
 
     function triggerPassScreen() {
       let p = gamePlayers[turnIndex];
-      // lastCalled is only for THIS turn (prevents call+finish same go)
-      p.lastCalled = false;
       document.getElementById("next-player-name").innerText = p.name;
       showScreen("pass-device-screen");
     }
@@ -1481,7 +1480,6 @@ let sortByRank = false;
         pendingSkip = 0;
         updateFeed(`${p.name} missed turn!`);
         p.lastDeclared = false;
-      p.lastCalled = false;
         selectionOrder = [];
         updateGameUI();
         setTimeout(nextTurn, 600);
@@ -1500,7 +1498,6 @@ let sortByRank = false;
       p.hand.push(...draw(pen));
       AudioEngine.playCardSnap();
       p.lastDeclared = false;
-      p.lastCalled = false;
       sortHand(p.hand);
       selectionOrder = [];
       updateGameUI();
@@ -1511,7 +1508,7 @@ let sortByRank = false;
       if (gameMode === "online") {
         if (turnIndex !== NET.mySeatIndex) return;
         if (NET.isHost) {
-          gamePlayers[turnIndex].lastCalled = true;
+          gamePlayers[turnIndex].lastDeclared = true;
           AudioEngine.playCall();
           document.getElementById("turn-status").innerText = "CALLED LAST!";
           updateControls();
@@ -1522,7 +1519,7 @@ let sortByRank = false;
         return;
       }
 
-      gamePlayers[turnIndex].lastCalled = true;
+      gamePlayers[turnIndex].lastDeclared = true;
       AudioEngine.playCall();
       document.getElementById("turn-status").innerText = "CALLED LAST!";
       updateControls();
@@ -1533,7 +1530,20 @@ let sortByRank = false;
       if (gameMode === "online" && turnIndex !== NET.mySeatIndex) return;
 
       let p = gamePlayers[turnIndex];
-// Client-side: if joiner plays an Ace, open suit modal BEFORE sending action
+
+      let remaining = p.hand.length - selectionOrder.length;
+      if (remaining === 1 && !p.lastDeclared) {
+        showToast("⚠️ Call LAST before playing!");
+        AudioEngine.playError();
+        return;
+      }
+      if (remaining === 0 && !p.lastDeclared) {
+        showToast("⚠️ Call LAST before finishing!");
+        AudioEngine.playError();
+        return;
+      }
+
+      // Client-side: if joiner plays an Ace, open suit modal BEFORE sending action
       if (gameMode === "online" && !NET.isHost) {
         let cards = selectionOrder.map((i) => p.hand[i]);
         let lastCard = cards[cards.length - 1];
@@ -1618,7 +1628,6 @@ let sortByRank = false;
         extraTurn = false;
         p.hand.push(...draw(2));
         p.lastDeclared = false;
-      p.lastCalled = false;
         sortHand(p.hand);
         selectionOrder = [];
         updateGameUI();
@@ -1633,40 +1642,6 @@ let sortByRank = false;
         isProcessing = false;
         setTimeout(nextTurn, 900);
         return;
-      }
-
-      // --- RULE: Must have called LAST on the PREVIOUS turn to finish ---
-      // lastDeclared becomes true only if you ended your last turn on 1 card AND you pressed LAST that turn.
-      // So you CANNOT press LAST and go out in the same move.
-      if (p.hand.length === 0 && !p.lastDeclared) {
-        showToast("⚠️ Can't go out without LAST (previous turn). Draw 2");
-        updateFeed(`${p.name} tried to go out without LAST and drew 2`);
-        AudioEngine.playError();
-
-        extraTurn = false;
-        p.hand.push(...draw(2));
-        p.lastDeclared = false;
-        p.lastCalled = false;
-        sortHand(p.hand);
-        selectionOrder = [];
-        updateGameUI();
-        isProcessing = false;
-        setTimeout(nextTurn, 900);
-        return;
-      }
-
-      // LAST rules (your rules):
-      // - Pressing LAST does NOT count for finishing on the same go.
-      // - LAST becomes "declared" only when your go ends.
-      // - A KING creates an immediate *new go* (play again), so it also ends the current go.
-      // So: if you CALL LAST, then play a KING, you are allowed to go out on the bonus go.
-      if (extraTurn) {
-        // KING splits the turn into two "goes" — activate the LAST token for the bonus go
-        if (p.lastCalled) p.lastDeclared = true;
-      } else {
-        // Normal end-of-go: activate LAST token for your next go
-        if (p.lastCalled) p.lastDeclared = true;
-        p.lastCalled = false; // only lasts for this go (prevents call+finish same go)
       }
 
       selectionOrder = [];
@@ -1819,15 +1794,8 @@ let sortByRank = false;
       });
 
       if (isLeagueMode) {
-        // Update league table for BOTH sides (player + the bot opponent)
-        if (leagueOpponentIdx == null) {
-          leagueOpponentIdx = leagueData.bots.findIndex(b => b.name === (gamePlayers[1]?.name || ""));
-        }
         if (winnerIdx === 0) {
           leagueData.player.wins++;
-          if (leagueOpponentIdx != null && leagueOpponentIdx >= 0) {
-            leagueData.bots[leagueOpponentIdx].losses++;
-          }
           leagueData.player.pts += 3;
           leagueData.player.winStreak = (leagueData.player.winStreak || 0) + 1;
           leagueData.player.bestStreak = Math.max(leagueData.player.bestStreak || 0, leagueData.player.winStreak || 0);
@@ -1836,10 +1804,6 @@ let sortByRank = false;
           desc.innerText = "Nice one.";
         } else {
           leagueData.player.losses++;
-          if (leagueOpponentIdx != null && leagueOpponentIdx >= 0) {
-            leagueData.bots[leagueOpponentIdx].wins++;
-            leagueData.bots[leagueOpponentIdx].pts = (leagueData.bots[leagueOpponentIdx].pts || 0) + 3;
-          }
           leagueData.player.winStreak = 0;
           title.innerText = "LOSE";
           desc.innerText = `${winner.name} got you`;
@@ -1945,13 +1909,12 @@ let sortByRank = false;
       });
 
       if (bestMove) {
-        if (p.hand.length - bestMove.length === 1) p.lastCalled = true;
+        if (p.hand.length - bestMove.length === 1) p.lastDeclared = true;
         attemptPlay(turnIndex, bestMove);
       } else {
         let drawn = draw(1);
         p.hand.push(...drawn);
         p.lastDeclared = false;
-      p.lastCalled = false;
         updateFeed(`${p.name} drew a card`);
         updateGameUI();
         setTimeout(nextTurn, 1500);
@@ -2097,7 +2060,7 @@ let sortByRank = false;
       }
 
       let btnLast = document.getElementById("btn-last");
-      if (p.lastDeclared || p.lastCalled) {
+      if (p.lastDeclared) {
         btnLast.classList.add("called");
         btnLast.innerText = "CALLED";
       } else {
@@ -2231,86 +2194,6 @@ let sortByRank = false;
         }
       }
     });
-
-    // Draggable chat bubble (move by grabbing the yellow header)
-    const CHAT_POS_KEY = "oldskool_chat_pos_v1";
-    function clamp(n, min, max){ return Math.max(min, Math.min(max, n)); }
-    function initChatDrag(){
-      const wrap = document.getElementById("chat-wrap");
-      const head = document.getElementById("chat-head");
-      if (!wrap || !head) return;
-
-      if (wrap.dataset.dragBound === "1") return;
-      wrap.dataset.dragBound = "1";
-
-      // restore last position
-      try {
-        const saved = JSON.parse(localStorage.getItem(CHAT_POS_KEY) || "null");
-        if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) {
-          wrap.style.left = saved.x + "px";
-          wrap.style.top = saved.y + "px";
-          wrap.style.bottom = "auto";
-        }
-      } catch(_){}
-
-      let dragging = false;
-      let startX = 0, startY = 0, origX = 0, origY = 0;
-
-      const getXY = () => {
-        const r = wrap.getBoundingClientRect();
-        return { x: r.left, y: r.top, w: r.width, h: r.height };
-      };
-
-      const savePos = () => {
-        const r = wrap.getBoundingClientRect();
-        localStorage.setItem(CHAT_POS_KEY, JSON.stringify({ x: Math.round(r.left), y: Math.round(r.top) }));
-      };
-
-      const moveTo = (x, y) => {
-        const r = wrap.getBoundingClientRect();
-        const maxX = window.innerWidth - r.width - 6;
-        const maxY = window.innerHeight - r.height - 6;
-        wrap.style.left = clamp(x, 6, maxX) + "px";
-        wrap.style.top  = clamp(y, 6, maxY) + "px";
-        wrap.style.bottom = "auto";
-      };
-
-      // Use Pointer Events so it works on mobile + desktop
-      head.addEventListener("pointerdown", (e) => {
-        // Don't start drag if they're interacting with inputs/buttons
-        const t = e.target;
-        if (t && (t.tagName === "BUTTON" || t.tagName === "INPUT" || t.closest("button") || t.closest("input"))) return;
-        e.preventDefault();
-        dragging = true;
-        wrap.classList.add("dragging");
-        const r = getXY();
-        startX = e.clientX;
-        startY = e.clientY;
-        origX = r.x;
-        origY = r.y;
-        try { head.setPointerCapture(e.pointerId); } catch(_){}
-      });
-
-      head.addEventListener("pointermove", (e) => {
-        if (!dragging) return;
-        const dx = e.clientX - startX;
-        const dy = e.clientY - startY;
-        moveTo(origX + dx, origY + dy);
-      });
-
-      const endDrag = () => {
-        if (!dragging) return;
-        dragging = false;
-        wrap.classList.remove("dragging");
-        savePos();
-      };
-      head.addEventListener("pointerup", endDrag);
-      head.addEventListener("pointercancel", endDrag);
-      window.addEventListener("resize", () => {
-        const r = getXY();
-        moveTo(r.x, r.y);
-      });
-    }
 
     // ===============================
     // ONLINE (WebSocket Relay + Authoritative Host)
@@ -2612,7 +2495,7 @@ let sortByRank = false;
         }
 
         if (action.type === "declare_last") {
-          gamePlayers[seat].lastCalled = true;
+          gamePlayers[seat].lastDeclared = true;
           updateFeed(`${gamePlayers[seat].name} called LAST!`);
           netBroadcastState();
           return;
@@ -2639,6 +2522,107 @@ let sortByRank = false;
       loadData();
       bindOnlineUI();
     });
-  </script>
+  
+// ===============================
+// DRAGGABLE CHAT (mobile + desktop) — drag the header
+// Saves position in localStorage so it stays where you leave it.
+// ===============================
+(function enableChatDrag(){
+  const wrap = document.getElementById("chat-wrap");
+  const handle = document.getElementById("chat-head");
+  if (!wrap || !handle) return;
+
+  const KEY = "osb_chat_pos_v1";
+
+  function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
+
+  function applySaved(){
+    try{
+      const raw = localStorage.getItem(KEY);
+      if (!raw) return;
+      const pos = JSON.parse(raw);
+      if (typeof pos.left !== "number" || typeof pos.top !== "number") return;
+      wrap.style.transform = "none";
+      wrap.style.left = pos.left + "px";
+      wrap.style.top  = pos.top  + "px";
+    }catch(e){}
+  }
+
+  // Apply saved position once UI is ready
+  applySaved();
+
+  let dragging = false;
+  let startX=0, startY=0, startLeft=0, startTop=0;
+
+  function down(e){
+    // only left click / primary touch
+    if (e.button !== undefined && e.button !== 0) return;
+    dragging = true;
+
+    const r = wrap.getBoundingClientRect();
+    wrap.style.transform = "none"; // switch to explicit positioning
+    startLeft = r.left;
+    startTop  = r.top;
+    wrap.style.left = startLeft + "px";
+    wrap.style.top  = startTop  + "px";
+
+    startX = e.clientX;
+    startY = e.clientY;
+
+    try{ handle.setPointerCapture(e.pointerId); }catch(_){}
+    e.preventDefault();
+  }
+
+  function move(e){
+    if (!dragging) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const r = wrap.getBoundingClientRect();
+    const w = r.width;
+    const h = r.height;
+
+    let left = startLeft + dx;
+    let top  = startTop  + dy;
+
+    left = clamp(left, 6, vw - w - 6);
+    top  = clamp(top,  6, vh - h - 6);
+
+    wrap.style.left = left + "px";
+    wrap.style.top  = top  + "px";
+  }
+
+  function up(){
+    if (!dragging) return;
+    dragging = false;
+
+    // save
+    try{
+      const r = wrap.getBoundingClientRect();
+      localStorage.setItem(KEY, JSON.stringify({ left: r.left, top: r.top }));
+    }catch(e){}
+  }
+
+  handle.addEventListener("pointerdown", down);
+  window.addEventListener("pointermove", move);
+  window.addEventListener("pointerup", up);
+
+  // keep in bounds on resize/orientation change
+  window.addEventListener("resize", () => {
+    const r = wrap.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const left = clamp(r.left, 6, vw - r.width - 6);
+    const top  = clamp(r.top,  6, vh - r.height - 6);
+    wrap.style.transform = "none";
+    wrap.style.left = left + "px";
+    wrap.style.top  = top  + "px";
+    try{ localStorage.setItem(KEY, JSON.stringify({ left, top })); }catch(e){}
+  });
+})();
+
+</script>
 </body>
 </html>
